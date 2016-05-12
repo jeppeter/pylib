@@ -4,7 +4,7 @@ import os
 import sys
 import argparse
 import logging
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import dbgexp
 import cmdpack
 
@@ -193,6 +193,15 @@ def format_output(pkgs,getpkgs,outstr):
 	s = ''
 	i = 0
 	j = 0
+	pmax = 0
+	gmax = 0
+	for p in pkgs:
+		if len(p) > pmax:
+			pmax = len(p)
+
+	for p in getpkgs:
+		if len(p) > gmax:
+			gmax = len(p)
 	for p in pkgs:
 		if (i % 5)==0:			
 			if i != 0:
@@ -201,7 +210,7 @@ def format_output(pkgs,getpkgs,outstr):
 			s += '\n'
 		if i != 0 :
 			s += ','
-		s += '%s'%(p)
+		s += '%-*s'%(pmax,p)
 		i += 1
 	s += '\n'
 	i = 0
@@ -215,7 +224,7 @@ def format_output(pkgs,getpkgs,outstr):
 			s += '\n'
 		if i != 0 :
 			s += ','
-		s += '%s'%(p)
+		s += '%-*s'%(gmax,p)
 		i += 1
 	s += '\n'
 	sys.stdout.write(s)
@@ -242,8 +251,7 @@ def get_all_inst(dpkg):
 	return dpkgrdeps.get_install_command()
 
 
-def get_all_rdeps(pkgs,aptcache,dpkg):
-	insts = get_all_inst(dpkg)
+def get_all_rdeps(pkgs,aptcache,dpkg,insts):
 	dpkgrdeps = DpkgRDepends(aptcache)
 	dpkgrdeps.set_insts(insts)
 	for p in pkgs:
@@ -265,7 +273,7 @@ def get_all_rdeps(pkgs,aptcache,dpkg):
 
 
 def main():
-	parser = argparse.ArgumentParser(description='apt-cache set',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
+	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser.add_argument('-v','--verbose',default=0,action='count')
 	parser.add_argument('-a','--aptcache',default='apt-cache',action='store')
 	parser.add_argument('-d','--dpkg',default='dpkg',action='store')
@@ -294,7 +302,8 @@ def main():
 	elif args.command == 'rdep':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
-		getpkgs = get_all_rdeps(args.pkgs,args.aptcache,args.dpkg)
+		insts = get_all_inst(args.dpkg)
+		getpkgs = get_all_rdeps(args.pkgs,args.aptcache,args.dpkg,insts)
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
 	format_output(args.pkgs,getpkgs,args.command)
