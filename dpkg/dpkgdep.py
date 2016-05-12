@@ -44,12 +44,14 @@ class DpkgDependBase(object):
 		self.__add_inner(dependpkg)
 		return
 
+
 	def add_depend_direct(self,pkg):
 		self.__add_inner(pkg)
 		return
 
 	def get_depend(self):
 		return self.__depends
+
 
 class DpkgInstBase(object):
 	def __init__(self):
@@ -98,7 +100,7 @@ class DpkgRDependBase(object):
 		if pkg is None:
 			return
 		if pkg not in self.__rdepends and pkg in self.__insts:
-			logging.info('add %s'%(pkg))
+			#logging.info('add %s'%(pkg))
 			self.__rdepends.append(pkg)
 		return
 
@@ -141,7 +143,6 @@ class DpkgDepends(DpkgDependBase):
 	def get_depend_command(self,pkgname):
 		cmds = '%s "%s" depends "%s"'%(self.__sudoprefix,self.__aptcache,pkgname)
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
-		self.add_depend_direct(pkgname)
 		if retval != 0 :
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_depend()
@@ -158,7 +159,7 @@ class DpkgRDepends(DpkgRDependBase):
 		self.reset_start()
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
-			raise Exception('run (%s) error'%(cmds))
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run (%s) error'%(cmds))
 		return self.get_rdepends()
 
 class DpkgInst(DpkgInstBase):
@@ -179,6 +180,7 @@ class DpkgInst(DpkgInstBase):
 
 
 
+
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -189,19 +191,10 @@ def Usage(ec,fmt,parser):
 	parser.print_help(fp)
 	sys.exit(ec)
 
-def format_output(pkgs,getpkgs,outstr):
+def __format_output_max(pkgs,getpkgs,outstr,pmax,gmax):
 	s = ''
 	i = 0
 	j = 0
-	pmax = 0
-	gmax = 0
-	for p in pkgs:
-		if len(p) > pmax:
-			pmax = len(p)
-
-	for p in getpkgs:
-		if len(p) > gmax:
-			gmax = len(p)
 	for p in pkgs:
 		if (i % 5)==0:			
 			if i != 0:
@@ -228,48 +221,166 @@ def format_output(pkgs,getpkgs,outstr):
 		i += 1
 	s += '\n'
 	sys.stdout.write(s)
+
+def format_output(pkgs,getpkgs,outstr):
+	s = ''
+	i = 0
+	j = 0
+	pmax = 0
+	gmax = 0
+	for p in pkgs:
+		if len(p) > pmax:
+			pmax = len(p)
+
+	for p in getpkgs:
+		if len(p) > gmax:
+			gmax = len(p)
+	__format_output_max(pkgs,getpkgs,outstr,pmax,gmax)
 	return
 
-def get_all_deps(pkgs,aptcache):
-	dpkgdeps = DpkgDepends(aptcache)
+
+def output_map(pkgs,maps,outstr):
+	s = ''
+	i = 0
+	j = 0
+	pmax = 0
+	gmax = 0
+	alldeps = []
+	outputdeps = []
+	curdeps = []
 	for p in pkgs:
-		dpkgdeps.get_depend_command(p)
-	alldeps = dpkgdeps.get_depend()
+		if len(p) > pmax:
+			pmax = len(p)
+		curdeps = form_map_list(maps,p)
+		for cp in curdeps:
+			if cp not in alldeps:
+				if len(cp) > gmax:
+					gmax = len(cp)
+				alldeps.append(cp)
 	slen = len(alldeps)
 	while True:
 		for p in alldeps:
-			dpkgdeps.get_depend_command(p)
-		alldeps = dpkgdeps.get_depend()
+			curdeps = form_map_list(maps,p)
+			for cp in curdeps:
+				if cp not in alldeps:
+					if len(cp) > gmax:
+						gmax = len(cp)
+					alldeps.append(cp)
 		clen = len(alldeps)
 		if clen == slen:
 			break
+	outdeps = []
+	for p in pkgs:
+		if p not in maps.keys():
+			continue
+		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
+		curdeps = maps[p]
+		for cp in curdeps:
+			if cp not in outdeps:
+				outdeps.append(cp)
+
+	for p in alldeps:
+		if p in outdeps:
+			continue
+		if p not in maps.keys():
+			continue
+		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
+		curdeps = maps[p]
+		for cp in curdeps:
+			if cp not in outdeps:
+				outdeps.append(cp)
+	return
+
+def form_map_list(depmap,pkg):
+	retlist = []
+	curpkg = pkg
+	if curpkg in depmap.keys():
+		retlist.extend(depmap[pkg])
+	slen = len(retlist)
+	while True:
+		for p in retlist:
+			if p in depmap.keys():
+				for cp in depmap[p]:
+					if cp not in retlist:
+						retlist.append(cp)
+		clen = len(retlist)
+		if clen == slen:
+			break
 		slen = clen
-	return dpkgdeps.get_depend()
+	return retlist
+
+def get_all_deps(pkgs,aptcache,depmap):
+	for p in pkgs:
+		if p in depmap.keys():
+			continue
+		dpkgdeps = DpkgDepends(aptcache)
+		depmap[p] = dpkgdeps.get_depend_command(p)
+	alldeps = []
+	for p in pkgs:
+		ndep = form_map_list(depmap,p)
+		for cp in ndep:
+			if cp not in alldeps:
+				alldeps.append(cp)
+	slen = len(alldeps)
+	mod = 0
+	while True:
+		mod = 0
+		for p in alldeps:
+			if p in depmap.keys():
+				continue
+			mod = 1
+			dpkgdeps = DpkgDepends(aptcache)
+			depmap[p] = dpkgdeps.get_depend_command(p)
+		if mod == 0:
+			break
+		newalldeps = []
+		for p in alldeps:
+			ndep = form_map_list(depmap,p)
+			for cp in ndep:
+				if cp not in newalldeps:
+					newalldeps.append(cp)
+		alldeps = newalldeps
+	return alldeps,depmap
 
 def get_all_inst(dpkg):
 	dpkgrdeps = DpkgInst(dpkg)
 	return dpkgrdeps.get_install_command()
 
 
-def get_all_rdeps(pkgs,aptcache,dpkg,insts):
-	dpkgrdeps = DpkgRDepends(aptcache)
-	dpkgrdeps.set_insts(insts)
+def get_all_rdeps(pkgs,aptcache,dpkg,insts,rdepmaps):
 	for p in pkgs:
-		dpkgrdeps.get_depend_command(p)
-	allrdeps = dpkgrdeps.get_rdepends()
+		if p in rdepmaps.keys():
+			continue
+		dpkgrdeps = DpkgRDepends(aptcache)
+		dpkgrdeps.set_insts(insts)		
+		rdepmaps[p] = dpkgrdeps.get_depend_command(p)
+	allrdeps = []
+	for p in pkgs:
+		if p not in rdepmaps.keys():
+			dpkgrdeps = DpkgRDepends(aptcache)
+			dpkgrdeps.set_insts(insts)		
+			rdepmaps[p] = dpkgrdeps.get_depend_command(p)			
+		currdeps = rdepmaps[p]
+		for cp in currdeps:
+			if (cp not in allrdeps) and (cp in insts):
+				allrdeps.append(cp)
 	slen = len(allrdeps)
 	while True:
-		logging.info('slen %d'%(slen))
 		for p in allrdeps:
-			pkg = dpkgrdeps.get_depend_command(p)
-			logging.info('slen %d'%(len(pkg)))
-		allrdeps = dpkgrdeps.get_rdepends()
+			if p not in rdepmaps.keys():
+				dpkgrdeps = DpkgRDepends(aptcache)
+				dpkgrdeps.set_insts(insts)		
+				rdepmaps[p] = dpkgrdeps.get_depend_command(p)
+			currdeps = rdepmaps[p]
+			for cp in currdeps:
+				if (cp not in allrdeps) and (cp in insts):
+					allrdeps.append(cp)
 		clen = len(allrdeps)
-		logging.info('slen %d clen %d'%(slen,clen))
+		#logging.info('slen %d clen %d'%(slen,clen))
 		if clen == slen:
 			break
 		slen = clen
-	return dpkgrdeps.get_rdepends()
+	return allrdeps,rdepmaps
 
 
 def main():
@@ -281,8 +392,10 @@ def main():
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
 	rdep_parser = sub_parser.add_parser('rdep',help='get rdepends')
+	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
+	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 
 	args = parser.parse_args()	
 
@@ -292,10 +405,11 @@ def main():
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	maps = dict()
 	if args.command == 'dep':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
-		getpkgs = get_all_deps(args.pkgs,args.aptcache)
+		getpkgs,maps = get_all_deps(args.pkgs,args.aptcache,maps)
 	elif args.command == 'inst':
 		getpkgs = get_all_inst(args.dpkg)
 		args.pkgs = ''
@@ -303,10 +417,13 @@ def main():
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
 		insts = get_all_inst(args.dpkg)
-		getpkgs = get_all_rdeps(args.pkgs,args.aptcache,args.dpkg,insts)
+		getpkgs,maps = get_all_rdeps(args.pkgs,args.aptcache,args.dpkg,insts,maps)
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
-	format_output(args.pkgs,getpkgs,args.command)
+	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst':
+		format_output(args.pkgs,getpkgs,args.command)
+	if args.command == 'dep'  or args.command == 'rdep' :
+		output_map(args.pkgs,maps,args.command)
 	return
 
 if __name__ == '__main__':

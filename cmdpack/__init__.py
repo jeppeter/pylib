@@ -15,7 +15,7 @@ def run_cmd_wait(cmd,mustsucc=1):
 	return ret
 
 def run_read_cmd(cmd):
-	logging.debug('run (%s)'%(cmd))
+	#logging.debug('run (%s)'%(cmd))
 	p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 	return p
 
@@ -40,21 +40,21 @@ def run_command_callback(cmd,callback,ctx):
 	exitcode = -1
 	while exited == 0:
 		pret = p.poll()
-		logging.debug('pret %s'%(repr(pret)))
+		#logging.debug('pret %s'%(repr(pret)))
 		if pret is not None:
 			exitcode = pret
 			exited = 1
-			logging.debug('exitcode (%d)'%(exitcode))
+			#logging.debug('exitcode (%d)'%(exitcode))
 			while True:
 				rl = read_line(p.stdout)
-				logging.debug('read (%s)'%(rl))
+				#logging.debug('read (%s)'%(rl))
 				if rl is None:
 					break
 				callback(rl,ctx)
 			break
 		else:
 			rl = read_line(p.stdout)
-			logging.debug('read (%s)'%(rl))
+			#logging.debug('read (%s)'%(rl))
 			if rl :
 				callback(rl,ctx)
 	return exitcode
