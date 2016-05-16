@@ -50,11 +50,13 @@ def run_command_callback(cmd,callback,ctx):
 				#logging.debug('read (%s)'%(rl))
 				if rl is None:
 					break
-				callback(rl,ctx)
+				if callback is not None:
+					callback(rl,ctx)
 			break
 		else:
 			rl = read_line(p.stdout)
 			#logging.debug('read (%s)'%(rl))
 			if rl :
-				callback(rl,ctx)
+				if callback is not None:
+					callback(rl,ctx)
 	return exitcode

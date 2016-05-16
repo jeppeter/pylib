@@ -68,6 +68,7 @@ ERROR_NOT_VALID_LOCATION        =0x80000801
 ERROR_RUN_CMD                   =0x80000802
 ERROR_RUN_PIPE                  =0x80000803
 ERROR_LOCATION_NOT_PAIR         =0x80000804
+ERROR_INVALID_PARAMETER         =0x80000805
 
 class DebugException(Exception):
 	def __ResetVar(self):

@@ -10,24 +10,32 @@ import cmdpack
 import dbgexp
 
 
-class DpkgRmBase(object):
-	def __init__(self,dpkg='dpkg',aptcache='apt-cache',sudoprefix='sudo'):
-		self.__dpkg = dpkg
-		self.__aptcache= aptcache
-		self.__sudoprefix = sudoprefix
+class DpkgRmBase(dpkgdep.DpkgBase):
+	def __init__(self,args):
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_aptget= 'apt-get'
+		self.dpkg_aptcache = 'apt-cache'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
 		self.__callidx = 0
 		return
 
 	def __inner_remove(self,pkg):
-		cmds = '"%s" "%s" remove --force-yes "%s" '%(self.__sudoprefix,self.__aptcache,pkg)
+		cmds = '"%s" "%s" -o "dir::cache::archive=%s/var/lib/apt/" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
 		retval = cmdpack.run_command_callback(cmds,None,None)
-		if retval != 0 and retval != 100:
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not remove (%s)'%(pkg))
+		if retval != 0 :
+			if retval != 100:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not remove (%s)'%(pkg))
+			else:
+				logging.warn('no pkg (%s)removed'%(pkg))
 		return
 
-	def __remove_recursive(self,pkg,insts,maps):
+	def __remove_recursive(self,args,pkg,insts,maps):
 		self.__callidx += 1
-		rdeps,maps = dpkgdep.get_all_rdeps([pkg],self.__aptcache,self.__dpkg,insts,maps)
+		rdeps,maps = dpkgdep.get_all_rdeps([pkg],args,insts,maps)
+		if self.__callidx > 50:
+			logging.info('[%d] (%s) rdeps (%s)'%(self.__callidx,pkg,rdeps))
 		retpkgs = []
 		if pkg in rdeps:
 			logging.info('remove %s'%(pkg))
@@ -39,7 +47,7 @@ class DpkgRmBase(object):
 				retpkgs.append(pkg)
 		while len(rdeps) > 0:
 			p = rdeps[0]
-			pkgs ,insts,maps = self.__remove_recursive(p,insts,maps)
+			pkgs ,insts,maps = self.__remove_recursive(args,p,insts,maps)
 			for p in pkgs:
 				if p not in retpkgs:
 					retpkgs.append(p)
@@ -56,18 +64,18 @@ class DpkgRmBase(object):
 		return retpkgs,insts,maps
 
 
-	def remove_not_dep(self,pkgs):
+	def remove_not_dep(self,args,pkgs):
 		self.__callidx = 0
 		depmaps = dict()
 		rdepmaps = dict()
-		allinsts = dpkgdep.get_all_inst(self.__dpkg)
-		alldeps,depmaps = dpkgdep.get_all_deps(pkgs,self.__aptcache,depmaps)
+		allinsts = dpkgdep.get_all_inst(args)
+		alldeps,depmaps = dpkgdep.get_all_deps(pkgs,args,depmaps)
 		rmpkgs = []
 		for p in allinsts:
 			if p not in alldeps:
 				rmpkgs.append(p)
 		while len(rmpkgs):
-			retpkgs,allinsts,rdepmaps = self.__remove_recursive(rmpkgs[0],allinsts,rdepmaps)
+			retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],allinsts,rdepmaps)
 			newallrdeps = []
 			for p in retpkgs:
 				if p  in rmpkgs:
@@ -75,9 +83,11 @@ class DpkgRmBase(object):
 		return rmpkgs
 
 
-def remove_exclude(pkgs):
-	rmdpkg = DpkgRmBase()
-	return rmdpkg.remove_not_dep(pkgs)
+def remove_exclude(args):
+	rmdpkg = DpkgRmBase(args)
+	if getattr(args,'pkgs') is None:
+		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'pkgs not in args')
+	return rmdpkg.remove_not_dep(args,args.pkgs)
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -93,8 +103,10 @@ def Usage(ec,fmt,parser):
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-a','--aptcache',default='apt-cache',action='store')
-	parser.add_argument('-d','--dpkg',default='dpkg',action='store')
+	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
+	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
+	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
+	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
@@ -109,7 +121,7 @@ def main():
 	if args.command == 'exrm':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
-		getpkgs = remove_exclude(args.pkgs)
+		getpkgs = remove_exclude(args)
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
 	return

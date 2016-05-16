@@ -8,8 +8,26 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import dbgexp
 import cmdpack
 
+class DpkgBase(object):
+	def __init__(self):
+		return
 
-class DpkgDependBase(object):
+	def get_attr_self(self,args,name):
+		dpname = 'dpkg_%s'%(name)
+		sname = 'dpkg_%s'%(name)
+		if getattr(args,dpname) is not None:
+			setattr(self,sname,getattr(args,dpname))
+		return
+
+	def get_all_attr_self(self,args):
+		for p in dir(args):
+			if p.startswith('dpkg_'):
+				name = p.replace('dpkg_','')
+				self.get_attr_self(args,name)
+		return
+
+
+class DpkgDependBase(DpkgBase):
 	def __init__(self):
 		self.__depends = []
 		self.__needmore = False
@@ -53,7 +71,7 @@ class DpkgDependBase(object):
 		return self.__depends
 
 
-class DpkgInstBase(object):
+class DpkgInstBase(DpkgBase):
 	def __init__(self):
 		self.__insts = []
 		self.__started = False
@@ -88,7 +106,7 @@ class DpkgInstBase(object):
 		self.__started = False
 
 
-class DpkgRDependBase(object):
+class DpkgRDependBase(DpkgBase):
 	def __init__(self):
 		self.__rdepends = []
 		self.__insts = []
@@ -134,28 +152,32 @@ def filter_depends(instr,context):
 
 
 class DpkgDepends(DpkgDependBase):
-	def __init__(self,aptcache='apt-cache',sudoprefix='sudo'):
+	def __init__(self,args):
 		super(DpkgDepends, self).__init__()
-		self.__aptcache = aptcache
-		self.__sudoprefix = sudoprefix
+		self.dpkg_aptcache = 'apt-cache'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" depends "%s"'%(self.__sudoprefix,self.__aptcache,pkgname)
+		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" depends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_depend()
 
 class DpkgRDepends(DpkgRDependBase):
-	def __init__(self,aptcache='apt-cache',sudoprefix='sudo'):
+	def __init__(self,args):
 		super(DpkgRDepends, self).__init__()
-		self.__aptcache = aptcache
-		self.__sudoprefix = sudoprefix
+		self.dpkg_aptcache = 'apt-cache'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" rdepends "%s"'%(self.__sudoprefix,self.__aptcache,pkgname)
+		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" rdepends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
 		self.reset_start()
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
@@ -163,14 +185,17 @@ class DpkgRDepends(DpkgRDependBase):
 		return self.get_rdepends()
 
 class DpkgInst(DpkgInstBase):
-	def __init__(self,dpkg='dpkg',sudoprefix='sudo'):
+	def __init__(self,args):
 		super(DpkgInst, self).__init__()
-		self.__dpkg = dpkg
-		self.__sudoprefix = sudoprefix
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
+		logging.info('root %s'%(self.dpkg_root))
 		return
 
 	def get_install_command(self):
-		cmds = '%s "%s" -l'%(self.__sudoprefix,self.__dpkg)
+		cmds = '%s "%s" --root "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root)
 		self.reset_start()
 		logging.info('run (%s)'%(cmds))
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
@@ -309,11 +334,11 @@ def form_map_list(depmap,pkg):
 		slen = clen
 	return retlist
 
-def get_all_deps(pkgs,aptcache,depmap):
+def get_all_deps(pkgs,args,depmap):
 	for p in pkgs:
 		if p in depmap.keys():
 			continue
-		dpkgdeps = DpkgDepends(aptcache)
+		dpkgdeps = DpkgDepends(args)
 		depmap[p] = dpkgdeps.get_depend_command(p)
 	alldeps = []
 	for p in pkgs:
@@ -329,7 +354,7 @@ def get_all_deps(pkgs,aptcache,depmap):
 			if p in depmap.keys():
 				continue
 			mod = 1
-			dpkgdeps = DpkgDepends(aptcache)
+			dpkgdeps = DpkgDepends(args)
 			depmap[p] = dpkgdeps.get_depend_command(p)
 		if mod == 0:
 			break
@@ -342,23 +367,23 @@ def get_all_deps(pkgs,aptcache,depmap):
 		alldeps = newalldeps
 	return alldeps,depmap
 
-def get_all_inst(dpkg):
-	dpkgrdeps = DpkgInst(dpkg)
+def get_all_inst(args):
+	dpkgrdeps = DpkgInst(args)
 	return dpkgrdeps.get_install_command()
 
 
-def get_all_rdeps(pkgs,aptcache,dpkg,insts,rdepmaps):
+def get_all_rdeps(pkgs,args,insts,rdepmaps):
 	for p in pkgs:
 		if p in rdepmaps.keys():
 			continue
-		dpkgrdeps = DpkgRDepends(aptcache)
-		dpkgrdeps.set_insts(insts)		
+		dpkgrdeps = DpkgRDepends(args)
+		dpkgrdeps.set_insts(insts)
 		rdepmaps[p] = dpkgrdeps.get_depend_command(p)
 	allrdeps = []
 	for p in pkgs:
 		if p not in rdepmaps.keys():
-			dpkgrdeps = DpkgRDepends(aptcache)
-			dpkgrdeps.set_insts(insts)		
+			dpkgrdeps = DpkgRDepends(args)
+			dpkgrdeps.set_insts(insts)
 			rdepmaps[p] = dpkgrdeps.get_depend_command(p)			
 		currdeps = rdepmaps[p]
 		for cp in currdeps:
@@ -368,8 +393,8 @@ def get_all_rdeps(pkgs,aptcache,dpkg,insts,rdepmaps):
 	while True:
 		for p in allrdeps:
 			if p not in rdepmaps.keys():
-				dpkgrdeps = DpkgRDepends(aptcache)
-				dpkgrdeps.set_insts(insts)		
+				dpkgrdeps = DpkgRDepends(args)
+				dpkgrdeps.set_insts(insts)
 				rdepmaps[p] = dpkgrdeps.get_depend_command(p)
 			currdeps = rdepmaps[p]
 			for cp in currdeps:
@@ -386,16 +411,15 @@ def get_all_rdeps(pkgs,aptcache,dpkg,insts,rdepmaps):
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-a','--aptcache',default='apt-cache',action='store')
-	parser.add_argument('-d','--dpkg',default='dpkg',action='store')
+	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
+	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
+	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
 	rdep_parser = sub_parser.add_parser('rdep',help='get rdepends')
-	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
-	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 
 	args = parser.parse_args()	
 
@@ -409,21 +433,21 @@ def main():
 	if args.command == 'dep':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
-		getpkgs,maps = get_all_deps(args.pkgs,args.aptcache,maps)
+		getpkgs,maps = get_all_deps(args.pkgs,args,maps)
 	elif args.command == 'inst':
-		getpkgs = get_all_inst(args.dpkg)
+		getpkgs = get_all_inst(args)
 		args.pkgs = ''
 	elif args.command == 'rdep':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
-		insts = get_all_inst(args.dpkg)
-		getpkgs,maps = get_all_rdeps(args.pkgs,args.aptcache,args.dpkg,insts,maps)
+		insts = get_all_inst(args)
+		getpkgs,maps = get_all_rdeps(args.pkgs,args,insts,maps)
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
 	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst':
-		format_output(args.pkgs,getpkgs,args.command)
+		format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
 	if args.command == 'dep'  or args.command == 'rdep' :
-		output_map(args.pkgs,maps,args.command)
+		output_map(args.pkgs,maps,'::%s::'%(args.command))
 	return
 
 if __name__ == '__main__':
