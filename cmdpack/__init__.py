@@ -19,19 +19,35 @@ def run_read_cmd(cmd):
 	p = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 	return p
 
+def __trans_to_string(s):
+	if sys.version[0] == '3':
+		return s.decode(encoding='UTF-8')
+	return s
+
 def read_line(pin,ch='\r'):
 	s = ''
+	retbyte = '\n'
+	chbyte = ch
+	if sys.version[0] == '3':
+		retbyte = '\n'.encode(encoding='UTF-8')
+		chbyte = ch.encode(encoding='UTF-8')
+		s = bytes()
 	while True:
 		b = pin.read(1)
 		if b is None or len(b) == 0:
 			if len(s) == 0:
 				return None
-			return s
-		if b != ch and b != '\n':
-			s += b
+			return __trans_to_string(s)
+		if b != chbyte and b != retbyte:
+			if sys.version[0] == '3':
+				# it is python3
+				s += b
+			else:
+				s += b
 			continue
-		return s
-	return s
+
+		return __trans_to_string(s)
+	return __trans_to_string(s)
 
 
 def run_command_callback(cmd,callback,ctx):

@@ -32,7 +32,7 @@ class DpkgDependBase(DpkgBase):
 		self.__depends = []
 		self.__needmore = False
 		self.__moreexpr = re.compile('<([^>]+)>')
-		self.__depexpr = re.compile('\s*depends:\s+([^\s]+)\s*',re.I)
+		self.__depexpr = re.compile('\s*[|]?depends:\s+([^\s]+)\s*',re.I)
 		return
 
 	def __add_inner(self,pkg):
@@ -69,6 +69,8 @@ class DpkgDependBase(DpkgBase):
 
 	def get_depend(self):
 		return self.__depends
+
+
 
 
 class DpkgInstBase(DpkgBase):
@@ -142,8 +144,6 @@ class DpkgRDependBase(DpkgBase):
 		return
 	def reset_start(self):
 		self.__started = False
-
-
 
 
 def filter_depends(instr,context):
@@ -346,6 +346,8 @@ def get_all_deps(pkgs,args,depmap):
 		for cp in ndep:
 			if cp not in alldeps:
 				alldeps.append(cp)
+		if p not in alldeps:
+			alldeps.append(p)
 	slen = len(alldeps)
 	mod = 0
 	while True:
@@ -358,13 +360,11 @@ def get_all_deps(pkgs,args,depmap):
 			depmap[p] = dpkgdeps.get_depend_command(p)
 		if mod == 0:
 			break
-		newalldeps = []
 		for p in alldeps:
 			ndep = form_map_list(depmap,p)
 			for cp in ndep:
-				if cp not in newalldeps:
-					newalldeps.append(cp)
-		alldeps = newalldeps
+				if cp not in alldeps:
+					alldeps.append(cp)
 	return alldeps,depmap
 
 def get_all_inst(args):
@@ -406,6 +406,7 @@ def get_all_rdeps(pkgs,args,insts,rdepmaps):
 			break
 		slen = clen
 	return allrdeps,rdepmaps
+
 
 
 def main():

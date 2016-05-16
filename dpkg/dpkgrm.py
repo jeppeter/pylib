@@ -17,11 +17,15 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		self.dpkg_aptcache = 'apt-cache'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_trymode = False
 		self.get_all_attr_self(args)
 		self.__callidx = 0
 		return
 
 	def __inner_remove(self,pkg):
+		if self.dpkg_trymode :
+			# we do not do this
+			return
 		cmds = '"%s" "%s" -o "dir::cache::archive=%s/var/lib/apt/" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
 		retval = cmdpack.run_command_callback(cmds,None,None)
 		if retval != 0 :
@@ -31,8 +35,14 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 				logging.warn('no pkg (%s)removed'%(pkg))
 		return
 
-	def __remove_recursive(self,args,pkg,insts,maps):
+	def __remove_recursive(self,args,pkg,forbidpkgs,insts,maps):
 		self.__callidx += 1
+		if pkg in forbidpkgs:
+			# we do not remove this
+			if pkg in insts:
+				insts.remove(pkg)
+			self.__callidx -= 1
+			return [pkg],insts,maps
 		rdeps,maps = dpkgdep.get_all_rdeps([pkg],args,insts,maps)
 		if self.__callidx > 50:
 			logging.info('[%d] (%s) rdeps (%s)'%(self.__callidx,pkg,rdeps))
@@ -47,7 +57,7 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 				retpkgs.append(pkg)
 		while len(rdeps) > 0:
 			p = rdeps[0]
-			pkgs ,insts,maps = self.__remove_recursive(args,p,insts,maps)
+			pkgs ,insts,maps = self.__remove_recursive(args,p,forbidpkgs,insts,maps)
 			for p in pkgs:
 				if p not in retpkgs:
 					retpkgs.append(p)
@@ -75,7 +85,7 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 			if p not in alldeps:
 				rmpkgs.append(p)
 		while len(rmpkgs):
-			retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],allinsts,rdepmaps)
+			retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],alldeps,allinsts,rdepmaps)
 			newallrdeps = []
 			for p in retpkgs:
 				if p  in rmpkgs:
@@ -107,6 +117,7 @@ def main():
 	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
 	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
+	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
