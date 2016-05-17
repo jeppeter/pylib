@@ -36,42 +36,66 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		return
 
 	def __remove_recursive(self,args,pkg,forbidpkgs,insts,maps):
+		deleted = True
 		self.__callidx += 1
 		if pkg in forbidpkgs:
 			# we do not remove this
+			deleted = False
 			if pkg in insts:
 				insts.remove(pkg)
+			logging.info('[%d] not delete (%s)'%(self.__callidx,pkg))
 			self.__callidx -= 1
-			return [pkg],insts,maps
+			return deleted,[pkg],insts,maps
 		rdeps,maps = dpkgdep.get_all_rdeps([pkg],args,insts,maps)
 		if self.__callidx > 50:
 			logging.info('[%d] (%s) rdeps (%s)'%(self.__callidx,pkg,rdeps))
 		retpkgs = []
 		if pkg in rdeps:
-			logging.info('remove %s'%(pkg))
-			self.__inner_remove(pkg)
+			logging.info('[%d] recycle remove %s'%(self.__callidx,pkg))
+			for p in rdeps:
+				if p in forbidpkgs:
+					# we can not make delete
+					deleted = False
+					break
+			if deleted:
+				self.__inner_remove(pkg)
 			if pkg in insts:
 				insts.remove(pkg)
 			rdeps.remove(pkg)
 			if pkg not in retpkgs:
 				retpkgs.append(pkg)
-		while len(rdeps) > 0:
+			if not deleted:
+				for p in rdeps:
+					if p not in retpkgs:
+						retpkgs.append(p)
+					if p in insts:
+						insts.remove(p)
+		while len(rdeps) > 0 and deleted :
 			p = rdeps[0]
-			pkgs ,insts,maps = self.__remove_recursive(args,p,forbidpkgs,insts,maps)
+			deleted,pkgs ,insts,maps = self.__remove_recursive(args,p,forbidpkgs,insts,maps)
 			for p in pkgs:
 				if p not in retpkgs:
 					retpkgs.append(p)
 				if p in rdeps:
 					rdeps.remove(p)
+			if not deleted :
+				# if not deleted ,so we should pretend delete all rdeps
+				for p in rdeps:
+					logging.info('[%d] not delete (%s)'%(self.__callidx,p))
+					if p not in retpkgs:
+						retpkgs.append(p)
+					if p in insts:
+						insts.remove(p)
 		if pkg in insts:
-			logging.info('remove %s'%(pkg))
-			self.__inner_remove(pkg)
+			logging.info('[%d]remove %s'%(self.__callidx,pkg))
+			if deleted:
+				self.__inner_remove(pkg)
 			if pkg not in retpkgs:
 				retpkgs.append(pkg)
 			if pkg in insts:
 				insts.remove(pkg)
 		self.__callidx -= 1
-		return retpkgs,insts,maps
+		return deleted,retpkgs,insts,maps
 
 
 	def remove_not_dep(self,args,pkgs):
@@ -85,11 +109,14 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 			if p not in alldeps:
 				rmpkgs.append(p)
 		while len(rmpkgs):
-			retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],alldeps,allinsts,rdepmaps)
+			logging.info('rm (%s)'%(rmpkgs[0]))
+			deleted,retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],alldeps,allinsts,rdepmaps)
 			newallrdeps = []
 			for p in retpkgs:
 				if p  in rmpkgs:
 					rmpkgs.remove(p)
+				if p in allinsts:
+					allinsts.remove(p)
 		return rmpkgs
 
 

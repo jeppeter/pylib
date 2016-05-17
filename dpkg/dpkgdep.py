@@ -10,6 +10,7 @@ import cmdpack
 
 class DpkgBase(object):
 	def __init__(self):
+		self.cmdline = ''
 		return
 
 	def get_attr_self(self,args,name):
@@ -33,6 +34,7 @@ class DpkgDependBase(DpkgBase):
 		self.__needmore = False
 		self.__moreexpr = re.compile('<([^>]+)>')
 		self.__depexpr = re.compile('\s*[|]?depends:\s+([^\s]+)\s*',re.I)
+		self.__spacecomaexpr = re.compile(':\s+')
 		return
 
 	def __add_inner(self,pkg):
@@ -47,7 +49,15 @@ class DpkgDependBase(DpkgBase):
 		l = l.rstrip('\r\n')
 		if self.__needmore :
 			sarr = re.split(':',l)
-			if len(sarr) < 2:
+			if len(sarr)  > 1:
+				if sarr[1][0] != ' ' and sarr[1][0] != '\t':
+					' this is like pkg:amd64 or pkg:i386 '
+					dependpkg = sarr[0].strip(' \t')
+					dependpkg = dependpkg.rstrip(' \t')
+					logging.info('l (%s) add (%s)'%(l,dependpkg))
+					self.__add_inner(dependpkg)
+					return
+			elif len(sarr) < 2:
 				dependpkg = l.strip(' \t')
 				dependpkg = dependpkg.rstrip(' \t')
 				self.__add_inner(dependpkg)
@@ -78,11 +88,14 @@ class DpkgInstBase(DpkgBase):
 		self.__insts = []
 		self.__started = False
 		self.__startexpr = re.compile('[\+]+\-[\=]+',re.I)
-		self.__instexpr = re.compile('ii\s+([^\s]+)\s+',re.I)
+		self.__instexpr = re.compile('^ii\s+([^\s]+)\s+',re.I)
 		return
 	def __add_inner(self,pkg):
 		if pkg is None:
 			return
+		sarr = re.split(':',pkg)
+		if len(sarr) > 1 :
+			pkg = sarr[0]
 		if pkg not in self.__insts:
 			self.__insts.append(pkg)
 		return
@@ -102,6 +115,8 @@ class DpkgInstBase(DpkgBase):
 		m = self.__instexpr.findall(l)
 		if m :
 			pkg = m[0]
+			if pkg == 'art':
+				logging.info('l (%s) (%s)'%(l,pkg))
 		self.__add_inner(pkg)
 		return
 	def reset_start(self):
@@ -119,7 +134,13 @@ class DpkgRDependBase(DpkgBase):
 	def __add_inner(self,pkg):
 		if pkg is None:
 			return
+		sarr = re.split(':',pkg)
+		if len(sarr)> 1:
+			# we should give the real name to handle
+			pkg = sarr[0]
 		if pkg not in self.__rdepends and pkg in self.__insts:
+			if pkg == 'art':
+				logging.info('(%s) add (%s)'%(self.cmdline,pkg))
 			#logging.info('add %s'%(pkg))
 			self.__rdepends.append(pkg)
 		return
@@ -162,6 +183,7 @@ class DpkgDepends(DpkgDependBase):
 
 	def get_depend_command(self,pkgname):
 		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" depends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
+		self.cmdline = cmds
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
 			raise Exception('run (%s) error'%(cmds))
@@ -178,6 +200,7 @@ class DpkgRDepends(DpkgRDependBase):
 
 	def get_depend_command(self,pkgname):
 		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" rdepends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
+		self.cmdline = cmds
 		self.reset_start()
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
@@ -196,6 +219,7 @@ class DpkgInst(DpkgInstBase):
 
 	def get_install_command(self):
 		cmds = '%s "%s" --root "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root)
+		self.cmdline = cmds
 		self.reset_start()
 		logging.info('run (%s)'%(cmds))
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
