@@ -115,13 +115,48 @@ class DpkgInstBase(DpkgBase):
 		m = self.__instexpr.findall(l)
 		if m :
 			pkg = m[0]
-			if pkg == 'art':
-				logging.info('l (%s) (%s)'%(l,pkg))
 		self.__add_inner(pkg)
 		return
 	def reset_start(self):
 		self.__started = False
 
+
+class DpkgRcBase(DpkgBase):
+	def __init__(self):
+		self.__rcs = []
+		self.__started = False
+		self.__startexpr = re.compile('[\+]+\-[\=]+',re.I)
+		self.__instexpr = re.compile('^rc\s+([^\s]+)\s+',re.I)
+		return
+	def __add_inner(self,pkg):
+		if pkg is None:
+			return
+		sarr = re.split(':',pkg)
+		if len(sarr) > 1 :
+			pkg = sarr[0]
+		if pkg not in self.__rcs:
+			self.__rcs.append(pkg)
+		return
+
+	def get_rc(self):
+		return self.__rcs
+
+	def add_depend(self,l):
+		l = l.rstrip('\r\n')
+		l = l.strip(' \t')
+		l = l.rstrip(' \t')
+		if not self.__started:
+			if self.__startexpr.match(l):
+				self.__started = True
+			return
+		pkg = None
+		m = self.__instexpr.findall(l)
+		if m :
+			pkg = m[0]
+		self.__add_inner(pkg)
+		return
+	def reset_start(self):
+		self.__started = False
 
 class DpkgRDependBase(DpkgBase):
 	def __init__(self):
@@ -136,11 +171,9 @@ class DpkgRDependBase(DpkgBase):
 			return
 		sarr = re.split(':',pkg)
 		if len(sarr)> 1:
-			# we should give the real name to handle
-			pkg = sarr[0]
+			# we should not get the name of pkg:i386 or pkg:amd64
+			return
 		if pkg not in self.__rdepends and pkg in self.__insts:
-			if pkg == 'art':
-				logging.info('(%s) add (%s)'%(self.cmdline,pkg))
 			#logging.info('add %s'%(pkg))
 			self.__rdepends.append(pkg)
 		return
@@ -228,7 +261,25 @@ class DpkgInst(DpkgInstBase):
 		return self.get_installed()
 
 
+class DpkgRc(DpkgRcBase):
+	def __init__(self,args):
+		super(DpkgRc, self).__init__()
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
+		logging.info('root %s'%(self.dpkg_root))
+		return
 
+	def get_rc_command(self):
+		cmds = '%s "%s" --root "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root)
+		self.cmdline = cmds
+		self.reset_start()
+		logging.info('run (%s)'%(cmds))
+		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
+		if retval != 0 :
+			raise Exception('run (%s) error'%(cmds))
+		return self.get_rc()
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -395,6 +446,9 @@ def get_all_inst(args):
 	dpkgrdeps = DpkgInst(args)
 	return dpkgrdeps.get_install_command()
 
+def get_all_rc(args):
+	dpkgrcs = DpkgRc(args)
+	return dpkgrcs.get_rc_command()
 
 def get_all_rdeps(pkgs,args,insts,rdepmaps):
 	for p in pkgs:
@@ -445,6 +499,7 @@ def main():
 	rdep_parser = sub_parser.add_parser('rdep',help='get rdepends')
 	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
+	rc_parser = sub_parser.add_parser('rc',help='get rcs')
 
 	args = parser.parse_args()	
 
@@ -467,9 +522,12 @@ def main():
 			Usage(3,'packages need',parser)
 		insts = get_all_inst(args)
 		getpkgs,maps = get_all_rdeps(args.pkgs,args,insts,maps)
+	elif args.command == 'rc':
+		getpkgs = get_all_rc(args)
+		args.pkgs = ''
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
-	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst':
+	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc':
 		format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
 	if args.command == 'dep'  or args.command == 'rdep' :
 		output_map(args.pkgs,maps,'::%s::'%(args.command))

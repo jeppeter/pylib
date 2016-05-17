@@ -26,7 +26,8 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		if self.dpkg_trymode :
 			# we do not do this
 			return
-		cmds = '"%s" "%s" -o "dir::cache::archive=%s/var/lib/apt/" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
+		#cmds = '"%s" "%s" -o "dir::cache::archive=%s/var/lib/apt/" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
+		cmds = '"%s" "%s" --root "%s" --remove "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
 		retval = cmdpack.run_command_callback(cmds,None,None)
 		if retval != 0 :
 			if retval != 100:
@@ -51,7 +52,6 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 			logging.info('[%d] (%s) rdeps (%s)'%(self.__callidx,pkg,rdeps))
 		retpkgs = []
 		if pkg in rdeps:
-			logging.info('[%d] recycle remove %s'%(self.__callidx,pkg))
 			for p in rdeps:
 				if p in forbidpkgs:
 					# we can not make delete
@@ -70,6 +70,10 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 						retpkgs.append(p)
 					if p in insts:
 						insts.remove(p)
+			if deleted:
+				logging.info('[%d] recycle remove (%s)'%(self.__callidx,pkg))
+			else:
+				logging.info('[%d] not delete recycle (%s)'%(self.__callidx,pkg))
 		while len(rdeps) > 0 and deleted :
 			p = rdeps[0]
 			deleted,pkgs ,insts,maps = self.__remove_recursive(args,p,forbidpkgs,insts,maps)
@@ -119,12 +123,29 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 					allinsts.remove(p)
 		return rmpkgs
 
+	def __purge_rc_inner(self,pkg):
+		cmds = '"%s" "%s" --root "%s" --purge "%s" '%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
+		logging.info('run (%s)'%(cmds))
+		retval = cmdpack.run_command_callback(cmds,None,None)
+		if retval != 0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmds))
+		return
+
+	def purge_rc(self,args):
+		pkgs = dpkgdep.get_all_rc(args)
+		for p in pkgs:
+			self.__purge_rc_inner(p)
+		return
+
+
 
 def remove_exclude(args):
 	rmdpkg = DpkgRmBase(args)
 	if getattr(args,'pkgs') is None:
 		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'pkgs not in args')
-	return rmdpkg.remove_not_dep(args,args.pkgs)
+	getpkgs = rmdpkg.remove_not_dep(args,args.pkgs)
+	rmdpkg.purge_rc(args)
+	return getpkgs
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
