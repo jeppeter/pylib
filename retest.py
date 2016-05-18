@@ -8,9 +8,9 @@ import logging
 def match(restr,instr):
 	expr = re.compile(restr)	
 	if expr.match(instr):
-		print '(%s) match (%s)'%(instr,restr)
+		print ('(%s) match (%s)'%(instr,restr))
 	else:
-		print '(%s) not match (%s)'%(instr,restr)
+		print ('(%s) not match (%s)'%(instr,restr))
 	return
 
 def findall(restr,instr):
@@ -18,21 +18,19 @@ def findall(restr,instr):
 	m =  expr.findall(instr)
 	if m :
 		s = '(%s) match (%s)\n'%(instr,restr)
-		i = 0
-		for cm in m:
-			s += '\t[%d] %s\n'%(i,cm)
-			i += 1
-		print '%s'%(s)
+		for i in range(len(m)):
+			s += '\t[%d] %s\n'%(i,m[i])
+		print ('%s'%(s))
 	else:
-		print '(%s) no more for (%s)'%(instr,restr)
+		print ('(%s) no more for (%s)'%(instr,restr))
 	return
 
 def imatch(restr,instr):
 	expr = re.compile(restr,re.I)
 	if expr.match(instr):
-		print '(%s) ignore match (%s)'%(instr,restr)
+		print ('(%s) ignore match (%s)'%(instr,restr))
 	else:
-		print '(%s) not ignore match (%s)'%(instr,restr)
+		print ('(%s) not ignore match (%s)'%(instr,restr))
 	return
 
 def ifindall(restr,instr):
@@ -40,15 +38,23 @@ def ifindall(restr,instr):
 	m =  expr.findall(instr)
 	if m :
 		s = '(%s) match (%s)\n'%(instr,restr)
-		i = 0
-		for cm in m:
-			s += '\t[%d] (%s)\n'%(i,cm)
-			i += 1
-		print '%s'%(s)
+		for i in range(len(m)):
+			s += '\t[%d] (%s)\n'%(i,m[i])			
+		print ('%s'%(s))
 	else:
-		print '(%s) no more for (%s)'%(instr,restr)
+		print ('(%s) no more for (%s)'%(instr,restr))
 	return
 
+def sub(restr,instr,replstr):
+	newstr = re.sub(restr,replstr,instr)
+	print('(%s) sub(%s)(%s) => (%s)'%(instr,restr,replstr,newstr))
+	return
+
+def split(restr,instr):
+	sarr = re.split(restr,instr)
+	for i in range(len(sarr)):
+		print('[%d] (%s)'%(i,sarr[i]))
+	return
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -59,6 +65,7 @@ def Usage(ec,fmt,parser):
 		fp.write('%s\n'%(fmt))
 	parser.print_help(fp)
 	sys.exit(ec)
+
 
 def main():
 	parser = argparse.ArgumentParser(description='re test',usage='%s [options]'%(sys.argv[0]))	
@@ -74,6 +81,10 @@ def main():
 	ifindall_parser = sub_parser.add_parser('ifindall',help='re.findall with re.I')
 	findall_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
 	ifindall_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
+	subre_parser = sub_parser.add_parser('sub',help='re.sub')
+	subre_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
+	split_parser = sub_parser.add_parser('split',help='re.split')
+	split_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
 	args = parser.parse_args()
 	#if args.restr is None or args.instr is None:
 	#	Usage(3,'need instr and restr',parser)
@@ -94,6 +105,13 @@ def main():
 		ifindall(args.strs[0],args.strs[1])
 	elif args.command == 'imatch':
 		imatch(args.strs[0],args.strs[1])
+	elif args.command == 'sub':
+		if len(args.strs) < 3:
+			sub(args.strs[0],args.strs[1],'')
+		else:
+			sub(args.strs[0],args.strs[1],args.strs[2])
+	elif args.command == 'split':
+		split(args.strs[0],args.strs[1])
 	else:
 		Usage(3,'unrecognize %s'%(args.command),parser)
 	return

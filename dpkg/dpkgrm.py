@@ -26,8 +26,8 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		if self.dpkg_trymode :
 			# we do not do this
 			return
-		#cmds = '"%s" "%s" -o "dir::cache::archive=%s/var/lib/apt/" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
-		cmds = '"%s" "%s" --root "%s" --remove "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
+		cmds = '"%s" "%s" -o "Dir=%s" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
+		#cmds = '"%s" "%s" --root "%s" --remove "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
 		retval = cmdpack.run_command_callback(cmds,None,None)
 		if retval != 0 :
 			if retval != 100:
@@ -164,6 +164,7 @@ def main():
 	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
 	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
 	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
+	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
 	sub_parser = parser.add_subparsers(help='',dest='command')

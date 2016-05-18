@@ -30,55 +30,78 @@ class DpkgBase(object):
 
 class DpkgDependBase(DpkgBase):
 	def __init__(self):
-		self.__depends = []
-		self.__needmore = False
-		self.__moreexpr = re.compile('<([^>]+)>')
-		self.__depexpr = re.compile('\s*[|]?depends:\s+([^\s]+)\s*',re.I)
-		self.__spacecomaexpr = re.compile(':\s+')
+		self.__depmap = dict()
+		self.__pkg = ''
+		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
+		self.__depexpr = re.compile('^Depends:\s+(.*)',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\s+(.*)',re.I)
+		self.__emptylineexpr = re.compile('^$')
+		self.__splitexpr = re.compile('\|',re.I)
 		return
 
-	def __add_inner(self,pkg):
-		if pkg is None:
+	def __resub(self,l):
+		newl = re.sub('\([^\(\)]*\)','',l)
+		newl = re.sub('[\s]+','',newl)
+		newl = re.sub(':([^\s:,]+)','',newl)
+		return newl
+
+
+	def __add_inner(self,pkg,deppkg):
+		if self.__pkg == '' or deppkg is None:
 			return
-		if pkg not in self.__depends:
-			self.__depends.append(pkg)
+		m = self.__splitexpr.findall(deppkg)
+		if m and len(m) > 0:
+			deppkgs = re.split('\|',deppkg)
+			if pkg not in self.__depmap.keys():
+				self.__depmap[pkg] = []
+			for p in deppkgs:
+				if p not in self.__depmap[pkg]:
+					self.__depmap[pkg].append(p)
+		else:
+			if pkg not in self.__depmap.keys():
+				self.__depmap[pkg] = []
+			if deppkg not in self.__depmap[pkg]:
+				self.__depmap[pkg].append(deppkg)
 		return
 
 	def add_depend(self,l):
-		dependpkg = None
 		l = l.rstrip('\r\n')
-		if self.__needmore :
-			sarr = re.split(':',l)
-			if len(sarr)  > 1:
-				if sarr[1][0] != ' ' and sarr[1][0] != '\t':
-					' this is like pkg:amd64 or pkg:i386 '
-					dependpkg = sarr[0].strip(' \t')
-					dependpkg = dependpkg.rstrip(' \t')
-					logging.info('l (%s) add (%s)'%(l,dependpkg))
-					self.__add_inner(dependpkg)
-					return
-			elif len(sarr) < 2:
-				dependpkg = l.strip(' \t')
-				dependpkg = dependpkg.rstrip(' \t')
-				self.__add_inner(dependpkg)
-				return
-		self.__needmore = False
+		l = l.strip(' \t')
+		l = l.rstrip(' \t')
+		m = self.__pkgexpr.findall(l)
+		if m and len(m) > 0:
+			self.__pkg = self.__resub(m[0])
+			if self.__pkg not in self.__depmap.keys():
+				self.__depmap[self.__pkg] = []
+			return
 		m = self.__depexpr.findall(l)
-		if m :
-			dependpkg = m[0]
-			if self.__moreexpr.match(dependpkg):
-				self.__needmore = True
-				dependpkg = None
-		self.__add_inner(dependpkg)
+		if m and len(m) > 0:
+			if self.__pkg == '':
+				logging.error('(%s) before pkg set'%(l))
+				return
+			newl = self.__resub(m[0])
+			sarr = re.split(',',newl)
+			for p in sarr:
+				self.__add_inner(self.__pkg,p)
+			return
+		m = self.__predepexpr.findall(l)
+		if m and len(m) > 0:
+			if self.__pkg == '':
+				logging.error('(%s) before pkg set'%(l))
+				return
+			newl = self.__resub(m[0])
+			sarr = re.split(',',newl)
+			for p in sarr:
+				self.__add_inner(self.__pkg,p)
+			return
+		if self.__emptylineexpr.match(l):
+			self.__pkg = ''
+			return
 		return
 
-
-	def add_depend_direct(self,pkg):
-		self.__add_inner(pkg)
-		return
 
 	def get_depend(self):
-		return self.__depends
+		return self.__depmap
 
 
 
@@ -160,44 +183,81 @@ class DpkgRcBase(DpkgBase):
 
 class DpkgRDependBase(DpkgBase):
 	def __init__(self):
-		self.__rdepends = []
+		self.__rdepmap = dict()
+		self.__pkg = ''
 		self.__insts = []
-		self.__started = False
-		self.__rdepexpr = re.compile('\s*reverse depends:\s*',re.I)
+		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
+		self.__depexpr = re.compile('^Depends:\s+(.*)',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\s+(.*)',re.I)
+		self.__emptylineexpr = re.compile('^$')
+		self.__splitexpr = re.compile('\|',re.I)
 		return
 
-	def __add_inner(self,pkg):
+	def __resub(self,l):
+		newl = re.sub('\([^\(\)]*\)','',l)
+		newl = re.sub('[\s]+','',newl)
+		newl = re.sub(':([^\s:,]+)','',newl)
+		return newl
+
+	def __add_inner(self,pkg,deppkg):
 		if pkg is None:
 			return
 		sarr = re.split(':',pkg)
 		if len(sarr)> 1:
 			# we should not get the name of pkg:i386 or pkg:amd64
 			return
-		if pkg not in self.__rdepends and pkg in self.__insts:
-			#logging.info('add %s'%(pkg))
-			self.__rdepends.append(pkg)
+		m = self.__splitexpr.findall(deppkg)
+		if m and len(m) > 0:
+			deppkgs = re.split('\|',deppkg)
+			for p in deppkgs:
+				if p not in self.__rdepmap.keys():
+					self.__rdepmap[p] = []
+				if pkg not in self.__rdepmap[p]:
+					self.__rdepmap[p].append(pkg)
+		else:
+			if deppkg not in self.__rdepmap.keys():
+				self.__rdepmap[deppkg] = []
+			if pkg not in self.__rdepmap[deppkg]:
+				#logging.info('add %s'%(pkg))
+				self.__rdepmap[deppkg].append(pkg)
 		return
 
-	def set_insts(self,insts):
-		self.__insts = insts
-		return
 
 	def get_rdepends(self):
-		return self.__rdepends
+		return self.__rdepmap
 
 	def add_depend(self,l):
 		l = l.rstrip('\r\n')
 		l = l.strip(' \t')
 		l = l.rstrip(' \t')
-		l = l.replace('|','')
-		if not self.__started:
-			if self.__rdepexpr.match(l):
-				self.__started = True
+		m = self.__pkgexpr.findall(l)
+		if m and len(m) > 0:
+			self.__pkg = self.__resub(m[0])
 			return
-		self.__add_inner(l)
+		m = self.__depexpr.findall(l)
+		if m and len(m) > 0:
+			if self.__pkg == '':
+				logging.error('(%s) not before set Package'%(l))
+				return
+			newl = self.__resub(m[0])
+			sarr = re.split(',',newl)
+			for p in sarr:
+				self.__add_inner(self.__pkg,p)
+			return
+		m = self.__predepexpr.findall(l)
+		if m and len(m) > 0:
+			if self.__pkg == '':
+				logging.error('(%s) not before set Package'%(l))
+				return
+			newl = self.__resub(m[0])
+			sarr = re.split(',',newl)
+			for p in sarr:
+				self.__add_inner(self.__pkg,p)
+			return			
+		if self.__emptylineexpr.match(l):
+			self.__pkg = '';
+			return
 		return
-	def reset_start(self):
-		self.__started = False
 
 
 def filter_depends(instr,context):
@@ -208,14 +268,14 @@ def filter_depends(instr,context):
 class DpkgDepends(DpkgDependBase):
 	def __init__(self,args):
 		super(DpkgDepends, self).__init__()
-		self.dpkg_aptcache = 'apt-cache'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_cat = 'cat'
 		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" depends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
+		cmds = '%s "%s" "%s/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_cat,self.dpkg_root)
 		self.cmdline = cmds
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
@@ -225,16 +285,15 @@ class DpkgDepends(DpkgDependBase):
 class DpkgRDepends(DpkgRDependBase):
 	def __init__(self,args):
 		super(DpkgRDepends, self).__init__()
-		self.dpkg_aptcache = 'apt-cache'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_cat = 'cat'
 		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" -o "dir::cache::archive=%s/var/lib/apt/" rdepends "%s"'%(self.dpkg_sudoprefix,self.dpkg_aptcache,self.dpkg_root,pkgname)
+		cmds = '%s "%s" "%s/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_cat,self.dpkg_root)
 		self.cmdline = cmds
-		self.reset_start()
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run (%s) error'%(cmds))
@@ -374,10 +433,9 @@ def output_map(pkgs,maps,outstr):
 		if p not in maps.keys():
 			continue
 		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
-		curdeps = maps[p]
-		for cp in curdeps:
-			if cp not in outdeps:
-				outdeps.append(cp)
+		if p not in outdeps:
+			logging.info('outdeps (%s)'%(cp))
+			outdeps.append(cp)
 
 	for p in alldeps:
 		if p in outdeps:
@@ -385,10 +443,8 @@ def output_map(pkgs,maps,outstr):
 		if p not in maps.keys():
 			continue
 		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
-		curdeps = maps[p]
-		for cp in curdeps:
-			if cp not in outdeps:
-				outdeps.append(cp)
+		if p not in outdeps:
+			outdeps.append(cp)
 	return
 
 def form_map_list(depmap,pkg):
@@ -410,13 +466,18 @@ def form_map_list(depmap,pkg):
 	return retlist
 
 def get_all_deps(pkgs,args,depmap):
+	hasscaned = 0
 	for p in pkgs:
-		if p in depmap.keys():
+		if p in depmap.keys() or hasscaned > 0:
 			continue
 		dpkgdeps = DpkgDepends(args)
-		depmap[p] = dpkgdeps.get_depend_command(p)
+		depmap = dpkgdeps.get_depend_command(p)
+		hasscaned = 1
 	alldeps = []
 	for p in pkgs:
+		if p not in depmap.keys():
+			logging.error('(%s) not in depmap'%(p))
+			continue
 		ndep = form_map_list(depmap,p)
 		for cp in ndep:
 			if cp not in alldeps:
@@ -426,20 +487,15 @@ def get_all_deps(pkgs,args,depmap):
 	slen = len(alldeps)
 	mod = 0
 	while True:
-		mod = 0
-		for p in alldeps:
-			if p in depmap.keys():
-				continue
-			mod = 1
-			dpkgdeps = DpkgDepends(args)
-			depmap[p] = dpkgdeps.get_depend_command(p)
-		if mod == 0:
-			break
 		for p in alldeps:
 			ndep = form_map_list(depmap,p)
 			for cp in ndep:
 				if cp not in alldeps:
 					alldeps.append(cp)
+		clen = len(alldeps)
+		if clen == slen:
+			break
+		slen = clen
 	return alldeps,depmap
 
 def get_all_inst(args):
@@ -451,18 +507,18 @@ def get_all_rc(args):
 	return dpkgrcs.get_rc_command()
 
 def get_all_rdeps(pkgs,args,insts,rdepmaps):
+	hasscaned = 0
 	for p in pkgs:
-		if p in rdepmaps.keys():
+		if p in rdepmaps.keys() or hasscaned > 0:
 			continue
 		dpkgrdeps = DpkgRDepends(args)
-		dpkgrdeps.set_insts(insts)
-		rdepmaps[p] = dpkgrdeps.get_depend_command(p)
+		rdepmaps = dpkgrdeps.get_depend_command(p)
+		hasscaned = 1
 	allrdeps = []
 	for p in pkgs:
 		if p not in rdepmaps.keys():
-			dpkgrdeps = DpkgRDepends(args)
-			dpkgrdeps.set_insts(insts)
-			rdepmaps[p] = dpkgrdeps.get_depend_command(p)			
+			# we have match before
+			continue
 		currdeps = rdepmaps[p]
 		for cp in currdeps:
 			if (cp not in allrdeps) and (cp in insts):
@@ -471,9 +527,7 @@ def get_all_rdeps(pkgs,args,insts,rdepmaps):
 	while True:
 		for p in allrdeps:
 			if p not in rdepmaps.keys():
-				dpkgrdeps = DpkgRDepends(args)
-				dpkgrdeps.set_insts(insts)
-				rdepmaps[p] = dpkgrdeps.get_depend_command(p)
+				continue
 			currdeps = rdepmaps[p]
 			for cp in currdeps:
 				if (cp not in allrdeps) and (cp in insts):
@@ -491,8 +545,8 @@ def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser.add_argument('-v','--verbose',default=0,action='count')
 	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
-	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
+	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
