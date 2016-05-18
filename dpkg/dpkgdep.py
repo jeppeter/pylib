@@ -12,6 +12,11 @@ class DpkgBase(object):
 	def __init__(self):
 		self.cmdline = ''
 		return
+	def resub(self,l):
+		newl = re.sub('\([^\(\)]*\)','',l)
+		newl = re.sub('[\s]+','',newl)
+		newl = re.sub(':([^\s:,]+)','',newl)
+		return newl
 
 	def get_attr_self(self,args,name):
 		dpname = 'dpkg_%s'%(name)
@@ -39,12 +44,6 @@ class DpkgDependBase(DpkgBase):
 		self.__splitexpr = re.compile('\|',re.I)
 		return
 
-	def __resub(self,l):
-		newl = re.sub('\([^\(\)]*\)','',l)
-		newl = re.sub('[\s]+','',newl)
-		newl = re.sub(':([^\s:,]+)','',newl)
-		return newl
-
 
 	def __add_inner(self,pkg,deppkg):
 		if self.__pkg == '' or deppkg is None:
@@ -70,7 +69,7 @@ class DpkgDependBase(DpkgBase):
 		l = l.rstrip(' \t')
 		m = self.__pkgexpr.findall(l)
 		if m and len(m) > 0:
-			self.__pkg = self.__resub(m[0])
+			self.__pkg = self.resub(m[0])
 			if self.__pkg not in self.__depmap.keys():
 				self.__depmap[self.__pkg] = []
 			return
@@ -79,7 +78,7 @@ class DpkgDependBase(DpkgBase):
 			if self.__pkg == '':
 				logging.error('(%s) before pkg set'%(l))
 				return
-			newl = self.__resub(m[0])
+			newl = self.resub(m[0])
 			sarr = re.split(',',newl)
 			for p in sarr:
 				self.__add_inner(self.__pkg,p)
@@ -89,7 +88,7 @@ class DpkgDependBase(DpkgBase):
 			if self.__pkg == '':
 				logging.error('(%s) before pkg set'%(l))
 				return
-			newl = self.__resub(m[0])
+			newl = self.resub(m[0])
 			sarr = re.split(',',newl)
 			for p in sarr:
 				self.__add_inner(self.__pkg,p)
@@ -111,7 +110,8 @@ class DpkgInstBase(DpkgBase):
 		self.__insts = []
 		self.__started = False
 		self.__startexpr = re.compile('[\+]+\-[\=]+',re.I)
-		self.__instexpr = re.compile('^ii\s+([^\s]+)\s+',re.I)
+		# we get installed package
+		self.__instexpr = re.compile('^[a-zA-Z]i\s+([^\s]+)\s+',re.I)
 		return
 	def __add_inner(self,pkg):
 		if pkg is None:
@@ -193,11 +193,6 @@ class DpkgRDependBase(DpkgBase):
 		self.__splitexpr = re.compile('\|',re.I)
 		return
 
-	def __resub(self,l):
-		newl = re.sub('\([^\(\)]*\)','',l)
-		newl = re.sub('[\s]+','',newl)
-		newl = re.sub(':([^\s:,]+)','',newl)
-		return newl
 
 	def __add_inner(self,pkg,deppkg):
 		if pkg is None:
@@ -232,14 +227,14 @@ class DpkgRDependBase(DpkgBase):
 		l = l.rstrip(' \t')
 		m = self.__pkgexpr.findall(l)
 		if m and len(m) > 0:
-			self.__pkg = self.__resub(m[0])
+			self.__pkg = self.resub(m[0])
 			return
 		m = self.__depexpr.findall(l)
 		if m and len(m) > 0:
 			if self.__pkg == '':
 				logging.error('(%s) not before set Package'%(l))
 				return
-			newl = self.__resub(m[0])
+			newl = self.resub(m[0])
 			sarr = re.split(',',newl)
 			for p in sarr:
 				self.__add_inner(self.__pkg,p)
@@ -249,7 +244,7 @@ class DpkgRDependBase(DpkgBase):
 			if self.__pkg == '':
 				logging.error('(%s) not before set Package'%(l))
 				return
-			newl = self.__resub(m[0])
+			newl = self.resub(m[0])
 			sarr = re.split(',',newl)
 			for p in sarr:
 				self.__add_inner(self.__pkg,p)
@@ -259,6 +254,43 @@ class DpkgRDependBase(DpkgBase):
 			return
 		return
 
+
+class DpkgEssentailBase(DpkgBase):
+	def __init__(self):
+		self.__essentials = []
+		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
+		self.__essentialexpr = re.compile('^Essential:\s+yes$',re.I)
+		self.__emptylineexpr = re.compile('^$',re.I)
+		self.__pkg = ''
+		return
+
+	def __add_inner(self,pkg):
+		if self.__pkg == '':
+			logging.error('not sepecified pkg')
+			return
+		if pkg not in self.__essentials:
+			self.__essentials.append(pkg)
+		return
+
+	def add_depend(self,l):
+		l = l.strip(' \t')
+		l = l.rstrip('\r\n')
+		l = l.strip(' \t')
+		m = self.__pkgexpr.findall(l)
+		if m and len(m) > 0:
+			self.__pkg = self.resub(m[0])
+			return
+
+		if self.__essentialexpr.match(l):			
+			self.__add_inner(self.__pkg)
+			return
+		if self.__emptylineexpr.match(l):
+			self.__pkg = ''
+			return
+		return
+
+	def get_essential(self):
+		return self.__essentials
 
 def filter_depends(instr,context):
 	context.add_depend(instr)
@@ -271,11 +303,12 @@ class DpkgDepends(DpkgDependBase):
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
 		self.dpkg_cat = 'cat'
+		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" "%s/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_cat,self.dpkg_root)
+		cmds = '"%s" "%s" "%s" "%s" "/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_cat)
 		self.cmdline = cmds
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
@@ -288,11 +321,12 @@ class DpkgRDepends(DpkgRDependBase):
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
 		self.dpkg_cat = 'cat'
+		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		return
 
 	def get_depend_command(self,pkgname):
-		cmds = '%s "%s" "%s/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_cat,self.dpkg_root)
+		cmds = '"%s" "%s" "%s" "%s" "/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_cat)
 		self.cmdline = cmds
 		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
 		if retval != 0 :
@@ -305,12 +339,13 @@ class DpkgInst(DpkgInstBase):
 		self.dpkg_dpkg = 'dpkg'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		logging.info('root %s'%(self.dpkg_root))
 		return
 
 	def get_install_command(self):
-		cmds = '%s "%s" --root "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root)
+		cmds = '"%s" "%s" "%s" "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_dpkg)
 		self.cmdline = cmds
 		self.reset_start()
 		logging.info('run (%s)'%(cmds))
@@ -326,12 +361,13 @@ class DpkgRc(DpkgRcBase):
 		self.dpkg_dpkg = 'dpkg'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		logging.info('root %s'%(self.dpkg_root))
 		return
 
 	def get_rc_command(self):
-		cmds = '%s "%s" --root "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root)
+		cmds = '"%s" "%s" "%s" "%s" -l'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_dpkg)
 		self.cmdline = cmds
 		self.reset_start()
 		logging.info('run (%s)'%(cmds))
@@ -339,6 +375,27 @@ class DpkgRc(DpkgRcBase):
 		if retval != 0 :
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_rc()
+
+
+class DpkgEssential(DpkgEssentailBase):
+	def __init__(self,args):
+		super(DpkgEssential, self).__init__()
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.dpkg_chroot = 'chroot'
+		self.dpkg_cat = 'cat'
+		self.get_all_attr_self(args)
+		return
+
+	def get_essential_command(self):
+		cmds = '"%s" "%s" "%s" "%s"  "/var/lib/dpkg/available"'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_cat)
+		self.cmdline = cmds
+		logging.info('run (%s)'%(cmds))
+		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
+		if retval != 0 :
+			raise Exception('run (%s) error'%(cmds))
+		return self.get_essential()
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -540,6 +597,9 @@ def get_all_rdeps(pkgs,args,insts,rdepmaps):
 	return allrdeps,rdepmaps
 
 
+def get_essentials(args):
+	dpkgessential = DpkgEssential(args)
+	return dpkgessential.get_essential_command()
 
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
@@ -547,6 +607,7 @@ def main():
 	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
+	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
@@ -554,6 +615,7 @@ def main():
 	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
 	rc_parser = sub_parser.add_parser('rc',help='get rcs')
+	essential_parser =sub_parser.add_parser('essentials',help='get essential')
 
 	args = parser.parse_args()	
 
@@ -579,9 +641,12 @@ def main():
 	elif args.command == 'rc':
 		getpkgs = get_all_rc(args)
 		args.pkgs = ''
+	elif args.command == 'essentials':
+		getpkgs = get_essentials(args)
+		args.pkgs = ''
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
-	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc':
+	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' or args.command == 'essentials':
 		format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
 	if args.command == 'dep'  or args.command == 'rdep' :
 		output_map(args.pkgs,maps,'::%s::'%(args.command))

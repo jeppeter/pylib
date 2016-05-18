@@ -18,6 +18,7 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
 		self.dpkg_trymode = False
+		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		self.__callidx = 0
 		return
@@ -26,8 +27,13 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		if self.dpkg_trymode :
 			# we do not do this
 			return
-		cmds = '"%s" "%s" -o "Dir=%s" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_aptget,self.dpkg_root,pkg)
-		#cmds = '"%s" "%s" --root "%s" --remove "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
+		if type(pkg) is list:
+			cmds = '"%s" "%s" "%s" "%s" --remove --force-depends '%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_dpkg)
+			for p in pkg:
+				cmds += ' "%s"'%(p)
+		else:
+			#cmds = '"%s" "%s" "%s" "%s" remove --yes "%s" '%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_aptget,pkg)
+			cmds = '"%s" "%s" "%s" "%s"  --remove --force-depends "%s"'%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_dpkg,pkg)
 		retval = cmdpack.run_command_callback(cmds,None,None)
 		if retval != 0 :
 			if retval != 100:
@@ -58,22 +64,17 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 					deleted = False
 					break
 			if deleted:
-				self.__inner_remove(pkg)
-			if pkg in insts:
-				insts.remove(pkg)
-			rdeps.remove(pkg)
-			if pkg not in retpkgs:
-				retpkgs.append(pkg)
-			if not deleted:
-				for p in rdeps:
-					if p not in retpkgs:
-						retpkgs.append(p)
-					if p in insts:
-						insts.remove(p)
-			if deleted:
-				logging.info('[%d] recycle remove (%s)'%(self.__callidx,pkg))
+				self.__inner_remove(rdeps)
+				logging.info('[%d] recycle remove (%s)'%(self.__callidx,rdeps))
 			else:
-				logging.info('[%d] not delete recycle (%s)'%(self.__callidx,pkg))
+				logging.info('[%d] not delete recycle (%s)'%(self.__callidx,rdeps))
+			for p in rdeps:
+				if p in insts:
+					insts.remove(p)
+				if p not in retpkgs:
+					retpkgs.append(p)
+			# we delete all
+			rdeps = []
 		while len(rdeps) > 0 and deleted :
 			p = rdeps[0]
 			deleted,pkgs ,insts,maps = self.__remove_recursive(args,p,forbidpkgs,insts,maps)
@@ -108,11 +109,15 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		rdepmaps = dict()
 		allinsts = dpkgdep.get_all_inst(args)
 		alldeps,depmaps = dpkgdep.get_all_deps(pkgs,args,depmaps)
+		essentials = dpkgdep.get_essentials(args)
+		for p in essentials:
+			if p not in alldeps:
+				alldeps.append(p)
 		rmpkgs = []
 		for p in allinsts:
-			if p not in alldeps:
+			if p not in alldeps :
 				rmpkgs.append(p)
-		while len(rmpkgs):
+		while len(rmpkgs) > 0:
 			logging.info('rm (%s)'%(rmpkgs[0]))
 			deleted,retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],alldeps,allinsts,rdepmaps)
 			newallrdeps = []
@@ -137,6 +142,28 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 			self.__purge_rc_inner(p)
 		return
 
+	def remove_pkg(self,args,pkgs):
+		allinsts  = dpkgdep.get_all_inst(args)
+		essentials = dpkgdep.get_essentials(args)
+		rdepmaps = dict()
+		rmpkgs = []
+		for p in pkgs:
+			rdeps,rdepmaps = dpkgdep.get_all_rdeps([p],args,insts,rdepmaps)
+			for cp in rdeps:
+				if cp not in rmpkgs:
+					rmpkgs.append(cp)
+			if p not in rmpkgs:
+				rmpkgs.append(p)
+		while len(rmpkgs) > 0:
+			logging.info('rm (%s)'%(rmpkgs[0]))
+			deleted,retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],essentials,allinsts,rdepmaps)
+			newallrdeps = []
+			for p in retpkgs:
+				if p  in rmpkgs:
+					rmpkgs.remove(p)
+				if p in allinsts:
+					allinsts.remove(p)
+		return
 
 
 def remove_exclude(args):
@@ -146,6 +173,14 @@ def remove_exclude(args):
 	getpkgs = rmdpkg.remove_not_dep(args,args.pkgs)
 	rmdpkg.purge_rc(args)
 	return getpkgs
+
+def remove_package(args):
+	rmdpkg = DpkgRmBase(args)
+	if getattr(args,'pkgs') is None:
+		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'pkgs not in args')
+	getpkgs = rmdpkg.remove_pkg(args,args.pkgs)
+	rmdpkg.purge_rc(args)
+	return
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -165,11 +200,15 @@ def main():
 	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
 	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
 	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
+	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
+	rm_parser = sub_parser.add_parser('rm',help='to remove package')
+	rm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
+
 	args = parser.parse_args()	
 
 	loglvl= logging.ERROR
@@ -179,6 +218,10 @@ def main():
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	if args.command == 'exrm':
+		if len(args.pkgs) < 1:
+			Usage(3,'packages need',parser)
+		getpkgs = remove_exclude(args)
+	elif args.command == 'rm':
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
 		getpkgs = remove_exclude(args)
