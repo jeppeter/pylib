@@ -624,14 +624,31 @@ def check_dep_map_integrity(depmap):
 	searchkeys = []
 	misskeys = []
 	for p in depmap.keys():
-		if p not in searchkeys:
-			searchkeys.append(p)
 		deps = depmap[p]
 		for cp in deps:
 			if cp not in depmap.keys():
+				#logging.info('(%s=>%s) (%s)'%(p,deps,cp))
 				if cp not in misskeys:
 					misskeys.append(cp)
 	return misskeys
+
+def make_normalize_dep(depmap,insts):
+	allkeys = []
+	for p in depmap.keys():
+		allkeys.append(p)
+	while len(allkeys) > 0:
+		p = allkeys[0]
+		allkeys.remove(p)
+		if p not in insts:
+			del depmap[p]
+			logging.warn('delete (%s)'%(p))
+			continue
+		deps = depmap[p]
+		for cp in deps:
+			if cp not in insts:
+				logging.warn('delete (%s)'%(cp))
+				depmap[p].remove(cp)
+	return depmap
 
 def get_all_deps(pkgs,args,depmap):
 	hasscaned = 0
@@ -652,6 +669,37 @@ def get_all_deps(pkgs,args,depmap):
 				alldeps.append(cp)
 		if p not in alldeps:
 			alldeps.append(p)
+	slen = len(alldeps)
+	mod = 0
+	while True:
+		for p in alldeps:
+			ndep = form_map_list(depmap,p)
+			for cp in ndep:
+				if cp not in alldeps:
+					alldeps.append(cp)
+		clen = len(alldeps)
+		if clen == slen:
+			break
+		slen = clen
+	return alldeps,depmap
+
+def get_dep_noself(pkgs,args,depmap):
+	hasscaned = 0
+	for p in pkgs:
+		if p in depmap.keys() or hasscaned > 0:
+			continue
+		dpkgdeps = DpkgDepends(args)
+		depmap = dpkgdeps.get_depend_command(p)
+		hasscaned = 1
+	alldeps = []
+	for p in pkgs:
+		if p not in depmap.keys():
+			logging.error('(%s) not in depmap'%(p))
+			continue
+		ndep = form_map_list(depmap,p)
+		for cp in ndep:
+			if cp not in alldeps:
+				alldeps.append(cp)
 	slen = len(alldeps)
 	mod = 0
 	while True:
@@ -735,21 +783,15 @@ def get_debdep(args,debs,depmap):
 def get_debname(args,pkgs,debmap):
 	if type(pkgs) is list:
 		for p in pkgs:
-			if p not in debmap.values():
-				dpkgname = DpkgDebName(args)
-				name = dpkgname.get_deb_name(p)
-				if len(name) > 0 :
-					if name not in debmap.keys():
-						debmap[name] = []
-					debmap[name].append(p)
-	else:
-		if pkgs not in debmap.values():
 			dpkgname = DpkgDebName(args)
-			name = dpkgname.get_deb_name(pkgs)
-			if len(name) > 0:
-				if name not in debmap.keys():
-					debmap[name] = []
-				debmap[name].append(pkgs)
+			name = dpkgname.get_deb_name(p)
+			if len(name) > 0 :
+				debmap[name]=os.path.abspath(p)
+	else:
+		dpkgname = DpkgDebName(args)
+		name = dpkgname.get_deb_name(pkgs)
+		if len(name) > 0:
+			debmap[name]=os.path.abspath(pkgs)
 	return debmap
 
 
@@ -810,6 +852,9 @@ def main():
 		if len(args.pkgs) < 1:
 			Usage(3,'packages need',parser)
 		maps = get_debname(args,args.pkgs,maps)
+		for k in maps.keys():
+			curpath = maps[k]
+			maps[k] = [curpath]
 		args.pkgs = maps.keys()
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
