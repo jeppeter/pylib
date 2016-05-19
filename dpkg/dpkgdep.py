@@ -292,6 +292,67 @@ class DpkgEssentailBase(DpkgBase):
 	def get_essential(self):
 		return self.__essentials
 
+
+class DpkgDebInfoBase(DpkgBase):
+	def __init__(self):
+		self.__name = ''
+		self.__version = ''
+		self.__deps = []
+		self.__pkgexpr = re.compile('^Package:\s+(.+)$',re.I)
+		self.__versionexpr = re.compile('^Version:\s+(.+)$',re.I)
+		self.__depexpr = re.compile('^Depends:\s+(.+)$',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\s+(.+)$',re.I)
+		return
+
+	def __add_inner(self,pkgs):
+		if pkgs is None:
+			return
+
+		for p in pkgs:
+			sarr = re.split('\|',p)
+			for cp in sarr:
+				if cp not in self.__deps:
+					self.__deps.append(cp)
+		return
+
+	def add_depend(self,l):
+		l = l.rstrip('\r\n')
+		l = l.strip(' \t')
+		l = l.rstrip(' \t')
+		m = self.__depexpr.findall(l)
+		if m and len(m) > 0:
+			deps = self.resub(m[0])
+			sarr = re.split(',',deps)
+			self.__add_inner(sarr)
+			return
+
+		m = self.__predepexpr.findall(l)
+		if m and len(m) > 0:
+			deps = self.resub(m[0])
+			sarr = re.split(',',deps)
+			self.__add_inner(sarr)
+			return
+		m = self.__pkgexpr.findall(l)
+		if m and len(m) > 0:
+			name = self.resub(m[0])
+			self.__name = name
+			return
+		m = self.__versionexpr.findall(l)
+		if m and len(m) > 0:
+			self.__version = self.resub(m[0])
+			return
+		return
+
+	def get_depend(self):
+		return self.__deps
+
+	def get_version(self):
+		return self.__version
+
+	def get_name(self):
+		return self.__name
+
+
 def filter_depends(instr,context):
 	context.add_depend(instr)
 	return
@@ -397,6 +458,44 @@ class DpkgEssential(DpkgEssentailBase):
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_essential()
 
+class DpkgDebDep(DpkgDebInfoBase):
+	def __init__(self,args):
+		super(DpkgDebDep, self).__init__()
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.dpkg_chroot = 'chroot'
+		self.dpkg_cat = 'cat'
+		self.get_all_attr_self(args)
+		return
+
+	def get_deb_dep(self,p):
+		cmds = '"%s" "%s" --info "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,p)
+		self.cmdline = cmds
+		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
+		if retval != 0 :
+			raise Exception('run (%s) error'%(cmds))
+		return self.get_depend()
+
+class DpkgDebName(DpkgDebInfoBase):
+	def __init__(self,args):
+		super(DpkgDebName, self).__init__()
+		self.dpkg_dpkg = 'dpkg'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.dpkg_chroot = 'chroot'
+		self.dpkg_cat = 'cat'
+		self.get_all_attr_self(args)
+		return
+
+	def get_deb_name(self,p):
+		cmds = '"%s" "%s" --info "%s"'%(self.dpkg_sudoprefix,self.dpkg_dpkg,p)
+		self.cmdline = cmds
+		retval = cmdpack.run_command_callback(cmds,filter_depends,self)
+		if retval != 0 :
+			raise Exception('run (%s) error'%(cmds))
+		return self.get_name()
+
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -491,7 +590,6 @@ def output_map(pkgs,maps,outstr):
 			continue
 		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
 		if p not in outdeps:
-			logging.info('outdeps (%s)'%(cp))
 			outdeps.append(cp)
 
 	for p in alldeps:
@@ -521,6 +619,19 @@ def form_map_list(depmap,pkg):
 			break
 		slen = clen
 	return retlist
+
+def check_dep_map_integrity(depmap):
+	searchkeys = []
+	misskeys = []
+	for p in depmap.keys():
+		if p not in searchkeys:
+			searchkeys.append(p)
+		deps = depmap[p]
+		for cp in deps:
+			if cp not in depmap.keys():
+				if cp not in misskeys:
+					misskeys.append(cp)
+	return misskeys
 
 def get_all_deps(pkgs,args,depmap):
 	hasscaned = 0
@@ -601,6 +712,48 @@ def get_essentials(args):
 	dpkgessential = DpkgEssential(args)
 	return dpkgessential.get_essential_command()
 
+def get_debdep(args,debs,depmap):
+	if type(debs) is list:
+		for d in debs:
+			dpkgname = DpkgDebName(args)
+			name = dpkgname.get_deb_name(d)
+			if name not in depmap.keys():
+				dpkgdebdep = DpkgDebDep(args)
+				debdeps = dpkgdebdep.get_deb_dep(d)
+				depmap[name] = debdeps	
+				logging.info('(%s): (%s)'%(name,debdeps))
+	else:
+		dpkgname = DpkgDebName(args)
+		name = dpkgname.get_deb_name(debs)
+		if name not in depmap.keys():
+			dpkgdebdep = DpkgDebDep(args)
+			debdeps = dpkgdebdep.get_deb_dep(debs)
+			depmap[name] = debdeps
+			logging.info('(%s): (%s)'%(name,debdeps))
+	return depmap
+
+def get_debname(args,pkgs,debmap):
+	if type(pkgs) is list:
+		for p in pkgs:
+			if p not in debmap.values():
+				dpkgname = DpkgDebName(args)
+				name = dpkgname.get_deb_name(p)
+				if len(name) > 0 :
+					if name not in debmap.keys():
+						debmap[name] = []
+					debmap[name].append(p)
+	else:
+		if pkgs not in debmap.values():
+			dpkgname = DpkgDebName(args)
+			name = dpkgname.get_deb_name(pkgs)
+			if len(name) > 0:
+				if name not in debmap.keys():
+					debmap[name] = []
+				debmap[name].append(pkgs)
+	return debmap
+
+
+
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser.add_argument('-v','--verbose',default=0,action='count')
@@ -616,6 +769,10 @@ def main():
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
 	rc_parser = sub_parser.add_parser('rc',help='get rcs')
 	essential_parser =sub_parser.add_parser('essentials',help='get essential')
+	debdep_parser = sub_parser.add_parser('debdep',help='get dep of deb')
+	debdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
+	debname_parser = sub_parser.add_parser('debname',help='get dep of deb')
+	debname_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get name')
 
 	args = parser.parse_args()	
 
@@ -644,11 +801,22 @@ def main():
 	elif args.command == 'essentials':
 		getpkgs = get_essentials(args)
 		args.pkgs = ''
+	elif args.command == 'debdep':
+		if len(args.pkgs) < 1:
+			Usage(3,'packages need',parser)		
+		maps = get_debdep(args,args.pkgs,maps)
+		args.pkgs = maps.keys()
+	elif args.command == 'debname':
+		if len(args.pkgs) < 1:
+			Usage(3,'packages need',parser)
+		maps = get_debname(args,args.pkgs,maps)
+		args.pkgs = maps.keys()
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
-	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' or args.command == 'essentials':
+	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' \
+	   or args.command == 'essentials':
 		format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
-	if args.command == 'dep'  or args.command == 'rdep' :
+	if args.command == 'dep'  or args.command == 'rdep' or args.command == 'debdep' or args.command == 'debname':
 		output_map(args.pkgs,maps,'::%s::'%(args.command))
 	return
 
