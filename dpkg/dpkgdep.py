@@ -893,7 +893,7 @@ def get_debname(args,pkgs,debmap):
 
 mount_dirs=['/sys','/proc','/tmp']
 make_dirs=['/var/tmp','/sys','/proc','/tmp']
-sudo_root_files=['/usr/bin/sudo','/usr/lib/sudo/sudoers.so','/etc/sudoers']
+sudo_root_files=['/usr/bin/sudo','/usr/lib/sudo/sudoers.so','/etc/sudoers','/etc/sudoers.d']
 sudo_s_files=['/usr/bin/sudo']
 
 def environment_before(args):
