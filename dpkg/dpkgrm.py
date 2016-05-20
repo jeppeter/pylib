@@ -197,16 +197,7 @@ def Usage(ec,fmt,parser):
 
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
-	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
-	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
-	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
-	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
-	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
-	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
-	parser.add_argument('-m','--mount',dest='dpkg_mount',default='mount',action='store',help='mount specified')
-	parser.add_argument('-u','--umount',dest='dpkg_umount',default='umount',action='store',help='umount specified')
+	dpkgdep.add_dpkg_args(parser)
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')

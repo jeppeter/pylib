@@ -502,6 +502,8 @@ class DpkgUtils(DpkgBase):
 		self.dpkg_umount = 'umount'
 		self.dpkg_sudoprefix = 'sudo'
 		self.dpkg_root = '/'
+		self.dpkg_chown = 'chown'
+		self.dpkg_chmod = 'chmod'
 		self.get_all_attr_self(args)
 		return
 
@@ -551,6 +553,43 @@ class DpkgUtils(DpkgBase):
 		except os.OSErr as e:
 			logging.warn('can not remove (%s) error(%s)'%(mdir,e))
 		return
+
+	def chown(self,fileordir,ownid,grpid=-1):
+		if self.dpkg_root == '/':
+			return
+		if grpid < 0:
+			grpid = ownid
+		fdir = '%s%s%s'%(self.dpkg_root,os.sep,fileordir)
+		cmd = ''
+		if os.path.isdir(fdir):
+			cmd += '"%s" "%s" "%d:%d" -R "%s"'%(self.dpkg_sudoprefix,self.dpkg_chown,ownid,grpid,fdir)
+		elif os.path.isfile(fdir):
+			cmd += '"%s" "%s" "%d:%d" "%s"'%(self.dpkg_sudoprefix,self.dpkg_chown,ownid,grpid,fdir)
+		else:
+			logging.info('%s not valid'%(fdir))
+			return
+		retval = cmdpack.run_command_callback(cmd,None,None)
+		if retval !=0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmd))
+		return
+
+	def setuid(self,fileordir):
+		if self.dpkg_root == '/':
+			return
+		fdir = '%s%s%s'%(self.dpkg_root,os.sep,fileordir)
+		cmd = ''
+		if os.path.isfile(fdir):
+			cmd += '"%s" "%s" u+s "%s"'%(self.dpkg_sudoprefix,self.dpkg_chmod,fdir)
+		else:
+			logging.info('%s not valid'%(fdir))
+			return
+		logging.info('run (%s)'%(cmd))
+		retval = cmdpack.run_command_callback(cmd,None,None)
+		if retval !=0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmd))
+		return
+
+
 
 
 
@@ -854,15 +893,22 @@ def get_debname(args,pkgs,debmap):
 
 mount_dirs=['/sys','/proc','/tmp']
 make_dirs=['/var/tmp','/sys','/proc','/tmp']
+sudo_root_files=['/usr/bin/sudo','/usr/lib/sudo/sudoers.so','/etc/sudoers']
+sudo_s_files=['/usr/bin/sudo']
 
 def environment_before(args):
 	global mount_dirs
 	global make_dirs
+	global sudo_root_files
 	utils = DpkgUtils(args)
 	for d in make_dirs:
 		utils.mkdir(d)
 	for d in mount_dirs:
 		utils.mount_dir(d)
+	for d in sudo_root_files:
+		utils.chown(d,0,0)
+	for d in sudo_s_files:
+		utils.setuid(d)
 	return
 
 def environment_after(args):
@@ -872,15 +918,28 @@ def environment_after(args):
 		utils.umount_dir(d)
 	return
 
+def add_dpkg_args(parser):
+	parser.add_argument('-v','--verbose',default=0,action='count')
+	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
+	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
+	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
+	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
+	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
+	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
+	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
+	parser.add_argument('-D','--directory',dest='directory',default=os.path.abspath('.'),action='store',help='directory for download')
+	parser.add_argument('-R','--reserved',dest='dpkg_reserved',default=False,action='store_true',help='not delete files')
+	parser.add_argument('--norollback',dest='dpkg_rollback',default=True,action='store_false',help='to rollback when failed')
+	parser.add_argument('-m','--mount',dest='dpkg_mount',default='mount',action='store',help='mount specified')
+	parser.add_argument('-u','--umount',dest='dpkg_umount',default='umount',action='store',help='umount specified')
+	parser.add_argument('--chown',dest='dpkg_chown',default='chown',action='store',help='chown specified')
+	parser.add_argument('--chmod',dest='dpkg_chmod',default='chmod',action='store',help='chmod specified')
+	return parser
 
 
 def main():
 	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
-	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
-	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
-	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
+	add_dpkg_args(parser)
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
@@ -893,6 +952,7 @@ def main():
 	debdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
 	debname_parser = sub_parser.add_parser('debname',help='get dep of deb')
 	debname_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get name')
+	prepare_parser = sub_parser.add_parser('prepare',help='get prepare')	
 
 	args = parser.parse_args()	
 
@@ -934,6 +994,11 @@ def main():
 			curpath = maps[k]
 			maps[k] = [curpath]
 		args.pkgs = maps.keys()
+	elif args.command == 'prepare':
+		try:
+			environment_before(args)
+		finally:
+			environment_after(args)
 	else:
 		Usage(3,'can not get %s'%(args.command),parser)
 	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' \
