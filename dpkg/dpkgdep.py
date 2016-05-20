@@ -496,6 +496,64 @@ class DpkgDebName(DpkgDebInfoBase):
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_name()
 
+class DpkgUtils(DpkgBase):
+	def __init__(self,args):
+		self.dpkg_mount = 'mount'
+		self.dpkg_umount = 'umount'
+		self.dpkg_sudoprefix = 'sudo'
+		self.dpkg_root = '/'
+		self.get_all_attr_self(args)
+		return
+
+	def mount_dir(self,directory):
+		if self.dpkg_root == '/':
+			return
+		mdir = '%s%s%s'%(self.dpkg_root,os.sep,directory)
+		if os.path.ismount(mdir):
+			logging.warn('%s mount already'%(mdir))
+			return
+		cmds = '"%s" "%s" --bind "%s" "%s"'%(self.dpkg_sudoprefix,self.dpkg_mount,directory,mdir)
+		retval = cmdpack.run_command_callback(cmds,None,None)
+		if retval != 0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmds))
+		return
+
+	def umount_dir(self,directory):
+		if self.dpkg_root == '/':
+			return
+		dmount = '%s%s%s'%(self.dpkg_root,os.sep,directory)
+		if not os.path.ismount(dmount):
+			logging.warn('(%s) not mount'%(dmount))
+			return
+		cmds = '"%s" "%s" "%s"'%(self.dpkg_sudoprefix,self.dpkg_umount,dmount)
+		retval = cmdpack.run_command_callback(cmds,None,None)
+		if retval != 0:
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmds))
+		return
+
+	def mkdir(self,directory):
+		if self.dpkg_root == '/':
+			return
+		mdir = '%s%s%s'%(self.dpkg_root,os.sep,directory)
+		if os.path.isdir(mdir):
+			return
+		os.makedirs(mdir)
+		return
+
+	def rmdir(self,directory):
+		if self.dpkg_root == '/':
+			return
+		mdir = '%s%s%s'%(self.dpkg_root,os.sep,directory)
+		if not os.path.isdir(mdir):
+			return
+		try:
+			os.rmdir(mdir)
+		except os.OSErr as e:
+			logging.warn('can not remove (%s) error(%s)'%(mdir,e))
+		return
+
+
+
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -793,6 +851,26 @@ def get_debname(args,pkgs,debmap):
 		if len(name) > 0:
 			debmap[name]=os.path.abspath(pkgs)
 	return debmap
+
+mount_dirs=['/sys','/proc','/tmp']
+make_dirs=['/var/tmp','/sys','/proc','/tmp']
+
+def environment_before(args):
+	global mount_dirs
+	global make_dirs
+	utils = DpkgUtils(args)
+	for d in make_dirs:
+		utils.mkdir(d)
+	for d in mount_dirs:
+		utils.mount_dir(d)
+	return
+
+def environment_after(args):
+	global mount_dirs
+	utils = DpkgUtils(args)
+	for d in mount_dirs:
+		utils.umount_dir(d)
+	return
 
 
 

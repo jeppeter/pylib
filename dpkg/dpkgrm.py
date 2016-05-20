@@ -54,6 +54,7 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 			self.__callidx -= 1
 			return deleted,[pkg],insts,maps
 		rdeps,maps = dpkgdep.get_all_rdeps([pkg],args,insts,maps)
+		logging.info('[%d](%s) rdeps(%s)'%(self.__callidx,pkg,rdeps))
 		if self.__callidx > 50:
 			logging.info('[%d] (%s) rdeps (%s)'%(self.__callidx,pkg,rdeps))
 		retpkgs = []
@@ -129,7 +130,7 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		return rmpkgs
 
 	def __purge_rc_inner(self,pkg):
-		cmds = '"%s" "%s" --root "%s" --purge "%s" '%(self.dpkg_sudoprefix,self.dpkg_dpkg,self.dpkg_root,pkg)
+		cmds = '"%s" "%s" "%s" "%s" --purge "%s" '%(self.dpkg_sudoprefix,self.dpkg_chroot,self.dpkg_root,self.dpkg_dpkg,pkg)
 		logging.info('run (%s)'%(cmds))
 		retval = cmdpack.run_command_callback(cmds,None,None)
 		if retval != 0 :
@@ -148,16 +149,17 @@ class DpkgRmBase(dpkgdep.DpkgBase):
 		rdepmaps = dict()
 		rmpkgs = []
 		for p in pkgs:
-			rdeps,rdepmaps = dpkgdep.get_all_rdeps([p],args,insts,rdepmaps)
+			rdeps,rdepmaps = dpkgdep.get_all_rdeps([p],args,allinsts,rdepmaps)
 			for cp in rdeps:
-				if cp not in rmpkgs:
+				if (cp not in rmpkgs) and (cp in allinsts):
 					rmpkgs.append(cp)
-			if p not in rmpkgs:
+			if (p not in rmpkgs) and (p in allinsts):
 				rmpkgs.append(p)
+		logging.info('(%s)rmpkgs (%s)'%(pkgs,rmpkgs))
 		while len(rmpkgs) > 0:
 			logging.info('rm (%s)'%(rmpkgs[0]))
 			deleted,retpkgs,allinsts,rdepmaps = self.__remove_recursive(args,rmpkgs[0],essentials,allinsts,rdepmaps)
-			newallrdeps = []
+			logging.info('rm (%s) retpkgs(%s)'%(rmpkgs[0],retpkgs))
 			for p in retpkgs:
 				if p  in rmpkgs:
 					rmpkgs.remove(p)
@@ -203,6 +205,8 @@ def main():
 	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
 	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
 	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
+	parser.add_argument('-m','--mount',dest='dpkg_mount',default='mount',action='store',help='mount specified')
+	parser.add_argument('-u','--umount',dest='dpkg_umount',default='umount',action='store',help='umount specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
 	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
@@ -217,16 +221,21 @@ def main():
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	if args.command == 'exrm':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		getpkgs = remove_exclude(args)
-	elif args.command == 'rm':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		getpkgs = remove_exclude(args)
-	else:
-		Usage(3,'can not get %s'%(args.command),parser)
+	try:		
+		if args.command == 'exrm':
+			if len(args.pkgs) < 1:
+				Usage(3,'packages need',parser)
+			dpkgdep.environment_before(args)
+			getpkgs = remove_exclude(args)
+		elif args.command == 'rm':
+			if len(args.pkgs) < 1:
+				Usage(3,'packages need',parser)
+			dpkgdep.environment_before(args)
+			getpkgs = remove_package(args)
+		else:
+			Usage(3,'can not get %s'%(args.command),parser)
+	finally:
+		dpkgdep.environment_after(args)
 	return
 
 if __name__ == '__main__':

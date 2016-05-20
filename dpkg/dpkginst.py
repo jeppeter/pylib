@@ -309,6 +309,8 @@ def main():
 	parser.add_argument('-D','--directory',dest='directory',default=os.path.abspath('.'),action='store',help='directory for download')
 	parser.add_argument('-R','--reserved',dest='dpkg_reserved',default=False,action='store_true',help='not delete files')
 	parser.add_argument('--norollback',dest='dpkg_rollback',default=True,action='store_false',help='to rollback when failed')
+	parser.add_argument('-m','--mount',dest='dpkg_mount',default='mount',action='store',help='mount specified')
+	parser.add_argument('-u','--umount',dest='dpkg_umount',default='umount',action='store',help='umount specified')
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	inst_parser = sub_parser.add_parser('inst',help='to install packages')
 	inst_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
@@ -321,14 +323,18 @@ def main():
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	if args.command == 'inst':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		logging.info('pkgs (%s)'%(args.pkgs))
-		args.directory = os.path.abspath(args.directory)
-		getpkgs = cmd_install_pkgs(args,args.pkgs,args.directory)
-	else:
-		Usage(3,'can not get %s'%(args.command),parser)
+	try:
+		if args.command == 'inst':
+			if len(args.pkgs) < 1:
+				Usage(3,'packages need',parser)
+			logging.info('pkgs (%s)'%(args.pkgs))
+			args.directory = os.path.abspath(args.directory)
+			dpkgdep.environment_before(args)
+			getpkgs = cmd_install_pkgs(args,args.pkgs,args.directory)
+		else:
+			Usage(3,'can not get %s'%(args.command),parser)
+	finally:
+		dpkgdep.environment_after(args)
 	return
 
 if __name__ == '__main__':
