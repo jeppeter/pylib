@@ -1,4 +1,16 @@
 #!/bin/sh
 
 python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm libgnome-menu-3-0 cups-common  gir1.2-ebookcontacts-1.2 libx11-6 libgnome-keyring0 libqtcore4 libunity9 gir1.2-glib-2.0 qtcore4-l10n  libavahi-common3 libgeoip1 libasound2 network-manager
-python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm libsqlite3-0 gcc-4.8-base ucf locales
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm libsqlite3-0 gcc-4.8-base ucf locales libgdbm3 libffi6 cups-server-common busybox-static alsa-base jfsutils empathy-common
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm fonts-dejavu-core fonts-droid fonts-freefont-ttf fonts-kacst fonts-kacst-one fonts-khmeros-core fonts-lao fonts-liberation \
+ fonts-lklug-sinhala fonts-nanum fonts-opensymbol fonts-sil-abyssinica fonts-sil-padauk fonts-takao-pgothic fonts-thai-tlwg fonts-tibetan-machine fonts-tlwg-garuda fonts-tlwg-kinnari fonts-tlwg-loma fonts-tlwg-mono \
+ fonts-tlwg-norasi fonts-tlwg-purisa fonts-tlwg-sawasdee fonts-tlwg-typewriter fonts-tlwg-typist fonts-tlwg-typo fonts-tlwg-umpush fonts-tlwg-waree gsfonts libfontembed1 libfontenc1 libxfont1 ttf-indic-fonts-core \
+ ttf-punjabi-fonts ttf-ubuntu-font-family xfonts-base xfonts-encodings xfonts-mathml xfonts-scalable xfonts-utils 
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm gnome-desktop3-data  gnome-control-center-shared-data app-install-data
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm linux-image-extra-`uname -r` linux-firmware sphinx-voxforge-hmm-en libc6-dbg libc6-dev linux-image-`uname -r`
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm linux-headers-4.2.0-27 iso-codes linux-headers-`uname -r` poppler-data binutils libopencc1 ubuntu-wallpapers-trusty libgutenprint2 example-content
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm liblouis-data sphinx-voxforge-lm-en gnome-accessibility-themes libgs9-common xcursor-themes command-not-found-data geoip-database linux-libc-dev libtcl8.6 dmz-cursor-theme 
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm openssh-client python2.7-minimal libpython3.4-minimal syslinux-common libsnmp30 libreoffice-style-human libsane-common
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm libssl1.0.0 libvorbisenc2 xkb-data libmagic1 krb5-locales xfsprogs libpython2.7-minimal memtest86+ btrfs-tools oxideqt-codecs
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm keyboard-configuration firefox-locale-es espeak-data yelp-xsl manpages-dev isc-dhcp-common libxml2 libvpx1 ubiquity-slideshow-ubuntu zenity-common
+python3 pylib/dpkg/dpkgrm.py -vvvv --root /home/wrc/source/rescueiso/iso/ubdesk_inst/ rm e2fsprogs gnupg libgtksourceview-3.0-common libmtp-common libx11-data iptables libsamplerate0 liblangtag-common hicolor-icon-theme libglib2.0-data libisl10 branding-ubuntu
