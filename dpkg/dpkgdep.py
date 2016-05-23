@@ -687,7 +687,7 @@ def output_map(pkgs,maps,outstr):
 			continue
 		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
 		if p not in outdeps:
-			outdeps.append(cp)
+			outdeps.append(p)
 
 	for p in alldeps:
 		if p in outdeps:
@@ -696,7 +696,7 @@ def output_map(pkgs,maps,outstr):
 			continue
 		__format_output_max([p],maps[p],'%s %s'%(p,outstr),pmax,gmax)
 		if p not in outdeps:
-			outdeps.append(cp)
+			outdeps.append(p)
 	return
 
 def form_map_list(depmap,pkg):
