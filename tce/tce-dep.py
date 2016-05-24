@@ -22,9 +22,7 @@ class TceDepBase(tcebasic.TceBase):
 		return
 
 	def get_input(self,l):
-		l = l.rstrip(' \t')
-		l = l.rstrip('\r\n')
-		l = l.strip(' \t')
+		l = self.strip_line(l)
 		if len(l) > 0:
 			if l not in self.__deps:
 				self.__deps.append(l)
@@ -32,6 +30,19 @@ class TceDepBase(tcebasic.TceBase):
 
 	def get_depend(self):
 		return self.__deps
+
+
+class TceAvailBase(tcebasic.TceBase):
+	def __init__(self):
+		self.__avails = []
+		self.__started = False
+		self.__htmlformat = False
+		
+		return
+
+	def get_input(self,l):
+		l = self.strip_line(l)
+		if 
 
 
 def filter_context(instr,context):
@@ -46,7 +57,7 @@ class TceDep(TceDepBase):
 		return
 
 	def get_deps(self,pkg):
-		depfile = '%s/%s.tcz.dep'%(self.tce_optional,pkg)
+		depfile = '%s/%s/%s.tcz.dep'%(self.tce_root,self.tce_optional_dir,pkg)
 		cmd = ''
 		if os.path.isfile(deffile):
 			cmd += '"%s" "%s" "%s"'%(self.tce_sudoprefix,self.tce_cat,depfile)
@@ -62,6 +73,68 @@ class TceDep(TceDepBase):
 				return []
 		return self.get_depend()
 
+def format_map_list(maps ,pkg):
+	retlists = []
+	if pkg not in maps.key():
+		return retlists
+	for p in maps[pkg]:
+		if p not in retlists:
+			retlists.append(p)
+	slen = len(retlists)
+	while True:
+		for p in retlists:
+			if p not in maps.key():
+				continue
+			for cp in maps[p]:
+				if cp not in retlists:
+					retlists.append(cp)
+		clen = len(retlists)
+		if clen == slen:
+			break
+		slen = clen
+	return retlists
+
+def get_available(args):
+
+
+def get_dep(args,pkgs,depmap):
+	scaned = 0
+	alldeps = []
+	for p in pkgs:
+		if p in depmap.keys():
+			continue
+		tcedep = TceDep(args)
+		depmap[p] = tcedep.get_deps(p)
+
+	for p in pkgs:
+		retlists = format_map_list(depmap,p)
+		for cp in retlists:
+			if cp not in alldeps:
+				alldeps.append(cp)
+	slen = len(alldeps)
+	while True:
+		for p in alldeps:
+			if p not in depmap.key():
+				tcedep = TceDep(args)
+				depmap[p] = tcedep.get_deps()
+		newdeps = []
+		for p in alldeps:
+			newdeps.append(p)
+
+		for p in alldeps:
+			retlists = format_map_list(depmap,p)
+			for cp in retlists:
+				if cp not in newdeps:
+					newdeps.append(cp)
+		clen = newdeps
+		if clen == slen:
+			break
+		alldeps = []
+		for p in newdeps:
+			alldeps.append(p)
+		slen = clen
+	return alldeps,depmap
+
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -72,29 +145,11 @@ def Usage(ec,fmt,parser):
 	parser.print_help(fp)
 	sys.exit(ec)
 
-def add_tce_args(parser):
-	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-r','--root',dest='tce_root',default=None,action='store',help='root of dpkg specified')
-	parser.add_argument('-M','--mirror',dest='tce_mirror',default=None,action='store',help='mirror site specify')
-	parser.add_argument('-c','--cat',dest='tce_cat',default=None,action='store',help='cat specified')
-	parser.add_argument('-C','--chroot',dest='tce_chroot',default=None,action='store',help='chroot specified')
-	parser.add_argument('-t','--try',dest='tce_trymode',default=None,action='store_true',help='try mode')
-	parser.add_argument('-m','--mount',dest='tce_mount',default=None,action='store',help='mount specified')
-	parser.add_argument('-u','--umount',dest='tce_umount',default=None,action='store',help='umount specified')
-	parser.add_argument('--chown',dest='tce_chown',default=None,action='store',help='chown specified')
-	parser.add_argument('--chmod',dest='tce_chmod',default=None,action='store',help='chmod specified')
-	parser.add_argument('-j','--json',dest='tce_jsonfile',default=None,action='store',help='to make json file as input args')
-	return parser
-
-
-def load_tce_jsonfile(args):
-	if args.tce_jsonfile is None:
-		# now we should 
 
 
 def main():
 	parser = argparse.ArgumentParser(description='tce encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	add_tce_args(parser)
+	tcebasic.add_tce_args(parser)
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
@@ -103,7 +158,20 @@ def main():
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
 	all_parser = sub_parser.add_parser('all',help='get all available')
 	args = parser.parse_args()	
-	load_tce_jsonfile(args)
+	args = tcebasic.load_tce_jsonfile(args)
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+
+	if args.command == 'dep':
+	elif args.command == 'rdep':
+	elif args.command == 'inst':
+	elif args.command == 'all' :
+	else:
+		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'command (%s) not recognized'%(args.command))
 
 	return
 
