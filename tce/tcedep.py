@@ -106,9 +106,7 @@ class TceTreeBase(tcebase.TceBase):
 	def __pop_out_inner(self):
 		if len(self.__deppaths) == 0:
 			return False
-		if len(self.__deppaths) != (len(self.__deplists) + 1):
-			logging.error('deppaths (%d) deplists %d'%(len(self.__deppaths),len(self.__deplists)))
-			assert(len(self.__deppaths) == (len(self.__deplists) + 1))
+		assert(len(self.__deppaths) == (len(self.__deplists) + 1))
 		depmain = self.__deppaths.pop()
 		deps = self.__curdeps
 		if depmain not in self.__depmaps.keys():
@@ -125,9 +123,7 @@ class TceTreeBase(tcebase.TceBase):
 		if len(self.__deppaths) == 0:
 			return
 		assert(len(self.__deppaths) > 0)
-		if len(self.__curdeps) == 0 :
-			logging.info('(%s) curdeps 0'%(self.__deppaths))
-			assert(len(self.__curdeps) > 0)
+		assert(len(self.__curdeps) > 0)
 		retval = True
 		while cnt < len(self.__deppaths) and retval:
 			retval = self.__pop_out_inner()
@@ -173,22 +169,17 @@ class TceTreeBase(tcebase.TceBase):
 		curtcz = m[0]
 		nstep = cnt / self.tce_perspace
 		if nstep > len(self.__deppaths):
-			logging.info('[%d]push %s'%(self.__lineno,curtcz))
 			self.__push_in(curtcz)
 		elif nstep < len(self.__deppaths):
-			logging.info('[%d]pop %s'%(self.__lineno,curtcz))
 			self.__pop_out(nstep,curtcz)
 		else:
 			if nstep == 0:
-				logging.info('[%d]setmain %s'%(self.__lineno,curtcz))
 				assert(len(self.__deppaths) == 0)
 				if curtcz is not None:
 					self.__deppaths.append(curtcz)
 			else:
-				logging.info('[%d]append %s'%(self.__lineno,curtcz))
 				if curtcz not in self.__curdeps:
 					self.__curdeps.append(curtcz)
-
 		return
 
 	def get_dep_map(self):
@@ -201,12 +192,12 @@ class TceTreeFormat(tcebase.TceBase):
 	def __init__(self,args):
 		self.__depmaps = dict()
 		self.set_tce_attrs(args)
+		self.__callidx = 0
 		return
 
 	def __format_out(self):
 		s = ''
 		cnt = 0
-		logging.info('keys %s'%(self.__depmaps.keys()))
 		for p in self.__depmaps.keys():
 			s += '%s.tcz\n'%(p)
 			logging.info('(%s) = %s'%(p,self.__depmaps[p]))
@@ -217,10 +208,28 @@ class TceTreeFormat(tcebase.TceBase):
 			cnt += 1
 		return s
 
-	def format_out(self,depmaps=None):
+	def __format_pkg_out(self,spaces,pkg):
+		s = ''
+		if spaces > 50:
+			logging.error('most calling (%s)'%(pkg))
+			return ''
+		if pkg in self.__depmaps.keys():
+			s += ' '* spaces * self.tce_perspace
+			s += '%s.tcz\n'%(pkg)
+			deps = self.__depmaps[pkg]
+			for cp in deps:
+				s += self.__format_pkg_out(spaces+1,cp)
+		return s
+
+	def format_out(self,depmaps=None,pkg=None):
+		traversed = []
 		if depmaps is not None:
 			self.__depmaps = depmaps
-		return self.__format_out()
+		if pkg is None:
+			s = self.__format_out()
+		else:
+			s = self.__format_pkg_out(0,pkg)
+		return s
 
 
 def filter_context(instr,context):
@@ -376,16 +385,16 @@ def get_rdep(args,pkgs,depmaps,rdepmaps):
 		slen = clen
 	return allrdeps,depmaps,rdepmaps
 
-def get_dep_tree(args,treefiles):
+def get_dep_tree(args,treefiles,listpkg=None):
 	deptree = TceTree(args)	
 	depmaps = dict()
 	for p in treefiles:
 		depmaps = deptree.get_dep_tree(p,depmaps)
 	return depmaps
 
-def format_tree(args,depmaps,outfile=None):
+def format_tree(args,depmaps,listpkg=None,outfile=None):
 	formattree = TceTreeFormat(args)
-	s = formattree.format_out(depmaps)
+	s = formattree.format_out(depmaps,listpkg)
 	fp = sys.stdout
 	if outfile is not None:
 		fp = open(outfile,'w')
@@ -419,6 +428,7 @@ def main():
 	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
 	tree_parser = sub_parser.add_parser('tree',help='get dep from tree files')
 	tree_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='files parse dep tree')
+	tree_parser.add_argument('--list',dest='listpkg',action='store',default=None,help='specified the list pkg')
 	inst_parser = sub_parser.add_parser('inst',help='get installed')
 	all_parser = sub_parser.add_parser('all',help='get all available')
 	args = parser.parse_args()	
@@ -447,7 +457,7 @@ def main():
 		if len(args.pkgs) < 1:
 			Usage(3,parser,'%s need a package at least'%(args.command))
 		maps = get_dep_tree(args,args.pkgs)
-		format_tree(args,maps)
+		format_tree(args,maps,args.listpkg)
 	elif args.command == 'all' :
 		getpkgs = get_available(args)
 		args.pkgs = ''
