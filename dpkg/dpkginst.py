@@ -9,11 +9,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import dpkgdep
 import cmdpack
 import dbgexp
+import dpkgbase
+import extargsparse
 
-class DpkgDownloadBase(dpkgdep.DpkgBase):
+class DpkgDownloadBase(dpkgbase.DpkgBase):
 	def __init__(self,args):
 		self.__args = args
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		self.__callidx = 0
 		return
 
@@ -41,11 +43,11 @@ class DpkgDownloadBase(dpkgdep.DpkgBase):
 			os.chdir(lastpwd)
 		return debnamemap
 
-class DpkgInstallBase(dpkgdep.DpkgBase):
+class DpkgInstallBase(dpkgbase.DpkgBase):
 	def __init__(self,args):
 		self.__args = args
 		self.__insted = []
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		self.__callidx = 0
 		return
 
@@ -281,20 +283,19 @@ def Usage(ec,fmt,parser):
 
 
 def main():
-	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	dpkgdep.add_dpkg_args(parser)
+	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
+	parser = dpkgbase.add_dpkg_args(parser)
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	inst_parser = sub_parser.add_parser('inst',help='to install packages')
 	inst_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-
 	args = parser.parse_args()	
-
 	loglvl= logging.ERROR
 	if args.verbose >= 3:
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	args = dpkgbase.load_dpkg_jsonfile(args)
 	try:
 		if args.command == 'inst':
 			if len(args.pkgs) < 1:

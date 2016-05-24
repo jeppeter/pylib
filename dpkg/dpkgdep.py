@@ -10,6 +10,7 @@ import dbgexp
 import cmdpack
 import maphandle
 import dpkgbase
+import extargsparse
 
 
 class DpkgDependBase(dpkgbase.DpkgBase):
@@ -340,11 +341,7 @@ def filter_depends(instr,context):
 class DpkgDepends(DpkgDependBase):
 	def __init__(self,args):
 		super(DpkgDepends, self).__init__()
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_cat = 'cat'
-		self.dpkg_chroot = 'chroot'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def get_depend_command(self,pkgname):
@@ -358,11 +355,7 @@ class DpkgDepends(DpkgDependBase):
 class DpkgRDepends(DpkgRDependBase):
 	def __init__(self,args):
 		super(DpkgRDepends, self).__init__()
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_cat = 'cat'
-		self.dpkg_chroot = 'chroot'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def get_depend_command(self,pkgname):
@@ -376,11 +369,7 @@ class DpkgRDepends(DpkgRDependBase):
 class DpkgInst(DpkgInstBase):
 	def __init__(self,args):
 		super(DpkgInst, self).__init__()
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chroot = 'chroot'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		logging.info('root %s'%(self.dpkg_root))
 		return
 
@@ -398,11 +387,7 @@ class DpkgInst(DpkgInstBase):
 class DpkgRc(DpkgRcBase):
 	def __init__(self,args):
 		super(DpkgRc, self).__init__()
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chroot = 'chroot'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		logging.info('root %s'%(self.dpkg_root))
 		return
 
@@ -420,12 +405,7 @@ class DpkgRc(DpkgRcBase):
 class DpkgEssential(DpkgEssentailBase):
 	def __init__(self,args):
 		super(DpkgEssential, self).__init__()
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chroot = 'chroot'
-		self.dpkg_cat = 'cat'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def get_essential_command(self):
@@ -440,12 +420,7 @@ class DpkgEssential(DpkgEssentailBase):
 class DpkgDebDep(DpkgDebInfoBase):
 	def __init__(self,args):
 		super(DpkgDebDep, self).__init__()
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chroot = 'chroot'
-		self.dpkg_cat = 'cat'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def get_deb_dep(self,p):
@@ -459,12 +434,7 @@ class DpkgDebDep(DpkgDebInfoBase):
 class DpkgDebName(DpkgDebInfoBase):
 	def __init__(self,args):
 		super(DpkgDebName, self).__init__()
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chroot = 'chroot'
-		self.dpkg_cat = 'cat'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def get_deb_name(self,p):
@@ -477,13 +447,7 @@ class DpkgDebName(DpkgDebInfoBase):
 
 class DpkgUtils(dpkgbase.DpkgBase):
 	def __init__(self,args):
-		self.dpkg_mount = 'mount'
-		self.dpkg_umount = 'umount'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_chown = 'chown'
-		self.dpkg_chmod = 'chmod'
-		self.get_all_attr_self(args)
+		self.set_dpkg_attrs(args)
 		return
 
 	def mount_dir(self,directory):
@@ -785,28 +749,12 @@ def environment_after(args):
 		utils.umount_dir(d)
 	return
 
-def add_dpkg_args(parser):
-	parser.add_argument('-v','--verbose',default=0,action='count')
-	parser.add_argument('-r','--root',dest='dpkg_root',default='/',action='store',help='root of dpkg specified')
-	parser.add_argument('-a','--aptcache',dest='dpkg_aptcache',default='apt-cache',action='store',help='apt-cache specified')
-	parser.add_argument('-g','--aptget',dest='dpkg_aptget',default='apt-get',action='store',help='apt-get specified')
-	parser.add_argument('-c','--cat',dest='dpkg_cat',default='cat',action='store',help='cat specified')
-	parser.add_argument('-C','--chroot',dest='dpkg_chroot',default='chroot',action='store',help='chroot specified')
-	parser.add_argument('-d','--dpkg',dest='dpkg_dpkg' ,default='dpkg',action='store',help='dpkg specified')
-	parser.add_argument('-t','--try',dest='dpkg_trymode',default=False,action='store_true',help='try mode')
-	parser.add_argument('-D','--directory',dest='directory',default=os.path.abspath('.'),action='store',help='directory for download')
-	parser.add_argument('-R','--reserved',dest='dpkg_reserved',default=False,action='store_true',help='not delete files')
-	parser.add_argument('--norollback',dest='dpkg_rollback',default=True,action='store_false',help='to rollback when failed')
-	parser.add_argument('-m','--mount',dest='dpkg_mount',default='mount',action='store',help='mount specified')
-	parser.add_argument('-u','--umount',dest='dpkg_umount',default='umount',action='store',help='umount specified')
-	parser.add_argument('--chown',dest='dpkg_chown',default='chown',action='store',help='chown specified')
-	parser.add_argument('--chmod',dest='dpkg_chmod',default='chmod',action='store',help='chmod specified')
-	return parser
 
 
 def main():
-	parser = argparse.ArgumentParser(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	add_dpkg_args(parser)
+	usage_str='%s [options] {commands} pkgs...'%(sys.argv[0])
+	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
+	dpkgbase.add_dpkg_args(parser)
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
@@ -819,16 +767,16 @@ def main():
 	debdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
 	debname_parser = sub_parser.add_parser('debname',help='get dep of deb')
 	debname_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get name')
-	prepare_parser = sub_parser.add_parser('prepare',help='get prepare')	
-
-	args = parser.parse_args()	
-
+	prepare_parser = sub_parser.add_parser('prepare',help='get prepare')
+	args = parser.parse_args()
 	loglvl= logging.ERROR
 	if args.verbose >= 3:
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+
+	args = dpkgbase.load_dpkg_jsonfile(args)
 	maps = dict()
 	if args.command == 'dep':
 		if len(args.pkgs) < 1:
