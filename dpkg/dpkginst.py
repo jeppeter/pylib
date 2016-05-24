@@ -12,14 +12,6 @@ import dbgexp
 
 class DpkgDownloadBase(dpkgdep.DpkgBase):
 	def __init__(self,args):
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_aptget= 'apt-get'
-		self.dpkg_aptcache = 'apt-cache'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_trymode = False
-		self.dpkg_chroot = 'chroot'
-		self.dpkg_reserved = False
 		self.__args = args
 		self.get_all_attr_self(args)
 		self.__callidx = 0
@@ -51,14 +43,6 @@ class DpkgDownloadBase(dpkgdep.DpkgBase):
 
 class DpkgInstallBase(dpkgdep.DpkgBase):
 	def __init__(self,args):
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_aptget= 'apt-get'
-		self.dpkg_aptcache = 'apt-cache'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_trymode = False
-		self.dpkg_chroot = 'chroot'
-		self.dpkg_reserved = False
 		self.__args = args
 		self.__insted = []
 		self.get_all_attr_self(args)

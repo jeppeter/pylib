@@ -6,19 +6,13 @@ import logging
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import dpkgdep
+import dpkgbase
 import cmdpack
 import dbgexp
 
 
-class DpkgRmBase(dpkgdep.DpkgBase):
+class DpkgRmBase(dpkgbase.DpkgBase):
 	def __init__(self,args):
-		self.dpkg_dpkg = 'dpkg'
-		self.dpkg_aptget= 'apt-get'
-		self.dpkg_aptcache = 'apt-cache'
-		self.dpkg_sudoprefix = 'sudo'
-		self.dpkg_root = '/'
-		self.dpkg_trymode = False
-		self.dpkg_chroot = 'chroot'
 		self.get_all_attr_self(args)
 		self.__callidx = 0
 		return

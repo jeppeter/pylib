@@ -5,35 +5,14 @@ import sys
 import argparse
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import dbgexp
 import cmdpack
-
-class DpkgBase(object):
-	def __init__(self):
-		self.cmdline = ''
-		return
-	def resub(self,l):
-		newl = re.sub('\([^\(\)]*\)','',l)
-		newl = re.sub('[\s]+','',newl)
-		newl = re.sub(':([^\s:,]+)','',newl)
-		return newl
-
-	def get_attr_self(self,args,name):
-		dpname = 'dpkg_%s'%(name)
-		sname = 'dpkg_%s'%(name)
-		if getattr(args,dpname) is not None:
-			setattr(self,sname,getattr(args,dpname))
-		return
-
-	def get_all_attr_self(self,args):
-		for p in dir(args):
-			if p.startswith('dpkg_'):
-				name = p.replace('dpkg_','')
-				self.get_attr_self(args,name)
-		return
+import maphandle
+import dpkgbase
 
 
-class DpkgDependBase(DpkgBase):
+class DpkgDependBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__depmap = dict()
 		self.__pkg = ''
@@ -105,7 +84,7 @@ class DpkgDependBase(DpkgBase):
 
 
 
-class DpkgInstBase(DpkgBase):
+class DpkgInstBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__insts = []
 		self.__started = False
@@ -144,7 +123,7 @@ class DpkgInstBase(DpkgBase):
 		self.__started = False
 
 
-class DpkgRcBase(DpkgBase):
+class DpkgRcBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__rcs = []
 		self.__started = False
@@ -181,7 +160,7 @@ class DpkgRcBase(DpkgBase):
 	def reset_start(self):
 		self.__started = False
 
-class DpkgRDependBase(DpkgBase):
+class DpkgRDependBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__rdepmap = dict()
 		self.__pkg = ''
@@ -255,7 +234,7 @@ class DpkgRDependBase(DpkgBase):
 		return
 
 
-class DpkgEssentailBase(DpkgBase):
+class DpkgEssentailBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__essentials = []
 		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
@@ -293,7 +272,7 @@ class DpkgEssentailBase(DpkgBase):
 		return self.__essentials
 
 
-class DpkgDebInfoBase(DpkgBase):
+class DpkgDebInfoBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__name = ''
 		self.__version = ''
@@ -496,7 +475,7 @@ class DpkgDebName(DpkgDebInfoBase):
 			raise Exception('run (%s) error'%(cmds))
 		return self.get_name()
 
-class DpkgUtils(DpkgBase):
+class DpkgUtils(dpkgbase.DpkgBase):
 	def __init__(self,args):
 		self.dpkg_mount = 'mount'
 		self.dpkg_umount = 'umount'
@@ -648,7 +627,7 @@ def get_all_deps(pkgs,args,depmap):
 		if p not in depmap.keys():
 			logging.error('(%s) not in depmap'%(p))
 			continue
-		ndep = form_map_list(depmap,p)
+		ndep = maphandle.form_map_list(depmap,p)
 		for cp in ndep:
 			if cp not in alldeps:
 				alldeps.append(cp)
@@ -658,7 +637,7 @@ def get_all_deps(pkgs,args,depmap):
 	mod = 0
 	while True:
 		for p in alldeps:
-			ndep = form_map_list(depmap,p)
+			ndep = maphandle.form_map_list(depmap,p)
 			for cp in ndep:
 				if cp not in alldeps:
 					alldeps.append(cp)
@@ -681,7 +660,7 @@ def get_dep_noself(pkgs,args,depmap):
 		if p not in depmap.keys():
 			logging.error('(%s) not in depmap'%(p))
 			continue
-		ndep = form_map_list(depmap,p)
+		ndep = maphandle.form_map_list(depmap,p)
 		for cp in ndep:
 			if cp not in alldeps:
 				alldeps.append(cp)
@@ -689,7 +668,7 @@ def get_dep_noself(pkgs,args,depmap):
 	mod = 0
 	while True:
 		for p in alldeps:
-			ndep = form_map_list(depmap,p)
+			ndep = maphandle.form_map_list(depmap,p)
 			for cp in ndep:
 				if cp not in alldeps:
 					alldeps.append(cp)
@@ -891,9 +870,9 @@ def main():
 		Usage(3,'can not get %s'%(args.command),parser)
 	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' \
 	   or args.command == 'essentials':
-		format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
+		maphandle.format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
 	if args.command == 'dep'  or args.command == 'rdep' or args.command == 'debdep' or args.command == 'debname':
-		output_map(args.pkgs,maps,'::%s::'%(args.command))
+		maphandle.output_map(args.pkgs,maps,'::%s::'%(args.command))
 	return
 
 if __name__ == '__main__':
