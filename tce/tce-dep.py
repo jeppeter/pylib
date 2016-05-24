@@ -37,12 +37,44 @@ class TceAvailBase(tcebasic.TceBase):
 		self.__avails = []
 		self.__started = False
 		self.__htmlformat = False
-		
+		self.__htmlexpr = re.compile('^<html>.*',re.I)
+		self.__ahrefexpr = re.compile('^<a\s+href=("[^"]+")>([^<>]+)</a>',re.I)
+		self.__tczexpr = re.compile('(.*)\.tcz$',re.I)
+		return
+
+	def __get_tcz(self,l):
+		m = self.__tczexpr.findall(l)
+		if m and len(m) > 0:
+			if m[0] not in self.__avails:
+				self.__avails.append(m[0])
+		return
+
+	def __get_html_tcz(self,l):
+		m = self.__ahrefexpr.findall(l)
+		if m and len(m) > 0:
+			if len(m[0]) > 1:
+				self.__get_tcz(m[0][1])
 		return
 
 	def get_input(self,l):
 		l = self.strip_line(l)
-		if 
+		if not self.__started :
+			self.__started = True
+			if self.__htmlexpr.match(l):
+				self.__htmlformat True
+			if not self.__htmlformat :
+				self.__get_tcz(l)
+			return
+		if not self.__htmlformat:
+			self.__get_tcz(l)
+			return
+		else:
+			self.__get_html_tcz(l)
+			return
+		return
+
+	def get_avail(self):
+		return self.__avails
 
 
 def filter_context(instr,context):
@@ -63,7 +95,7 @@ class TceDep(TceDepBase):
 			cmd += '"%s" "%s" "%s"'%(self.tce_sudoprefix,self.tce_cat,depfile)
 		elif:
 			# nothing is ,so we download from the file
-			cmd += '"%s" -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_mirror,self.tce_version,self.tce_platform,pkg)
+			cmd += '"%s" -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_wget,self.tce_mirror,self.tce_version,self.tce_platform,pkg)
 		retval = cmdpack.run_command_callback(cmd,filter_context,self)
 		if retval != 0:
 			if retval != 8 :
@@ -72,6 +104,19 @@ class TceDep(TceDepBase):
 				logging.warn('%s not dep')
 				return []
 		return self.get_depend()
+
+
+class TceAvail(TceAvailBase):
+	def __init__(self):
+		super(TceAvail,self).__init__()
+		self.set_tce_attrs(args)
+
+	def get_avails(self):
+		cmd = '"%s" -q -O - %s/%s/%s/tcz/'%(self.tce_wget,self.tce_mirror,self.tce_version,self.tce_platform)
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0:
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return self.get_avail()
 
 def format_map_list(maps ,pkg):
 	retlists = []
@@ -95,7 +140,8 @@ def format_map_list(maps ,pkg):
 	return retlists
 
 def get_available(args):
-
+	tceavail = TceAvail(args)
+	return tceavail.get_avails()
 
 def get_dep(args,pkgs,depmap):
 	scaned = 0
@@ -165,13 +211,16 @@ def main():
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-
+	getpkgs = []
+	maps = dict()
 	if args.command == 'dep':
 	elif args.command == 'rdep':
 	elif args.command == 'inst':
 	elif args.command == 'all' :
+		getpkgs = get_available(args)
 	else:
 		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'command (%s) not recognized'%(args.command))
+	
 
 	return
 
