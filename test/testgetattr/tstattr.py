@@ -29,7 +29,35 @@ class AttrClass:
 		self.__dict__[keyname] = val
 
 
+class BasicCar:
+	def __init__(self,carname,parent):
+		self.__name = carname
+		self.__parent = parent
+		return
 
+	def drive(self):
+		print ('%s to drive (%s)'%(self.__name,self.__parent))
+		return
+
+class LuxuryCar(BasicCar):
+	def __init__(self,carname,parent):
+		BasicCar.__init__(self,carname,parent)
+		self.__name = carname
+		self.__parent = parent
+		return
+	def drive(self):
+		print ('(%s)driver luxury (%s)'%(self.__name,self.__parent))
+		return
+
+class RaceCar(BasicCar):
+	def __init__(self,carname,parent):
+		BasicCar.__init__(self,carname,parent)
+		self.__name = carname
+		self.__parent = parent
+		return
+	def drive(self):
+		print ('(%s)driver race (%s)'%(self.__name,self.__parent))
+		return
 
 
 
@@ -62,6 +90,11 @@ def main():
 	except:
 		ok = 1
 	assert(ok > 0)
+
+	race = RaceCar('go','farali')
+	lux = LuxuryCar('java','lv')
+	race.drive()
+	lux.drive()
 	return
 
 if __name__ == '__main__':
