@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 
 class ExtKeyParse:
-	readwords = ['cmdname','flagname','helpinfo','function','shortflag','prefix','origkey','iscmd','isflag']
+	readwords = ['cmdname','flagname','helpinfo','function','shortflag','prefix','origkey','iscmd','isflag','nargs']
 	def __parse(self,isflag):
 		flagmod = False
 		cmdmod = False
@@ -99,9 +99,21 @@ class ExtKeyParse:
 			self.__iscmd = True
 		if not flagmod and not cmdmod:
 			self.__isflag = True
-
 		return
 
+	def __get_inner_name(self,name):
+		innerkeyname = name
+		if name in self.__class__.readwords:
+			innerkeyname = '_%s__%s'%(self.__class__.__name__,name)
+		return innerkeyname
+
+	def __set_flag(key):
+		for k in self.__class__.readwords:
+			if k in key.keys():
+				if key[k] is not None:
+					innerkey = self.__get_inner_name(k)
+					self.__dict__[innerkey] = key[k]
+		return
 
 
 	def __init__(self,key,isflag=False):
@@ -113,6 +125,8 @@ class ExtKeyParse:
 		self.__prefix = None
 		self.__iscmd = False
 		self.__isflag = False
+		# we default is 1
+		self.__nargs = 1
 		self.__origkey = key
 		self.__helpexpr = re.compile('##([^#]+)##$',re.I)
 		self.__cmdexpr = re.compile('^([^\#\<\>\+\$]+)',re.I)
@@ -120,13 +134,15 @@ class ExtKeyParse:
 		self.__funcexpr = re.compile('<([^\<\>\#\$\| \t]+)>',re.I)
 		self.__flagexpr = re.compile('^([^\<\>\#\+\$ \t]+)',re.I)
 		self.__mustflagexpr = re.compile('^\$([^\$\+\#\<\>]+)',re.I)
-		self.__parse(isflag)
+		if isinstance(key,dict):
+			self.__set_flag(key)
+		else:
+			self.__parse(isflag)
 		return
 
 	def __getattr__(self,keyname):
-		if keyname in self.__class__.readwords:
-			keyname = '_%s__%s'%(self.__class__.__name__,keyname)
-		return self.__dict__[keyname]
+		innername = self.__get_inner_name(keyname)
+		return self.__dict__[innername]
 
 	def __setattr__(self,keyname,value):
 		if keyname in self.__class__.readwords:
@@ -147,6 +163,16 @@ class ExtKeyParse:
 		self.__iscmd = False
 		self.__isflag = True
 		return
+
+	def get_options(self):
+		opt = {}
+		for k in self.__class__.readwords:
+			innerkey = self.__get_inner_name(k)
+			if self.__dict__[innerkey]:
+				opt[k] = self.__dict__[innerkey]
+			else:
+				opt[k] = None
+		return opt
 
 
 class UnitTestCase(unittest.TestCase):
