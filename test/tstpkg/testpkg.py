@@ -11,9 +11,9 @@ def main():
 	classa = packtest.call_a_new()
 	classa2 = packtest.PackBase()
 
-	if not issubclass(classb.__class__,classa.__class__):
+	if not issubclass(classb.__class__,packtest.PackBase):
 		raise Exception('classb not subclass of classa')
-	if not issubclass(classb2.__class__,classa2.__class__):
+	if not issubclass(classb2.__class__,packtest.PackBase):
 		raise Exception('classb2 not subclass of classa2')
 	return
 

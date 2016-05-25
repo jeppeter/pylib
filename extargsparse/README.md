@@ -6,12 +6,12 @@
 import extargsparse
 commandline = '''
 {
-	'verbose|v' : '+',
-	'flag|f' : false,
+	'verbose|v##increment verbose mode##' : '+',
+	'flag|f## flag set##' : false,
 	'number|n' : 0,
 	'list|l' : [],
 	'string|s' : 'string_var',
-	'@' : {
+	'$' : {
 		'value' : [],
 		'nargs' : '*',
 		'type' : 'string'
@@ -57,7 +57,7 @@ commandline = '''
 	'dep' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -98,7 +98,7 @@ commandline = '''
 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -143,7 +143,7 @@ commandline = '''
 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -190,7 +190,7 @@ commandline = '''
 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -231,15 +231,16 @@ import os
 commandline = '''
 {
 	'verbose|v' : '+',
-	'@port|p' : {
+	'$port|p' : {
 		'value' : 3000,
 		'type' : 'int',
-		'nargs' : 1
+		'nargs' : 1 , 
+		'help' : 'port to connect'
 	},
 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -286,12 +287,13 @@ subnargs = ['cc','dd']
        'newone|N' : false
   } this will give the sub command with two flag (--get-connect or -c ) and ( --get-newone or -N ) default value is 'http://www.google.com' and False
 
-* if value is dict , the key start with '@' it means the flag description dict 
-  ** for example '@verbose|v' : {
+* if value is dict , the key start with '$' it means the flag description dict 
+  ** for example '$verbose|v' : {
   	'value' : 0,
   	'type' : '+',
-  	'nargs' : 0
-  }   it means --verbose or -v will be increment and default value 0 and need args is 0
+  	'nargs' : 0,
+  	'help' : 'verbose increment'
+  }   it means --verbose or -v will be increment and default value 0 and need args is 0  help (verbose increment)
 
 * if the value is dict ,the key start with '+' it means add more bundles of flags
   **  for example  	'+http' : {
@@ -303,11 +305,11 @@ subnargs = ['cc','dd']
   **  for example 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}  the dep_handler will call __main__ it is the main package ,other packages will make the name of it ,and the 
 	   args is the only one add
 
-* special flag '@' is for args in main command '@' for subnargs in sub command
+* special flag '$' is for args in main command '$' for subnargs in sub command
 
 
 * special flag --json for parsing args in json file in main command
@@ -316,13 +318,13 @@ subnargs = ['cc','dd']
    for example 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}  
     in dep.json
     {
     	'list' : ['jsonval1','jsonval2'],
     	'string' : 'jsonstring',
-    	'@' : ['narg1','narg2']
+    	'$' : ['narg1','narg2']
     }
 
 *** example
@@ -339,7 +341,7 @@ commandline = '''
 	'dep<__main__.dep_handler>' : {
 		'list|l' : [],
 		'string|s' : 's_var',
-		'@' : '+'
+		'$' : '+'
 	}
 }
 '''
@@ -378,7 +380,7 @@ subnargs = ['cc','dd']
    	 'dep' : {
    	 	'string' : 'jsonstring',
    	 	'list' : ['jsonlist1','jsonlist2'],
-   	 	'@' : ['jsonarg1','jsonarg2']
+   	 	'$' : ['jsonarg1','jsonarg2']
    	 },
    	 'port' : 6000,
    	 'verbose' : 4
@@ -394,7 +396,6 @@ subnargs = ['cc','dd']
       for sub command is for DEP_LIST for dep command --list
 
 
-
 * note the priority of command line is 
    **   command input
    **   command json file input
@@ -402,3 +403,9 @@ subnargs = ['cc','dd']
    **   environment json file input
    **   default value input by the load string
 
+
+* flag option key
+   **  value  the default value of flag
+   **  type it can be 'float' 'int' 'string' 'list' 'bool'
+   **  nargs it accept args '*' for any '?' 1 or 0 '+' equal or more than 1 , number is the number
+   **  help for the help information
