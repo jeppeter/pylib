@@ -9,33 +9,6 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import __key__ as keyparse
 
 
-class _GetType(object):
-	def __init__(self,v):
-		self.__type = type(v)
-		if isinstance(v,str):
-			self.__type = 'string'
-		elif isinstance(v,dict):
-			self.__type = 'dict'
-		elif isinstance(v,list):
-			self.__type = 'list'
-		elif isinstance(v,bool):
-			self.__type = 'bool'
-		elif isinstance (v,int):
-			self.__type = 'int'
-		elif isinstance(v ,float):
-			self.__type = 'float'
-		elif:
-			# we use default string
-			self.__type = 'string'
-		else:
-			raise Exception('(%s)unknown type (%s)'%(v,type(v)))
-		return
-
-	def get_type(self):
-		return self.__type
-
-	def __str__(self):
-		return self.__type
 
 
 class IntAction(argparse.Action):
@@ -79,56 +52,59 @@ class FloatAction(argparse.Action):
 
 
 class ExtArgParse(argparse.ArgumentParser):
-	def __get_opt_varname (self,prefix,keycls):
-		assert(keycls.flagname)
-		longopt = '--'
-		shortopt = None
-		optdest = ''
-		if len(prefix) > 0:
-			longopt += '%s_'%(prefix)
-			optdest += '%s_'%(prefix)
-
-		longopt += keycls.flagname
-		optdest += keycls.flagname
-		longopt = longopt.replace('_','-')
-		optdest = optdest.replace('-','_')
-		longopt = longopt.lower()
-		optdest = optdest.lower()
-		if keycls.shortflag:
-			shortopt = '-'
-			shortopt += keycls.shortflag
-
-		helpinfo = '%s set'%(optdest)
-		if keycls.helpinfo:
-			helpinfo = keycls.helpinfo
-		return longopt,shortopt,optdest,helpinfo
-
-
-	def __get_help_info(self,optdest,keycls,val):
-		tpcls = _GetType(v)
+	def __get_help_info(self,keycls):
 		helpinfo = ''
-		if str(typecls) == 'bool':
+		if keycls.type == 'bool':
 			if val :
-				helpinfo += '%s set false'%(optdest)
+				helpinfo += '%s set false'%(keycls.optdest)
 			else:
-				helpinfo += '%s set true'%(optdest)
-		elif str(typecls) == 'string' and val == '+':
-			helpinfo += '%s inc'%(optdest)
+				helpinfo += '%s set true'%(keycls.optdest)
+		elif keycls.type == 'string' and keycls.value == '+':
+			helpinfo += '%s inc'%(keycls.optdest)
 		else:
-			helpinfo += '%s set'%(optdest)
+			helpinfo += '%s set'%(keycls.optdest)
 		if keycls.helpinfo:
 			helpinfo = keycls.helpinfo
 		return helpinfo
 
-	def __load_command_line_string(self,prefix,keycls,v,curparser=None):
-		assert(keycls.flagname)
-		longopt ,shortopt,optdest = self.__get_opt_varname(prefix,keycls)
+	def __check_flag_insert(self,keycls,curparser=None):
+		if curparser :
+			for k in curparser.flags:
+				if k.flagname != '$' and keycls.flagname != '$':
+					if k.optdest == keycls.optdest:
+						return False
+				else k.flagname == keycls.flagname:
+					return False
+			curparser.flags.append(keycls)
+		else:
+			for k in self.__flags:
+				if k.flagname != '$' and keycls.flagname != '$':
+					if k.optdest == keycls.optdest:
+						return False
+				else k.flagname == keycls.flagname:
+					return False
+			self.__flags.append(keycls)
+		return True
+
+	def __check_flag_insert_mustsucc(self,keycls,curparser=None):
+		valid = self.__check_flag_insert(keycls,curparser)
+		if not valid:
+			cmdname = 'main'
+			if curparser:
+				cmdname = curparser.cmdname
+			raise Exception('(%s) already in command(%s)'%(keycls.flagname,cmdname))
+		return
+
+	def __load_command_line_string(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
 		putparser = self
 		if curparser is not None:
-			putparser = curparser
-
-		helpinfo = self.__get_help_info(optdest,keycls,v)
-		if v == '+':
+			putparser = curparser.parser
+		helpinfo = self.__get_help_info(keycls)
+		if keycls.value == '+':
 			if shortopt:
 				putparser.add_argument(shortopt,longopt,dest=optdest,default=0,action='count')
 			else:
@@ -138,53 +114,66 @@ class ExtArgParse(argparse.ArgumentParser):
 				putparser.add_argument(shortopt,longopt,dest=optdest,default=None,help=helpinfo)
 			else:
 				putparser.add_argument(longopt,dest=optdest,default=None,help=helpinfo)
-		return
+		return True
 
-	def __load_command_line_int(self,prefix,keycls,v,curparser=None):
-		longopt,shortopt,optdest = self.__get_opt_varname(prefix,keycls)
-		helpinfo = self.__get_help_info(optdest,keycls,v)
+	def __load_command_line_int(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
+		helpinfo = self.__get_help_info(keycls)
 		putparser = self
 		if curparser is not None:
-			putparser = curparser
+			putparser = curparser.parser
 
 		if shortopt :
 			putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action=IntAction,help=helpinfo)
 		else:
 			putparser.add_argument(longopt,dest=optdest,default=None,action=IntAction,help=helpinfo)
-		return
+		return True
 
 
-	def __load_command_line_float(self,prefix,keycls,v,curparser=None):
-		longopt,shortopt,optdest = self.__get_opt_varname(prefix,keycls)
-		helpinfo = self.__get_help_info(optdest,keycls,v)
+	def __load_command_line_float(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
+		helpinfo = self.__get_help_info(keycls)
 		putparser = self
 		if curparser is not None:
-			putparser = curparser
+			putparser = curparser.parser
+
 		if shortopt :
 			putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action=FloatAction,help=helpinfo)
 		else:
 			putparser.add_argument(longopt,dest=optdest,default=None,action=FloatAction,help=helpinfo)
-		return
+		return True
 
-	def __load_command_line_list(self,prefix,keycls,v,curparser=None):
-		longopt,shortopt,optdest = self.__get_opt_varname(prefix,keycls)
-		helpinfo = self.__get_help_info(optdest,keycls,v)
+	def __load_command_line_list(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
+		helpinfo = self.__get_help_info(keycls)
 		putparser = self
 		if curparser is not None:
-			putparser = curparser
+			putparser = curparser.parser
 		if shortopt :
 			putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action=ArrayAction,help=helpinfo)
 		else:
 			putparser.add_argument(longopt,dest=optdest,default=None,action=ArrayAction,help=helpinfo)
-		return
+		return True
 
-	def __load_command_line_bool(self,prefix,keycls,v,curparser=None):
-		longopt,shortopt,optdest = self.__get_opt_varname(prefix,keycls)
-		helpinfo = self.__get_help_info(optdest,keycls,v)
+	def __load_command_line_bool(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
+		helpinfo = self.__get_help_info(keycls)
 		putparser = self
 		if curparser is not None:
-			putparser = curparser
-		if v :
+			putparser = curparser.parser
+		if keycls.value :
 			if shortopt :
 				putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action='store_false',help=helpinfo)
 			else:
@@ -194,20 +183,29 @@ class ExtArgParse(argparse.ArgumentParser):
 				putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action='store_true',help=helpinfo)
 			else:
 				putparser.add_argument(longopt,dest=optdest,default=None,action='store_true',help=helpinfo)
-		return
+		return True
 
-	def __load_command_line_left(self,prefix,keycls,v,curparser=None):
-		assert(keycls.flagname == '$')
+	def __load_command_line_args(self,prefix,keycls,curparser=None):
+		valid = self.__check_flag_insert(keycls,curparser)
+		if not valid :
+			return False
 		putparser = self
 		optdest = 'args'
 		if curparser:
-			putparser = curparser
+			putparser = curparser.parser
 			optdest = 'subnargs'
 		helpinfo = '%s set '%(optdest)
 		if keycls.helpinfo:
 			helpinfo = keycls.helpinfo
 		putparser.add_argument(optdest,metavar='N',type=str,nargs=keycls.nargs,help=helpinfo)
-		return
+		return True
+
+	def __load_command_line_json(self,curparser=None):
+		prefix = ''
+		flagname = '%'
+		if curparser :
+			prefix = curparser.cmdname
+		keycls = keyparse.ExtKeyParse(prefix,'')
 
 
 	def __load_command_line_dict(self,prefix,keycls,v,curparser=None):
