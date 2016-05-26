@@ -65,7 +65,7 @@ commandline = '''
 def main():
     parser = extargsparse.ExtArgsParse(usage=' sample commandline parser ')
     parser.load_command_line_string(commandline)
-    args = parser.parse_command_line(['-vvvv','-p',5000,'dep','-l','arg1','--dep-list','arg2','cc','dd'])
+    args = parser.parse_command_line(['-vvvv','-p','5000','dep','-l','arg1','--dep-list','arg2','cc','dd'])
     print ('verbose = %d'%(args.verbose))
     print ('port = %s'%(args.port))
     print ('subcommand = %s'%(args.subcommand))

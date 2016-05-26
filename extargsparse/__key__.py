@@ -41,6 +41,34 @@ class TypeClass(object):
 		return self.__type
 
 
+class Utf8Encode:
+	def __dict_utf8(self,val):
+		newdict =dict()
+		for k in val.keys():
+			newk = self.__encode_utf8(k)
+			newv = self.__encode_utf8(val[k])
+			newdict[newk] = newv
+		return newdict
+
+	def __encode_utf8(self,val):
+		retval = val
+		if isinstance(val,unicode):
+			retval = val.encode('utf8')
+		elif isinstance(val,dict):
+			retval = self.__dict_utf8(val)
+		return retval
+
+	def __init__(self,val):
+		self.__val = self.__encode_utf8(val)
+		return
+
+	def __str__(self):
+		return self.__val
+
+	def __repr__(self):
+		return self.__val
+	def get_val(self):
+		return self.__val
 
 class ExtKeyParse:
 	flagspecial = ['value','prefix']
@@ -79,7 +107,7 @@ class ExtKeyParse:
 					raise Exception('(%s) should at least for prefix'%(self.__origkey))
 				self.__type = 'prefix'
 				if str(TypeClass(self.__value)) != 'dict':
-					raise Exception('(%s) should used dict to make prefix'%(self.__origkey))			
+					raise Exception('(%s) should used dict to make prefix'%(self.__origkey))
 				if self.__helpinfo :
 					raise Exception('(%s) should not have help info'%(self.__origkey))
 				if self.__shortflag:
@@ -185,6 +213,9 @@ class ExtKeyParse:
 				m = self.__mustflagexpr.findall(self.__origkey)
 				if m and len(m) > 0:
 					flags = m[0]
+			if flags is None and self.__origkey[0] == '$':
+				self.__flagname = '$'
+				flagmod = True
 			if flags is not None:
 				if '|' in flags:
 					sarr = re.split('\|',flags)
@@ -245,6 +276,9 @@ class ExtKeyParse:
 		if m and len(m) > 0:
 			newprefix += m[0]
 			self.__prefix = newprefix
+		else:
+			if len(prefix) > 0:
+				self.__prefix = prefix
 		if flagmod :
 			self.__isflag = True
 			self.__iscmd = False
@@ -265,7 +299,11 @@ class ExtKeyParse:
 			self.__cmdname = None
 
 		if self.__isflag and self.__flagname == '$' and self.__type != 'dict':
-			raise Exception('(%s) for $ should option dict set'%(self.__origkey))
+			if self.__type != 'string' or (self.__value not in '+?*'):
+				raise Exception('(%s)(%s)(%s) for $ should option dict set opt or +?* specialcase'%(prefix,self.__origkey,self.__value))
+			else:
+				self.__nargs = self.__value
+				self.__value = None
 		if self.__isflag and self.__type == 'dict' and self.__flagname:
 			self.__set_flag(prefix,key,value)
 		self.__validate()
@@ -283,6 +321,10 @@ class ExtKeyParse:
 
 
 	def __init__(self,prefix,key,value,isflag=False):
+		key = Utf8Encode(key).get_val()
+		prefix = Utf8Encode(prefix).get_val()
+		value = Utf8Encode(value).get_val()
+
 		self.__reset()
 		self.__helpexpr = re.compile('##([^#]+)##$',re.I)
 		self.__cmdexpr = re.compile('^([^\#\<\>\+\$]+)',re.I)
@@ -294,6 +336,7 @@ class ExtKeyParse:
 		if isinstance(key,dict):
 			raise Exception('can not accept key for dict type')
 		else:
+
 			self.__parse(prefix,key,value,isflag)
 		return
 
@@ -718,10 +761,25 @@ class UnitTestCase(unittest.TestCase):
 			ok = True
 		return
 
-	def test_A04(self):
+	def test_A024(self):
 		t = TypeClass(u'*')
 		self.assertEqual(str(t),'unicode')
 		return
+
+	def test_A025(self):
+		flags = ExtKeyParse('dep',u'$',u'+',True)
+		self.assertEqual(flags.flagname,'$')
+		self.assertEqual(flags.prefix,'dep')
+		self.assertEqual(flags.value,None)
+		self.assertEqual(flags.type,'args')
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.nargs,'+')
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.__opt_fail_check(flags)
+		return
+
 
 
 def main():

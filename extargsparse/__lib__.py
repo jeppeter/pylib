@@ -49,6 +49,8 @@ class IntAction(argparse.Action):
 	 	setattr(namespace,self.dest,intval)
 	 	return
 
+class _ParserCompact(object):
+	pass
 
 class ArrayAction(argparse.Action):
 	 def __init__(self, option_strings, dest, nargs=1, **kwargs):
@@ -88,9 +90,15 @@ class ExtArgsParse(argparse.ArgumentParser):
 			else:
 				helpinfo += '%s set true'%(keycls.optdest)
 		elif keycls.type == 'string' and keycls.value == '+':
-			helpinfo += '%s inc'%(keycls.optdest)
+			if keycls.isflag:
+				helpinfo += '%s inc'%(keycls.optdest)
+			else:
+				raise Exception('cmd(%s) can not set value(%s)'%(keycls.cmdname,keycls.value))
 		else:
-			helpinfo += '%s set'%(keycls.optdest)
+			if keycls.isflag:
+				helpinfo += '%s set'%(keycls.optdest)
+			else:
+				helpinfo += '%s command exec'%(keycls.cmdname)
 		if keycls.helpinfo:
 			helpinfo = keycls.helpinfo
 		return helpinfo
@@ -255,9 +263,7 @@ class ExtArgsParse(argparse.ArgumentParser):
                  parents=[],formatter_class=argparse.HelpFormatter,prefix_chars='-',
                  fromfile_prefix_chars=None,argument_default=None,
                  conflict_handler='error',add_help=True):
-		super(ExtArgsParse,self).__init__(self,prog,usage,description,epilog,parents,formatter_class,
-			   prefix_chars,fromfile_prefix_chars,argument_default,conflict_handler,add_help)
-		self.__cmdparsers = dict()
+		argparse.ArgumentParser.__init__(self)
 		self.__subparser = None
 		self.__cmdparsers = []
 		self.__flags = []
@@ -286,14 +292,14 @@ class ExtArgsParse(argparse.ArgumentParser):
 		if cmdparser is not None:
 			return cmdparser
 		if self.__subparser is None:
-			self.__subparser = self.add_subparser(help='',dest='subcommand')
+			self.__subparser = self.add_subparsers(help='',dest='subcommand')
 		helpinfo = self.__get_help_info(keycls)
 		parser = self.__subparser.add_parser(keycls.cmdname,help=helpinfo)
-		cmdparser = dict()
-		setattr(cmdparser,'parser',parser)
-		setattr(cmdparser,'flags',[])
-		setattr(cmdparser,'cmdname',keycls.cmdname)
-		setattr(cmdparser,'typeclass',keycls)
+		cmdparser = _ParserCompact()
+		cmdparser.parser = parser
+		cmdparser.flags = []
+		cmdparser.cmdname = keycls.cmdname
+		cmdparser.typeclass = keycls
 		self.__cmdparsers.append(cmdparser)
 		return cmdparser
 
@@ -318,9 +324,11 @@ class ExtArgsParse(argparse.ArgumentParser):
 			if curparser:
 				# if we have in the mode for this we should make it
 				# must be the flag mode
+				logging.info('%s , %s , %s , True'%(prefix,k,v))
 				keycls = keyparse.ExtKeyParse(prefix,k,v,True)
 			else:
 				# we can not make sure it is flag mode
+				logging.info('%s , %s , %s , False'%(prefix,k,v))
 				keycls = keyparse.ExtKeyParse(prefix,k,v,False)
 			valid = self.__load_command_map[keycls.type](prefix,keycls,curparser)
 			if not valid:
@@ -509,7 +517,7 @@ class ExtArgsParse(argparse.ArgumentParser):
 
 		# now test whether the function has
 		if self.__subparser and args.subcommand is not None:
-			parser = self.__get_subparser_inner(args.subcommand)
+			parser = self.__find_subparser_inner(args.subcommand)
 			assert(parser is not None)
 			funcname = parser.typeclass.function
 			if funcname is not None:
@@ -537,7 +545,7 @@ class ExtArgsTestCase(unittest.TestCase):
 	def tearDownClass(cls):
 		pass
 
-	def test_A1(self):
+	def test_A001(self):
 		loads = '''
 		{
 			"verbose|v##increment verbose mode##" : "+",
@@ -562,6 +570,30 @@ class ExtArgsTestCase(unittest.TestCase):
 		self.assertEqual(args.string,'string_var')
 		self.assertEqual(args.args,['var1','var2'])
 		return
+
+	def test_A002(self):
+		loads = '''
+		{
+			"verbose|v" : "+",
+			"port|p" : 3000,
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(loads)
+		args = parser.parse_command_line(['-vvvv','-p','5000','dep','-l','arg1','--dep-list','arg2','cc','dd'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.port,5000)
+		self.assertEqual(args.subcommand,'dep')
+		self.assertEqual(args.dep_list,['arg1','arg2'])
+		self.assertEqual(args.dep_string,'s_var')
+		self.assertEqual(args.subnargs,['cc','dd'])
+		return
+
 
 
 
