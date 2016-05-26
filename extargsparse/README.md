@@ -6,15 +6,15 @@
 import extargsparse
 commandline = '''
 {
-	'verbose|v##increment verbose mode##' : '+',
-	'flag|f## flag set##' : false,
-	'number|n' : 0,
-	'list|l' : [],
-	'string|s' : 'string_var',
-	'$' : {
-		'value' : [],
-		'nargs' : '*',
-		'type' : 'string'
+	"verbose|v##increment verbose mode##" : "+",
+	"flag|f## flag set##" : false,
+	"number|n" : 0,
+	"list|l" : [],
+	"string|s" : "string_var",
+	"$" : {
+		"value" : [],
+		"nargs" : "*",
+		"type" : "string"
 	}
 }
 '''
@@ -52,12 +52,12 @@ args = ['var1','var2']
 import extargsparse
 commandline = '''
 {
-	'verbose|v' : '+',
-	'port|p' : 3000,
-	'dep' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"verbose|v" : "+",
+	"port|p" : 3000,
+	"dep" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -399,13 +399,14 @@ subnargs = ['cc','dd']
 * note the priority of command line is 
    **   command input
    **   command json file input
-   **   environment variable input
+   **   environment variable input _if the common args ,it will start with EXTARGS_ 
    **   environment json file input
    **   default value input by the load string
 
 
 * flag option key
+   **  flagname the flagname of the value
+   **  shortflag flag set for the short
    **  value  the default value of flag
-   **  type it can be 'float' 'int' 'string' 'list' 'bool'
    **  nargs it accept args '*' for any '?' 1 or 0 '+' equal or more than 1 , number is the number
-   **  help for the help information
+   **  helpinfo for the help information

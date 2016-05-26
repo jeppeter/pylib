@@ -7,7 +7,7 @@ import re
 import unittest
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-class _GetType(object):
+class TypeClass(object):
 	def __init__(self,v):
 		self.__type = type(v)
 		if isinstance(v,str):
@@ -22,6 +22,8 @@ class _GetType(object):
 			self.__type = 'int'
 		elif isinstance(v ,float):
 			self.__type = 'float'
+		elif isinstance(v,unicode):
+			self.__type = 'unicode'
 		elif v is None:
 			# we use default string
 			self.__type = 'string'
@@ -33,6 +35,9 @@ class _GetType(object):
 		return self.__type
 
 	def __str__(self):
+		return self.__type
+
+	def __repr__(self):
 		return self.__type
 
 
@@ -66,16 +71,14 @@ class ExtKeyParse:
 			if self.__type == 'dict' and self.__flagname:
 				# in the prefix we will get dict ok
 				raise Exception('(%s) flag can not accept dict'%(self.__origkey))
-			if self.__type != str(_GetType(self.__value)):
+			if self.__type != str(TypeClass(self.__value)):
 				raise Exception('(%s) value (%s) not match type (%s)'%(self.__origkey,self.__value,self.__type))
-			if self.__nargs is None:
-				self.__nargs = 1
 			if self.__flagname is None :
 				# we should test if the validate flag
 				if self.__prefix is None:
 					raise Exception('(%s) should at least for prefix'%(self.__origkey))
 				self.__type = 'prefix'
-				if str(_GetType(self.__value)) != 'dict':
+				if str(TypeClass(self.__value)) != 'dict':
 					raise Exception('(%s) should used dict to make prefix'%(self.__origkey))			
 				if self.__helpinfo :
 					raise Exception('(%s) should not have help info'%(self.__origkey))
@@ -92,6 +95,20 @@ class ExtKeyParse:
 			if self.__shortflag:
 				if len(self.__shortflag) > 1:
 					raise Exception('(%s) can not accept (%s) for shortflag'%(self.__origkey,self.__shortflag))
+
+			if self.__type == 'bool':
+				# this should be zero
+				if self.__nargs is not None and self.__nargs != 0:
+					raise Exception('bool type (%s) can not accept 0 nargs'%(self.__origkey))
+				self.__nargs = 0
+			elif self.__type != 'prefix' and self.__flagname != '$' :
+				if self.__flagname != '$' and self.__nargs != 1 and self.__nargs is not None:
+					raise Exception('(%s)only $ can accept nargs option'%(self.__origkey))
+				self.__nargs = 1
+			else:
+				if self.__flagname == '$' and self.__nargs is None:
+					# we make sure any args to have
+					self.__nargs = '*'
 
 		else:
 			if self.__cmdname is None or len(self.__cmdname) == 0 :
@@ -119,13 +136,13 @@ class ExtKeyParse:
 				innerkey = self.__get_inner_name(k)
 				if self.__dict__[innerkey] and self.__dict__[innerkey] != value[k]:
 					raise Exception('set (%s) for not equal value (%s) (%s)'%(k,self.__dict__[innerkey],value[k]))
-				if str(_GetType(value[k])) != 'string' and str(_GetType(value[k])) != 'int' :
-					raise Exception('(%s)(%s) can not take other than int or string'%(self.__origkey,k))
+				if not (str(TypeClass(value[k])) == 'string' or str(TypeClass(value[k])) == 'int' or str(TypeClass(value[k])== 'unicode')):
+					raise Exception('(%s)(%s)(%s) can not take other than int or string (%s)'%(self.__origkey,k,value[k],TypeClass(value[k])))				
 				self.__dict__[innerkey] = value[k]
 			elif k in self.__class__.flagspecial:
 				innerkey = self.__get_inner_name(k)
 				if k == 'prefix':
-					if str(_GetType(value[k])) != 'string' or value[k] is None:
+					if str(TypeClass(value[k])) != 'string' or value[k] is None:
 						raise Exception('(%s) prefix not string or None'%(self.__origkey))
 					newprefix = ''
 					if prefix and len(prefix):
@@ -133,10 +150,10 @@ class ExtKeyParse:
 					newprefix += value[k]
 					self.__prefix = newprefix
 				elif k == 'value':
-					if str(_GetType(value[k])) == 'dict':
+					if str(TypeClass(value[k])) == 'dict':
 						raise Exception('(%s)(%s) can not accept dict'%(self.__origkey,k))
 					self.__value = value[k]
-					self.__type = str(_GetType(value[k]))
+					self.__type = str(TypeClass(value[k]))
 				else:
 					self.__dict__[innerkey] = value[k]					
 		if len(self.__prefix) == 0  and len(prefix) > 0:
@@ -238,7 +255,7 @@ class ExtKeyParse:
 			self.__isflag = True
 			self.__iscmd = False
 		self.__value = value
-		self.__type = str(_GetType(value))
+		self.__type = str(TypeClass(value))
 		if cmdmod and self.__type != 'dict':
 			flagmod = True
 			cmdmod = False
@@ -275,7 +292,7 @@ class ExtKeyParse:
 		self.__mustflagexpr = re.compile('^\$([^\$\+\#\<\>]+)',re.I)
 		self.__origkey = key
 		if isinstance(key,dict):
-			self.__set_flag(prefix,key,value)
+			raise Exception('can not accept key for dict type')
 		else:
 			self.__parse(prefix,key,value,isflag)
 		return
@@ -330,6 +347,36 @@ class ExtKeyParse:
 		self.__dict__[keyname] = value
 		return
 
+	def __format_string(self):
+		s = '{'
+		s += '<type:%s>'%(self.__type)
+		if self.__iscmd:
+			s += '<cmdname:%s>'%(self.__cmdname)
+			if self.__function:
+				s += '<function:%s>'%(self.__function)
+			if self.__helpinfo:
+				s += '<helpinfo:%s>'%(self.__helpinfo)
+			if len(self.__prefix) > 0:
+				s += '<prefix:%s>'%(self.__prefix)
+		if self.__isflag:
+			if self.__flagname:
+				s += '<flagname:%s>'%(self.__flagname)
+			if self.__shortflag:
+				s += '<shortflag:%s>'%(self.__shortflag)
+			if len(self.__prefix) > 0 :
+				s += '<prefix:%s>'%(self.__prefix)
+			if self.__nargs is not None  :
+				s += '<nargs:%s>'%(self.__nargs)
+			if self.__value is not None:
+				s += '<value:%s>'%(self.__value)
+		s += '}'
+		return s
+
+	def __str__(self):
+		return self.__format_string()
+	def __repr__(self):
+		return self.__format_string()
+
 	def change_to_flag(self):
 		if not self.__iscmd or self.__isflag:
 			raise Exception('(%s) not cmd to change'%(self.__origkey))
@@ -369,7 +416,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(ok)
 		return
 
-	def test_A1(self):
+	def test_A001(self):
 		flags = ExtKeyParse('','$flag|f+type','string',False)
 		self.assertEqual(flags.flagname , 'flag')
 		self.assertEqual(flags.longopt,'--type-flag')
@@ -386,7 +433,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertFalse(flags.iscmd)
 		return
 
-	def test_A2(self):
+	def test_A002(self):
 		flags = ExtKeyParse('','$flag|f+type',[],True)
 		self.assertEqual(flags.flagname,'flag')
 		self.assertEqual(flags.shortflag,'f')
@@ -403,7 +450,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertFalse(flags.iscmd)
 		return
 
-	def test_A3(self):
+	def test_A003(self):
 		flags = ExtKeyParse('','flag|f',False,False)
 		self.assertEqual(flags.flagname,'flag')
 		self.assertEqual(flags.shortflag,'f')
@@ -419,7 +466,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertFalse(flags.iscmd)
 		return
 
-	def test_A4(self):
+	def test_A004(self):
 		flags = ExtKeyParse('newtype','flag<flag.main>##help for flag##',{},False)
 		self.assertEqual(flags.cmdname , 'flag')
 		self.assertEqual(flags.function , 'flag.main')
@@ -434,7 +481,7 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
-	def test_A5(self):
+	def test_A005(self):
 		ok = 0
 		try:
 			flags = ExtKeyParse('','flag<flag.main>##help for flag##','',True)
@@ -443,7 +490,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue( ok > 0)
 		return
 
-	def test_A6(self):
+	def test_A006(self):
 		flags = ExtKeyParse('','flag+type<flag.main>##main',{'new':False},False)
 		self.assertEqual(flags.cmdname , 'flag')
 		self.assertEqual(flags.prefix , 'flag')
@@ -458,7 +505,7 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
-	def test_A7(self):
+	def test_A007(self):
 		flags = ExtKeyParse('','+flag',{},False)
 		self.assertEqual(flags.prefix,'flag')
 		self.assertEqual(flags.value,{})
@@ -473,7 +520,7 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
-	def test_A8(self):
+	def test_A008(self):
 		ok = 0
 		try:
 			flags = ExtKeyParse('','+flag## help ##',None,False)
@@ -482,7 +529,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue( ok > 0)
 		return
 
-	def test_A9(self):
+	def test_A009(self):
 		ok = 0
 		try:
 			flags = ExtKeyParse('','+flag<flag.main>',None,False)
@@ -491,7 +538,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue( ok > 0)
 		return
 
-	def test_A10(self):
+	def test_A010(self):
 		ok = 0
 		try:
 			flags = ExtKeyParse('','flag|f2','',False)
@@ -500,7 +547,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue( ok > 0)
 		return
 
-	def test_A11(self):
+	def test_A011(self):
 		ok = 0
 		try:
 			flags = ExtKeyParse('','f|f2',None,False)
@@ -509,7 +556,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue( ok > 0)
 		return
 
-	def test_A12(self):
+	def test_A012(self):
 		ok =0
 		try:
 			flags = ExtKeyParse('','$flag|f<flag.main>',{},False)
@@ -518,7 +565,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue ( ok > 0 )
 		return
 
-	def test_A13(self):
+	def test_A013(self):
 		ok =0
 		try:
 			flags = ExtKeyParse('','$flag|f+cc<flag.main>',None,False)
@@ -527,7 +574,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue ( ok > 0 )
 		return
 
-	def test_A14(self):
+	def test_A014(self):
 		ok =0
 		try:
 			flags = ExtKeyParse('','c$','',False)
@@ -536,7 +583,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue ( ok > 0 )
 		return
 
-	def test_A15(self):
+	def test_A015(self):
 		ok =0
 		try:
 			flags = ExtKeyParse('','$$',None,False)
@@ -545,7 +592,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue ( ok > 0 )
 		return
 
-	def test_A16(self):
+	def test_A016(self):
 		flags = ExtKeyParse('','$',{ 'nargs':'+'},False)
 		self.assertEqual(flags.flagname , '$')
 		self.assertEqual(flags.prefix ,'')
@@ -561,7 +608,7 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
-	def test_A17(self):
+	def test_A017(self):
 		flags = ExtKeyParse('type','flag+app## flag help ##',3.3,False)
 		self.assertEqual(flags.flagname ,'flag')
 		self.assertEqual(flags.prefix , 'type_app')
@@ -578,7 +625,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertFalse(flags.iscmd)
 		return
 
-	def test_A18(self):
+	def test_A018(self):
 		flags = ExtKeyParse('','flag+app<flag.main>## flag help ##',{},False)
 		self.assertEqual(flags.flagname , None)
 		self.assertEqual(flags.prefix , 'flag')
@@ -593,14 +640,14 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
-	def test_A19(self):
-		flags = ExtKeyParse('','$flag## flag help ##',{'prefix':'good','value':False,'nargs':2},False)
+	def test_A019(self):
+		flags = ExtKeyParse('','$flag## flag help ##',{'prefix':'good','value':False},False)
 		self.assertEqual(flags.flagname,'flag')
 		self.assertEqual(flags.prefix,'good')
 		self.assertEqual(flags.value,False)
 		self.assertEqual(flags.type,'bool')
 		self.assertEqual(flags.helpinfo,' flag help ')
-		self.assertEqual(flags.nargs,2)
+		self.assertEqual(flags.nargs,0)
 		self.assertEqual(flags.shortflag,None)
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
@@ -609,7 +656,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.optdest,'good_flag')
 		return
 
-	def test_A20(self):
+	def test_A020(self):
 		ok = False
 		try:
 			flags = ExtKeyParse('','$',None,False)
@@ -618,7 +665,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(ok,True)
 		return
 
-	def test_A21(self):
+	def test_A021(self):
 		flags = ExtKeyParse('command','$## self define ##',{'nargs':'?','value':None},False)
 		self.assertEqual(flags.iscmd,False)
 		self.assertEqual(flags.isflag,True)
@@ -631,6 +678,51 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.helpinfo,' self define ')
 		self.__opt_fail_check(flags)
 		return
+
+	def test_A022(self):
+		flags = ExtKeyParse('command','+flag',{},False)
+		self.assertEqual(flags.prefix,'command_flag')
+		self.assertEqual(flags.value,{})
+		self.assertTrue(flags.cmdname is None)
+		self.assertTrue(flags.shortflag is None)
+		self.assertTrue(flags.flagname is None)
+		self.assertTrue(flags.function is None)
+		self.assertTrue(flags.helpinfo is None)
+		self.assertTrue(flags.isflag)
+		self.assertFalse(flags.iscmd)
+		self.assertEqual(flags.type,'prefix')
+		self.__opt_fail_check(flags)
+		return
+
+	def test_A023(self):
+		flags = ExtKeyParse('','$flag## flag help ##',{'prefix':'good','value':3.9,'nargs':1},False)
+		self.assertEqual(flags.flagname,'flag')
+		self.assertEqual(flags.prefix,'good')
+		self.assertEqual(flags.value,3.9)
+		self.assertEqual(flags.type,'float')
+		self.assertEqual(flags.helpinfo,' flag help ')
+		self.assertEqual(flags.nargs,1)
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.longopt,'--good-flag')
+		self.assertEqual(flags.shortopt,None)
+		self.assertEqual(flags.optdest,'good_flag')
+		return
+
+	def test_A023(self):
+		ok = False
+		try:
+			flags = ExtKeyParse('','$flag## flag help ##',{'prefix':'good','value':False,'nargs':2},False)
+		except:
+			ok = True
+		return
+
+	def test_A04(self):
+		t = TypeClass(u'*')
+		self.assertEqual(str(t),'unicode')
+		return
+
 
 def main():
 	if '-v' in sys.argv[1:] or '--verbose' in sys.argv[1:]:
