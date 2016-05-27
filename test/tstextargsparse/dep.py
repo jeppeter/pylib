@@ -6,44 +6,72 @@ import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..')))
 import extargsparse
 
+def set_log_level(args):
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	elif args.verbose >= 1 :
+		loglvl = logging.WARN
+	# we delete old handlers ,and set new handler
+	delone = True
+	logger = logging.getLogger()
+	while delone:
+		delone = False
+		for hdl in logger.handlers:
+			logger.removeHandler(hdl)
+			delone = True	
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
+
 def dep_handler(args,context):
-	print('get dep')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get dep')
+	sys.exit(0)
 	return
 
 def rdep_handler(args,context):
-	print('get rdep')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get rdep')
+	sys.exit(0)
 	return
 
 def inst_handler(args,context):
-	print('get inst')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get inst')
+	sys.exit(0)
 	return
 
 def rc_handler(args,context):
-	print('get rc')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get rc')
+	sys.exit(0)
 	return
 
 def debdep_handler(args,context):
-	print('get debdep')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get debdep')
+	sys.exit(0)
 	return
 
 def debname_handler(args,context):
-	print('get debname')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get debname')
+	sys.exit(0)
 	return
 
 def essentials_handler(args,context):
-	print('get essentials')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('get essentials')
+	sys.exit(0)
 	return
 
 def prepare_handler(args,context):
-	print('prepare handler')
-	os.exit(0)
+	set_log_level(args)
+	logging.info('prepare handler')
+	sys.exit(0)
 	return
 
 dpkg_dep_commandline = {
@@ -93,14 +121,12 @@ dpkg_const_keywords = {
 }
 
 dpkg_command_line = {
-	'verbose:v' : '+',
+	'verbose|v' : '+',
 	'+dpkg' : dpkg_const_keywords
 }
 
 
 def main():
-	loglvl = logging.DEBUG
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	usage_str='%s '%(sys.argv[0])
 	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
 	parser.load_command_line(dpkg_dep_commandline)

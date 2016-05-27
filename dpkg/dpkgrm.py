@@ -165,17 +165,17 @@ class DpkgRmBase(dpkgbase.DpkgBase):
 
 def remove_exclude(args):
 	rmdpkg = DpkgRmBase(args)
-	if getattr(args,'pkgs') is None:
+	if getattr(args,'subnargs') is None:
 		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'pkgs not in args')
-	getpkgs = rmdpkg.remove_not_dep(args,args.pkgs)
+	getpkgs = rmdpkg.remove_not_dep(args,args.subnargs)
 	rmdpkg.purge_rc(args)
 	return getpkgs
 
 def remove_package(args):
 	rmdpkg = DpkgRmBase(args)
-	if getattr(args,'pkgs') is None:
+	if getattr(args,'subnargs') is None:
 		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'pkgs not in args')
-	getpkgs = rmdpkg.remove_pkg(args,args.pkgs)
+	getpkgs = rmdpkg.remove_pkg(args,args.subnargs)
 	rmdpkg.purge_rc(args)
 	return
 
@@ -189,42 +189,66 @@ def Usage(ec,fmt,parser):
 	parser.print_help(fp)
 	sys.exit(ec)
 
-
-def main():
-	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
-	parser = dpkgbase.add_dpkg_args(parser)
-	sub_parser = parser.add_subparsers(help='',dest='command')
-	exrm_parser = sub_parser.add_parser('exrm',help='to remove package exclude')
-	exrm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-	rm_parser = sub_parser.add_parser('rm',help='to remove package')
-	rm_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-
-	args = parser.parse_args()
-
+def set_log_level(args):
 	loglvl= logging.ERROR
 	if args.verbose >= 3:
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
+	elif args.verbose >= 1 :
+		loglvl = logging.WARN
+	logging.error('DEBUG %d INFO %d WARN %d ERROR %d loglvl %d'%(logging.DEBUG,logging.INFO,logging.WARN,logging.ERROR,loglvl))
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	
-	args = dpkgbase.load_dpkg_jsonfile(args)
+	return
 
-	try:		
-		if args.command == 'exrm':
-			if len(args.pkgs) < 1:
-				Usage(3,'packages need',parser)
-			dpkgdep.environment_before(args)
-			getpkgs = remove_exclude(args)
-		elif args.command == 'rm':
-			if len(args.pkgs) < 1:
-				Usage(3,'packages need',parser)
-			dpkgdep.environment_before(args)
-			getpkgs = remove_package(args)
-		else:
-			Usage(3,'can not get %s'%(args.command),parser)
+
+def exrm_handler(args,context):
+	errcode = 3
+	try:
+		dpkgdep.set_log_level(args)
+		logging.info('call exrm')
+		dpkgdep.environment_before(args)
+		logging.info('remove start')
+		getpkgs = remove_exclude(args)
+		errcode = 0
 	finally:
+		logging.info('remove exit')
 		dpkgdep.environment_after(args)
+	sys.exit(0)
+	return
+
+def rm_handler(args,context):
+	errcode = 3
+	try:
+		dpkgdep.set_log_level(args)
+		logging.info('call rm')
+		dpkgdep.environment_before(args)
+		getpkgs = remove_package(args)
+		errcode = 0
+
+	finally:
+		logging.info('remove exit')
+		dpkgdep.environment_after(args)
+	sys.exit(0)
+	return
+
+
+rm_command_line = {
+	'exrm<exrm_handler>## remove all the packages not in the lists ##' : {
+		'$' : '+'
+	},
+	'rm<rm_handler>## remove packages and all depend on it ##' : {
+		'$' : '+'
+	}
+}
+
+def main():
+	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
+	parser = dpkgbase.add_dpkg_args(parser)
+	parser.load_command_line(rm_command_line)
+	args = parser.parse_command_line()
+	print('no sub command make')
+	sys.exit(3)
 	return
 
 if __name__ == '__main__':

@@ -529,6 +529,7 @@ class DpkgUtils(dpkgbase.DpkgBase):
 		logging.info('run (%s)'%(cmd))
 		retval = cmdpack.run_command_callback(cmd,None,None)
 		if retval !=0 :
+			logging.error('run (%s) error (%d)'%(cmd,retval))
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'can not run (%s)'%(cmd))
 		return
 
@@ -757,6 +758,14 @@ def set_log_level(args):
 		loglvl = logging.INFO
 	elif args.verbose >= 1 :
 		loglvl = logging.WARN
+	# we delete old handlers ,and set new handler
+	delone = True
+	logger = logging.getLogger()
+	while delone:
+		delone = False
+		for hdl in logger.handlers:
+			logger.removeHandler(hdl)
+			delone = True	
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
@@ -872,8 +881,6 @@ def main():
 	parser = dpkgbase.add_dpkg_args(parser)
 	parser.load_command_line(dpkg_dep_commandline)
 	args = parser.parse_command_line()
-
-	args = dpkgbase.load_dpkg_jsonfile(args)
 	Usage(3,'no command specified',parser)
 	return
 

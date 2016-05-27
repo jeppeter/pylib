@@ -269,8 +269,6 @@ def cmd_install_pkgs(args,pkgs,directory='.'):
 	dpkginst = DpkgInstallBase(args)
 	return dpkginst.install_pkg(pkgs,directory)
 
-
-
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -281,33 +279,30 @@ def Usage(ec,fmt,parser):
 	parser.print_help(fp)
 	sys.exit(ec)
 
+def inst_handler(args,context):
+	try:
+		dpkgdep.set_log_level(args)
+		dpkgdep.environment_before(args)
+		cmd_install_pkgs(args,args.subnargs,args.directory)
+	finally:
+		dpkgdep.environment_after(args)
+	sys.exit(0)
+	return
+
+
+inst_command_line = {
+	'directory|d' : '.',
+	'inst<inst_handler>## install packages by all depends installed##' : {
+		'$' : '+'
+	}
+}
 
 def main():
 	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
 	parser = dpkgbase.add_dpkg_args(parser)
-	sub_parser = parser.add_subparsers(help='',dest='command')
-	inst_parser = sub_parser.add_parser('inst',help='to install packages')
-	inst_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-	args = parser.parse_args()	
-	loglvl= logging.ERROR
-	if args.verbose >= 3:
-		loglvl = logging.DEBUG
-	elif args.verbose >= 2:
-		loglvl = logging.INFO
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	args = dpkgbase.load_dpkg_jsonfile(args)
-	try:
-		if args.command == 'inst':
-			if len(args.pkgs) < 1:
-				Usage(3,'packages need',parser)
-			logging.info('pkgs (%s)'%(args.pkgs))
-			args.directory = os.path.abspath(args.directory)
-			dpkgdep.environment_before(args)
-			getpkgs = cmd_install_pkgs(args,args.pkgs,args.directory)
-		else:
-			Usage(3,'can not get %s'%(args.command),parser)
-	finally:
-		dpkgdep.environment_after(args)
+	parser.load_command_line(inst_command_line)
+	args = parser.parse_command_line()
+	Usage(3,'specify a command',parser)
 	return
 
 if __name__ == '__main__':
