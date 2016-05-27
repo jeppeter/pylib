@@ -33,9 +33,18 @@ def call_func(funcname,args):
 	return args
 
 
+def make_long_string_format():
+	s = '''
+	hello<%s.call>
+	'''
+
+	sl = s%('hello')
+	print ('sl %s'%(sl))
+
 def main():
 	for a in sys.argv[1:]:
 		call_func(a,'call by')
+	make_long_string_format()
 	return
 
 if __name__ == '__main__':

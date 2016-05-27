@@ -6,12 +6,15 @@ import sys
 import json
 import logging
 import unittest
+import re
+import importlib
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import __key__ as keyparse
 
-def __call_func_args(funcname,args):
+def call_func_args(funcname,args,Context):
 	mname = '__main__'
 	fname = funcname
+	logging.info('call function %s'%(funcname))
 	try:
 		if '.' not in funcname:
 			m = __import__(mname)
@@ -28,7 +31,7 @@ def __call_func_args(funcname,args):
 		if d == fname:
 			val = getattr(m,d)
 			if hasattr(val,'__call__'):
-				val(args)
+				val(args,Context)
 				return args
 	logging.warn('can not call %s'%(funcname))
 	return args
@@ -470,8 +473,19 @@ class ExtArgsParse(argparse.ArgumentParser):
 		args = self.__set_environ_value_inner(args,'',self.__flags)
 		return args
 
+	def __set_command_line_self_args(self):
+		for parser in self.__cmdparsers:
+			curkey = keyparse.ExtKeyParse(parser.cmdname,'$','*',True)
+			self.__load_command_line_args(parser.cmdname,curkey,parser)
+		curkey = keyparse.ExtKeyParse('','$','*',True)
+		self.__load_command_line_args('',curkey,None)
+		return
 
-	def parse_command_line(self,params=None):
+
+
+	def parse_command_line(self,params=None,Context=None):
+		# we input the self command line args by default
+		self.__set_command_line_self_args()
 		if params is None:
 			params = sys.argv[1:]
 		args = self.parse_args(params)
@@ -521,9 +535,15 @@ class ExtArgsParse(argparse.ArgumentParser):
 			assert(parser is not None)
 			funcname = parser.typeclass.function
 			if funcname is not None:
-				return __call_func_args(funcname,args)
+				return call_func_args(funcname,args,Context)
 		return args
 
+def call_args_function(args,context):
+	if hasattr(args,'subcommand'):
+		context.has_called_args = args.subcommand
+	else:
+		context.has_called_args = None
+	return
 
 class ExtArgsTestCase(unittest.TestCase):
 	def setUp(self):
@@ -595,6 +615,125 @@ class ExtArgsTestCase(unittest.TestCase):
 		return
 
 
+	def test_A003(self):
+		loads = '''
+		{
+			"verbose|v" : "+",
+			"port|p" : 3000,
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			},
+			"rdep" : {
+				"list|L" : [],
+				"string|S" : "s_rdep",
+				"$" : 2
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(loads)
+		args = parser.parse_command_line(['-vvvv','-p','5000','rdep','-L','arg1','--rdep-list','arg2','cc','dd'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.port,5000)
+		self.assertEqual(args.subcommand,'rdep')
+		self.assertEqual(args.rdep_list,['arg1','arg2'])
+		self.assertEqual(args.rdep_string,'s_rdep')
+		self.assertEqual(args.subnargs,['cc','dd'])
+		return
+
+	def test_A004(self):
+		loads = '''
+		{
+			"verbose|v" : "+",
+			"port|p" : 3000,
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			},
+			"rdep" : {
+				"list|L" : [],
+				"string|S" : "s_rdep",
+				"$" : 2
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(loads)
+		args = parser.parse_command_line(['-vvvv','-p','5000','rdep','-L','arg1','--rdep-list','arg2','cc','dd'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.port,5000)
+		self.assertEqual(args.subcommand,'rdep')
+		self.assertEqual(args.rdep_list,['arg1','arg2'])
+		self.assertEqual(args.rdep_string,'s_rdep')
+		self.assertEqual(args.subnargs,['cc','dd'])
+		return
+
+	def test_A005(self):
+		formats = '''
+		{
+			"verbose|v" : "+",
+			"port|p" : 3000,
+			"dep<%s.call_args_function>" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			},
+			"rdep" : {
+				"list|L" : [],
+				"string|S" : "s_rdep",
+				"$" : 2
+			}
+		}
+		'''
+		loads = formats%(__name__)
+		parser = ExtArgsParse()
+		parser.load_command_line_string(loads)
+		self.has_called_args = None
+		args = parser.parse_command_line(['-p','7003','-vvvvv','dep','-l','foo1','-s','new_var','zz'],self)
+		self.assertEqual(args.port,7003)
+		self.assertEqual(args.verbose,5)
+		self.assertEqual(args.dep_list,['foo1'])
+		self.assertEqual(args.dep_string,'new_var')
+		self.assertEqual(args.subnargs,['zz'])
+		self.assertEqual(self.has_called_args,'dep')
+		self.has_called_args = None
+		return
+
+	def test_A006(self):
+		load1 = '''
+		{
+			"verbose|v" : "+",
+			"port|p" : 3000,
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		load2 = '''
+		{
+			"rdep" : {
+				"list|L" : [],
+				"string|S" : "s_rdep",
+				"$" : 2
+			}
+		}
+		'''
+
+		parser = ExtArgsParse()
+		parser.load_command_line_string(load1)
+		parser.load_command_line_string(load2)
+		args = parser.parse_command_line(['-p','7003','-vvvvv','rdep','-L','foo1','-S','new_var','zz','64'])
+		self.assertEqual(args.port,7003)
+		self.assertEqual(args.verbose,5)
+		self.assertEqual(args.rdep_list,['foo1'])
+		self.assertEqual(args.rdep_string,'new_var')
+		self.assertEqual(args.subnargs,['zz','64'])
+		return
 
 
 def main():

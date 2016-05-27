@@ -299,11 +299,12 @@ class ExtKeyParse:
 			self.__cmdname = None
 
 		if self.__isflag and self.__flagname == '$' and self.__type != 'dict':
-			if self.__type != 'string' or (self.__value not in '+?*'):
-				raise Exception('(%s)(%s)(%s) for $ should option dict set opt or +?* specialcase'%(prefix,self.__origkey,self.__value))
+			if not ((self.__type == 'string' and (self.__value  in '+?*' )) or self.__type == 'int') :
+				raise Exception('(%s)(%s)(%s) for $ should option dict set opt or +?* specialcase or type int'%(prefix,self.__origkey,self.__value))
 			else:
 				self.__nargs = self.__value
 				self.__value = None
+				self.__type = 'string'
 		if self.__isflag and self.__type == 'dict' and self.__flagname:
 			self.__set_flag(prefix,key,value)
 		self.__validate()

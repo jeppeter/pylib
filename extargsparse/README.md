@@ -85,6 +85,116 @@ string = 's_var'
 subnargs = ['cc','dd']
 ```
 
+### multiple sub command  
+
+```python
+import extargsparse
+loads = '''
+    {
+      "verbose|v" : "+",
+      "port|p" : 3000,
+      "dep" : {
+        "list|l" : [],
+        "string|s" : "s_var",
+        "$" : "+"
+      },
+      "rdep" : {
+        "list|L" : [],
+        "string|S" : "s_rdep",
+        "$" : 2
+      }
+    }
+'''
+
+def main():
+    parser = extargsparse.ExtArgsParse()
+    parser.load_command_line_string(loads)
+    args = parser.parse_command_line(['-vvvv','-p','5000','rdep','-L','arg1','--rdep-list','arg2','cc','dd'])
+    print('verbose %d'%(args.verbose))
+    print('port %d'%(args.port))
+    print('subcommand %s'%(args.subcommand))
+    print('rdep_list %s'%(args.rdep_list))
+    print('rdep_string %s'%(args.rdep_string))
+    print('subnargs %s'%(args.subnargs))
+    return
+
+if __name__ == '__main__':
+  main()  
+
+```
+
+> result is two subcommand prepared 
+```shell
+verbose 4
+port 5000
+subcommand rdep
+rdep_list ['arg1','arg2']
+subnargs ['cc','dd']
+```
+
+### use in multi load_command_line_string 
+
+```python
+
+import extargsparse
+
+def load_s_1(parser):
+    load1 = '''
+    {
+      "verbose|v" : "+",
+      "port|p" : 3000,
+      "dep" : {
+        "list|l" : [],
+        "string|s" : "s_var",
+        "$" : "+"
+      }
+    }
+    '''
+    parser.load_command_line_string(load1)
+    return parser
+
+def load_s_2(parser):
+    load2 = '''
+    {
+      "rdep" : {
+        "list|L" : [],
+        "string|S" : "s_rdep",
+        "$" : 2
+      }
+    }
+    '''
+    parser.load_command_line_string(load2)
+    return parser
+
+def main():
+    parser = extargsparse.ExtArgsParse()
+    parser = load_s_1(parser)
+    parser = load_s_2(parser)
+    args = parser.parse_load_command(['-p','7003','-vvvvv','rdep','-L','foo1','-S','new_var','zz','64'])
+    print('port %d'%(args.port))
+    print('verbose %d'%(args.verbose))
+    print('subcommand %s'%(args.subcommand))
+    print('rdep_list %s'%(args.rdep_list))
+    print('rdep_string %s'%(args.rdep_string))
+    print('subnargs %s'%(args.subnargs))
+    return
+
+if __name__ == '__main__':
+  main()  
+
+```
+
+> result
+
+```shell
+verbose 5
+port 7003
+subcommand rdep
+rdep_list ['foo1']
+rdep_string new_var
+subnargs ['zz','64']
+```
+
 
 ### callback handle function example
 
@@ -103,20 +213,23 @@ commandline = '''
 }
 '''
 
-def dep_handler(args):
+def dep_handler(args,context):
     print ('verbose = %d'%(args.verbose))
     print ('port = %s'%(args.port))
     print ('subcommand = %s'%(args.subcommand))
     print ('list = %s'%(args.dep_list))
     print ('string = %s'%(args.dep_string))
     print ('subnargs = %s'%(args.subnargs))
+    print ('context["base"] = %s'%(context['base']))
     os.exit(0)
     return
 
 def main():
+    context = dict()
+    context['base'] = 'basenum'
     parser = extargsparse.ExtArgsParse(usage=' sample commandline parser ')
     parser.load_command_line_string(commandline)
-    args = parser.parse_command_line(['-vvvv','-p',5000,'dep','-l','arg1','-l','arg2','cc','dd'])
+    args = parser.parse_command_line(['-vvvv','-p',5000,'dep','-l','arg1','-l','arg2','cc','dd'],context)
 ```
 
 > result is like this
@@ -128,6 +241,7 @@ subcommand = dep
 list = ['arg1','arg2']
 string = 's_var'
 subnargs = ['cc','dd']
+context["base"] = basenum
 ```
 
 
