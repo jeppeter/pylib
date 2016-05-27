@@ -50,12 +50,21 @@ class Utf8Encode:
 			newdict[newk] = newv
 		return newdict
 
+	def __list_utf8(self,val):
+		newlist = []
+		for k in val:
+			newk = self.__encode_utf8(k)
+			newlist.append(k)
+		return newlist
+
 	def __encode_utf8(self,val):
 		retval = val
 		if isinstance(val,unicode):
 			retval = val.encode('utf8')
 		elif isinstance(val,dict):
 			retval = self.__dict_utf8(val)
+		elif isinstance(val,list):
+			retval = self.__list_utf8(val)
 		return retval
 
 	def __init__(self,val):

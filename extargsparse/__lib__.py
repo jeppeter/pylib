@@ -417,6 +417,7 @@ class ExtArgsParse(argparse.ArgumentParser):
 						logging.info('set (%s)=(%s)'%(key,value))
 						setattr(args,key,value)
 					return args
+		# we search for other value
 		for p in self.__flags:
 			if p.isflag and p.type != 'prefix' and p.type != 'args':
 				if p.optdest == key:
@@ -479,6 +480,7 @@ class ExtArgsParse(argparse.ArgumentParser):
 				fp.close()
 			fp = None
 			raise Exception('can not parse (%s)'%(jsonfile))
+		jsonvalue = keyparse.Utf8Encode(jsonvalue).get_val()
 		return self.__load_jsonvalue(args,prefix,jsonvalue,flagarray)
 
 
@@ -508,10 +510,10 @@ class ExtArgsParse(argparse.ArgumentParser):
 				optdest = optdest.replace('-','_')
 				if '_' not in optdest:
 					optdest = 'EXTARGS_%s'%(optdest)
-				val = os.getenv(optdest,None)
+				val = os.getenv(optdest,None)				
 				if val is not None:
 					# to check the type
-					logging.info('set env(%s) (%s = %s)'%(optdest,oldopt,val))
+					val = keyparse.Utf8Encode(val).get_val()
 					if keycls.type == 'string':
 						setattr(args,oldopt,val)
 					elif keycls.type == 'bool':						
@@ -522,6 +524,7 @@ class ExtArgsParse(argparse.ArgumentParser):
 					elif keycls.type == 'list':
 						try:
 							lval = eval(val)
+							lval = keyparse.Utf8Encode(lval).get_val()
 							if not isinstance(lval,list):
 								raise Exception('(%s) environ(%s) not valid'%(optdest,val))
 							setattr(args,oldopt,lval)
@@ -583,6 +586,10 @@ class ExtArgsParse(argparse.ArgumentParser):
 			jsonfile = args.json
 			args = self.__load_jsonfile(args,'',jsonfile,None)
 
+
+		# now get the environment value
+		args = self.__set_environ_value(args)
+
 		# now to check for the environment as the put file
 		if self.__subparser and args.subcommand is not None:
 			jsondest = '%s_json'%(args.subcommand)
@@ -595,14 +602,11 @@ class ExtArgsParse(argparse.ArgumentParser):
 				# ok we should make this parse
 				args = self.__load_jsonfile(args,args.subcommand,jsonfile,curparser)
 
-		# now get the JSONFILE from environment variable
-		args = self.__set_environ_value(args)
-
-
 		# to get the json existed 
 		jsonfile = os.getenv('EXTARGSPARSE_JSON',None)
 		if jsonfile is not None:
 			args = self.__load_jsonfile(args,'',jsonfile,None)
+
 
 		# set the default value
 		args = self.__set_default_value(args)
@@ -1019,6 +1023,244 @@ class ExtArgsTestCase(unittest.TestCase):
 			jsonfile = None
 		return
 
+	def test_A013(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		jsonfile = None
+		try:
+			fd,jsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(jsonfile,'w+') as f:
+				f.write('{"dep":{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"},"port":6000,"verbose":3}\n')
+
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+			os.environ['EXTARGSPARSE_JSON'] = jsonfile
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			
+			args = parser.parse_command_line(['-p','9000','dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,3)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['jsonval1','jsonval2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if jsonfile is not None:
+				os.remove(jsonfile)
+			jsonfile = None
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+		return
+
+	def test_A014(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		jsonfile = None
+		depjsonfile = None
+		try:
+			fd,jsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			fd ,depjsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(jsonfile,'w+') as f:
+				f.write('{"dep":{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"},"port":6000,"verbose":3}\n')
+			with open(depjsonfile,'w+') as f:
+				f.write('{"list":["depjson1","depjson2"]}\n')
+
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+			os.environ['EXTARGSPARSE_JSON'] = jsonfile
+			os.environ['DEP_JSON'] = depjsonfile
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			
+			args = parser.parse_command_line(['-p','9000','dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,3)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['depjson1','depjson2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if depjsonfile is not None:
+				os.remove(depjsonfile)
+			depjsonfile = None
+			if jsonfile is not None:
+				os.remove(jsonfile)
+			jsonfile = None
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+		return
+
+
+	def test_A015(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		jsonfile = None
+		depjsonfile = None
+		try:
+			fd,jsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			fd ,depjsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(jsonfile,'w+') as f:
+				f.write('{"dep":{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"},"port":6000,"verbose":3}\n')
+			with open(depjsonfile,'w+') as f:
+				f.write('{"list":["depjson1","depjson2"]}\n')
+
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+			os.environ['DEP_JSON'] = depjsonfile
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			
+			args = parser.parse_command_line(['-p','9000','--json',jsonfile,'dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,3)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['jsonval1','jsonval2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if depjsonfile is not None:
+				os.remove(depjsonfile)
+			depjsonfile = None
+			if jsonfile is not None:
+				os.remove(jsonfile)
+			jsonfile = None
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+		return
+
+
+	def test_A016(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		jsonfile = None
+		depjsonfile = None
+		try:
+			depstrval = 'newval'
+			depliststr = '["depenv1","depenv2"]'
+			deplistval = eval(depliststr)
+			fd,jsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			fd ,depjsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(jsonfile,'w+') as f:
+				f.write('{"dep":{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"},"port":6000,"verbose":3}\n')
+			with open(depjsonfile,'w+') as f:
+				f.write('{"list":["depjson1","depjson2"]}\n')
+
+			delone = True
+			while delone:
+				delone = False
+				for k in os.environ.keys():
+					if k.startswith('EXTARGS_') or k.startswith('DEP_') or k == 'EXTARGSPARSE_JSON':
+						del os.environ[k]
+						delone = True
+						break
+
+			os.environ['EXTARGSPARSE_JSON'] = jsonfile
+			os.environ['DEP_JSON'] = depjsonfile
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			os.environ['DEP_STRING'] = depstrval
+			os.environ['DEP_LIST'] = depliststr
+			
+			args = parser.parse_command_line(['-p','9000','dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,3)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,deplistval)
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if depjsonfile is not None:
+				os.remove(depjsonfile)
+			depjsonfile = None
+			if jsonfile is not None:
+				os.remove(jsonfile)
+			jsonfile = None
+			if 'EXTARGSPARSE_JSON' in os.environ.keys():
+				del os.environ['EXTARGSPARSE_JSON']
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+		return
 
 
 def main():
