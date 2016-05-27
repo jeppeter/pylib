@@ -11,11 +11,7 @@ commandline = '''
 	"number|n" : 0,
 	"list|l" : [],
 	"string|s" : "string_var",
-	"$" : {
-		"value" : [],
-		"nargs" : "*",
-		"type" : "string"
-	}
+	"$" : "*"
 }
 '''
 
@@ -203,12 +199,12 @@ import extargsparse
 import os
 commandline = '''
 {
-	'verbose|v' : '+',
-	'port|p' : 3000,
-	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"verbose|v" : "+",
+	"port|p" : 3000,
+	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -252,12 +248,12 @@ import extargsparse
 import os
 commandline = '''
 {
-	'verbose|v' : '+',
-	'port|p+http' : 3000,
-	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"verbose|v" : "+",
+	"port|p+http" : 3000,
+	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -296,15 +292,15 @@ import extargsparse
 import os
 commandline = '''
 {
-	'verbose|v' : '+',
-	'+http' : {
-		'port|p' : 3000,
-		'visual_mode|V' : false
+	"verbose|v" : "+",
+	"+http" : {
+		"port|p" : 3000,
+		"visual_mode|V" : false
 	},
-	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -344,17 +340,17 @@ import extargsparse
 import os
 commandline = '''
 {
-	'verbose|v' : '+',
-	'$port|p' : {
-		'value' : 3000,
-		'type' : 'int',
-		'nargs' : 1 , 
-		'help' : 'port to connect'
+	"verbose|v" : "+",
+	"$port|p" : {
+		"value" : 3000,
+		"type" : "int",
+		"nargs" : 1 , 
+		"helpinfo" : "port to connect"
 	},
-	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -380,7 +376,6 @@ def main():
 ```shell
 verbose = 4
 port = 5000
-visual_mode = True
 subcommand = dep
 list = ['arg1','arg2']
 string = 's_var'
@@ -429,16 +424,15 @@ subnargs = ['cc','dd']
 * special flag --json for parsing args in json file in main command
 * special flag '--%s-json'%(args.subcommand) for  subcommand for example
    ** --dep-json dep.json will set the json command for dep sub command ,and it will give the all omit the command
-   for example 	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+   for example 	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}  
     in dep.json
     {
-    	'list' : ['jsonval1','jsonval2'],
-    	'string' : 'jsonstring',
-    	'$' : ['narg1','narg2']
+    	"list" : ["jsonval1","jsonval2"],
+    	"string" : "jsonstring"
     }
 
 *** example
@@ -447,15 +441,15 @@ import extargsparse
 import os
 commandline = '''
 {
-	'verbose|v' : '+',
-	'+http' : {
-		'port|p' : 3000,
-		'visual_mode|V' : false
+	"verbose|v" : "+",
+	"+http" : {
+		"port|p" : 3000,
+		"visual_mode|V" : false
 	},
-	'dep<__main__.dep_handler>' : {
-		'list|l' : [],
-		'string|s' : 's_var',
-		'$' : '+'
+	"dep<__main__.dep_handler>" : {
+		"list|l" : [],
+		"string|s" : "s_var",
+		"$" : "+"
 	}
 }
 '''
@@ -491,13 +485,12 @@ subnargs = ['cc','dd']
 
 *  you can specify the main command line to handle the json for example
    {
-   	 'dep' : {
-   	 	'string' : 'jsonstring',
-   	 	'list' : ['jsonlist1','jsonlist2'],
-   	 	'$' : ['jsonarg1','jsonarg2']
+   	 "dep" : {
+   	 	"string" : "jsonstring",
+   	 	"list" : ["jsonlist1","jsonlist2"]
    	 },
-   	 'port' : 6000,
-   	 'verbose' : 4
+   	 "port" : 6000,
+   	 "verbose" : 4
    }
 
 * you can specify the json file by environment value for main file json file the value is
@@ -522,5 +515,5 @@ subnargs = ['cc','dd']
    **  flagname the flagname of the value
    **  shortflag flag set for the short
    **  value  the default value of flag
-   **  nargs it accept args '*' for any '?' 1 or 0 '+' equal or more than 1 , number is the number
+   **  nargs it accept args "*" for any "?" 1 or 0 "+" equal or more than 1 , number is the number
    **  helpinfo for the help information

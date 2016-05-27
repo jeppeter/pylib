@@ -8,6 +8,7 @@ import logging
 import unittest
 import re
 import importlib
+import tempfile
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import __key__ as keyparse
 
@@ -72,7 +73,6 @@ class ArrayAction(argparse.Action):
 class FloatAction(argparse.Action):
 	 def __init__(self, option_strings, dest, nargs=1, **kwargs):
 	 	super(IntAction,self).__init__(option_strings, dest, **kwargs)
-	 	self.dest = None
 	 	return
 
 	 def __call__(self, parser, namespace, values, option_string=None):
@@ -83,8 +83,48 @@ class FloatAction(argparse.Action):
 	 	setattr(namespace,self.dest,fval)
 	 	return
 
+class CountAction(argparse.Action):
+	 def __init__(self, option_strings, dest, nargs=0, **kwargs):
+	 	super(CountAction,self).__init__(option_strings, dest, **kwargs)
+	 	self.__shortflag = None
+	 	self.__longflag = None
+	 	if isinstance(option_strings,list):
+	 		for v in option_strings:
+	 			if len(v) == 2 and v[0] == '-' and v[0] != '-':
+	 				self.__shortflag = v[1]
+	 			elif v.startswith('--'):
+	 				self.__longflag = v[2:]
+	 	elif isinstance(option_strings,str):
+	 		if len(option_strings) == 2 and option_strings[0] == '-' and option_strings[1] != '-':
+	 			self.__shortflag = option_strings[1]
+	 		elif option_strings.startswith('--'):
+	 			self.__longflag = option_strings[2:]
+	 	return
+
+	 def __call__(self, parser, namespace, values, option_string=None):
+	 	cnt = getattr(namespace,self.dest)
+ 		notvalid = False
+	 	if self.__longflag and values == self.__longflag:
+	 		if cnt is None:
+	 			cnt = 1
+	 		else:
+	 			cnt += 1
+	 	else:
+	 		for v in values:
+	 			if self.__shortflag and v != self.__shortflag:
+	 				notvalid = True
+	 				break
+	 			if cnt is None:
+	 				cnt = 1
+	 			cnt += 1
+
+	 	if not notvalid:
+	 		setattr(namespace,self.dest,cnt)
+	 	return
+
 
 class ExtArgsParse(argparse.ArgumentParser):
+	reserved_args = ['subcommand','subnargs','json','nargs','extargs']
 	def __get_help_info(self,keycls):
 		helpinfo = ''
 		if keycls.type == 'bool':
@@ -143,17 +183,28 @@ class ExtArgsParse(argparse.ArgumentParser):
 		if curparser is not None:
 			putparser = curparser.parser
 		helpinfo = self.__get_help_info(keycls)
-		if keycls.value == '+':
-			if shortopt:
-				putparser.add_argument(shortopt,longopt,dest=optdest,default=0,action='count')
-			else:
-				putparser.add_argument(longopt,dest=optdest,default=0,action='count')
+		if shortopt:
+			putparser.add_argument(shortopt,longopt,dest=optdest,default=None,help=helpinfo)
 		else:
-			if shortopt:
-				putparser.add_argument(shortopt,longopt,dest=optdest,default=None,help=helpinfo)
-			else:
-				putparser.add_argument(longopt,dest=optdest,default=None,help=helpinfo)
+			putparser.add_argument(longopt,dest=optdest,default=None,help=helpinfo)
 		return True
+
+	def __load_command_line_count(self,prefix,keycls,curparser=None):
+		self.__check_flag_insert_mustsucc(keycls,curparser)
+		longopt = keycls.longopt
+		shortopt = keycls.shortopt
+		optdest = keycls.optdest
+		putparser = self
+		if curparser is not None:
+			putparser = curparser.parser
+		helpinfo = self.__get_help_info(keycls)
+		logging.info('dest %s'%(optdest))
+		if shortopt:
+			putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action=CountAction)
+		else:
+			putparser.add_argument(longopt,dest=optdest,default=None,action=CountAction)
+		return True
+
 
 	def __load_command_line_int(self,prefix,keycls,curparser=None):
 		self.__check_flag_insert_mustsucc(keycls,curparser)
@@ -279,7 +330,8 @@ class ExtArgsParse(argparse.ArgumentParser):
 			'bool' : self.__load_command_line_bool,
 			'args' : self.__load_command_line_args,
 			'command' : self.__load_command_subparser,
-			'prefix' : self.__load_command_prefix
+			'prefix' : self.__load_command_prefix,
+			'count': self.__load_command_line_count
 		}
 		return
 
@@ -365,10 +417,29 @@ class ExtArgsParse(argparse.ArgumentParser):
 						logging.info('set (%s)=(%s)'%(key,value))
 						setattr(args,key,value)
 					return args
+		for p in self.__flags:
+			if p.isflag and p.type != 'prefix' and p.type != 'args':
+				if p.optdest == key:
+					if getattr(args,key,None) is None:
+						if str(keyparse.TypeClass(value)) != str(keyparse.TypeClass(p.value)):
+							logging.warn('%s  type (%s) as default value type (%s)'%(key,str(keyparse.TypeClass(value)),str(keyparse.TypeClass(p.value))))
+						logging.info('set (%s)=(%s)'%(key,value))
+						setattr(args,key,value)
+					return args
+		for parser in self.__cmdparsers:
+			for p in parser.flags:
+				if p.isflag and p.type != 'prefix' and p.type != 'args':
+					if p.optdest == key:
+						if getattr(args,key,None) is None:
+							if str(keyparse.TypeClass(value)) != str(keyparse.TypeClass(p.value)):
+								logging.warn('%s  type (%s) as default value type (%s)'%(key,str(keyparse.TypeClass(value)),str(keyparse.TypeClass(p.value))))
+							logging.info('set (%s)=(%s)'%(key,value))
+							setattr(args,key,value)
+						return args
 		logging.info('can not search for (%s)'%(key))
 		return args
 
-	def __load_jsonvalue(self,args,prefix,jsonval,flagarray):
+	def __load_jsonvalue(self,args,prefix,jsonvalue,flagarray):
 		for k in jsonvalue:
 			if isinstance(jsonvalue[k],dict):
 				newprefix = ''
@@ -394,14 +465,20 @@ class ExtArgsParse(argparse.ArgumentParser):
 		if curparser :
 			flagarray = curparser.flags
 
-		fp = open(jsonfile,'r+')
+		fp = None
+		try:
+			fp = open(jsonfile,'r+')
+		except:
+			raise Exception('can not open(%s)'%(jsonfile))
 		try:
 			jsonvalue = json.load(fp)
-		except:
-			logging.warn('can not parse (%s)'%(jsonfile))
 			fp.close()
 			fp = None
-			return args
+		except:
+			if fp is not None:
+				fp.close()
+			fp = None
+			raise Exception('can not parse (%s)'%(jsonfile))
 		return self.__load_jsonvalue(args,prefix,jsonvalue,flagarray)
 
 
@@ -428,6 +505,7 @@ class ExtArgsParse(argparse.ArgumentParser):
 					# have set ,so we do not set it
 					continue
 				optdest = optdest.upper()
+				optdest = optdest.replace('-','_')
 				if '_' not in optdest:
 					optdest = 'EXTARGS_%s'%(optdest)
 				val = os.getenv(optdest,None)
@@ -734,6 +812,213 @@ class ExtArgsTestCase(unittest.TestCase):
 		self.assertEqual(args.rdep_string,'new_var')
 		self.assertEqual(args.subnargs,['zz','64'])
 		return
+
+	def test_A007(self):
+		commandline = '''
+		{
+			"verbose|v" : "+",
+			"port|p+http" : 3000,
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(commandline)
+		args = parser.parse_command_line(['-vvvv','dep','-l','cc','--dep-string','ee','ww'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.http_port, 3000)
+		self.assertEqual(args.subcommand,'dep')
+		self.assertEqual(args.dep_list,['cc'])
+		self.assertEqual(args.dep_string,'ee')
+		self.assertEqual(args.subnargs,['ww'])
+		return
+
+	def test_A008(self):
+		commandline = '''
+		{
+			"verbose|v" : "+",
+			"+http" : {
+				"port|p" : 3000,
+				"visual_mode|V" : false
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(commandline)
+		args = parser.parse_command_line(['-vvvv','--http-port','9000','--http-visual-mode','dep','-l','cc','--dep-string','ee','ww'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.http_port, 9000)
+		self.assertEqual(args.http_visual_mode,True)
+		self.assertEqual(args.subcommand,'dep')
+		self.assertEqual(args.dep_list,['cc'])
+		self.assertEqual(args.dep_string,'ee')
+		self.assertEqual(args.subnargs,['ww'])
+		return
+
+	def test_A009(self):
+		commandline = '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		parser = ExtArgsParse()
+		parser.load_command_line_string(commandline)
+		args = parser.parse_command_line(['-vvvv','-p','9000','dep','-l','cc','--dep-string','ee','ww'])
+		self.assertEqual(args.verbose,4)
+		self.assertEqual(args.port, 9000)
+		self.assertEqual(args.subcommand,'dep')
+		self.assertEqual(args.dep_list,['cc'])
+		self.assertEqual(args.dep_string,'ee')
+		self.assertEqual(args.subnargs,['ww'])
+		return
+
+	def test_A010(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		depjsonfile = None
+		try:
+			fd,depjsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(depjsonfile,'w+') as f:
+				f.write('{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"}\n')
+
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			args = parser.parse_command_line(['-vvvv','-p','9000','dep','--dep-json',depjsonfile,'--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,4)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['jsonval1','jsonval2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if depjsonfile is not None:
+				os.remove(depjsonfile)
+			depjsonfile = None
+		return
+
+	def test_A011(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		depjsonfile = None
+		try:
+			fd,depjsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			with open(depjsonfile,'w+') as f:
+				f.write('{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"}\n')
+
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+			os.environ['DEP_JSON'] = depjsonfile
+			args = parser.parse_command_line(['-vvvv','-p','9000','dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,4)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['jsonval1','jsonval2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if depjsonfile is not None:
+				os.remove(depjsonfile)
+			depjsonfile = None
+			if 'DEP_JSON' in os.environ.keys():
+				del os.environ['DEP_JSON']
+		return
+
+	def test_A012(self):
+		commandline= '''
+		{
+			"verbose|v" : "+",
+			"$port|p" : {
+				"value" : 3000,
+				"type" : "int",
+				"nargs" : 1 , 
+				"helpinfo" : "port to connect"
+			},
+			"dep" : {
+				"list|l" : [],
+				"string|s" : "s_var",
+				"$" : "+"
+			}
+		}
+		'''
+		jsonfile = None
+		try:
+			fd,jsonfile = tempfile.mkstemp(suffix='.json',prefix='parse',dir=None,text=True)
+			os.close(fd)
+			fd = -1
+			f = open(jsonfile,'w+')
+			f.write('{"dep":{"list" : ["jsonval1","jsonval2"],"string" : "jsonstring"},"port":6000,"verbose":3}\n')
+			f.close()
+			f = None
+
+			parser = ExtArgsParse()
+			parser.load_command_line_string(commandline)
+			
+			args = parser.parse_command_line(['-p','9000','--json',jsonfile,'dep','--dep-string','ee','ww'])
+			self.assertEqual(args.verbose,3)
+			self.assertEqual(args.port, 9000)
+			self.assertEqual(args.subcommand,'dep')
+			self.assertEqual(args.dep_list,['jsonval1','jsonval2'])
+			self.assertEqual(args.dep_string,'ee')
+			self.assertEqual(args.subnargs,['ww'])
+		finally:
+			if jsonfile is not None:
+				os.remove(jsonfile)
+			jsonfile = None
+		return
+
 
 
 def main():

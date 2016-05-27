@@ -99,7 +99,7 @@ class ExtKeyParse:
 			if self.__type == 'dict' and self.__flagname:
 				# in the prefix we will get dict ok
 				raise Exception('(%s) flag can not accept dict'%(self.__origkey))
-			if self.__type != str(TypeClass(self.__value)):
+			if self.__type != str(TypeClass(self.__value)) and self.__type != 'count':
 				raise Exception('(%s) value (%s) not match type (%s)'%(self.__origkey,self.__value,self.__type))
 			if self.__flagname is None :
 				# we should test if the validate flag
@@ -129,7 +129,7 @@ class ExtKeyParse:
 				if self.__nargs is not None and self.__nargs != 0:
 					raise Exception('bool type (%s) can not accept 0 nargs'%(self.__origkey))
 				self.__nargs = 0
-			elif self.__type != 'prefix' and self.__flagname != '$' :
+			elif self.__type != 'prefix' and self.__flagname != '$' and self.__type != 'count':
 				if self.__flagname != '$' and self.__nargs != 1 and self.__nargs is not None:
 					raise Exception('(%s)only $ can accept nargs option'%(self.__origkey))
 				self.__nargs = 1
@@ -137,7 +137,6 @@ class ExtKeyParse:
 				if self.__flagname == '$' and self.__nargs is None:
 					# we make sure any args to have
 					self.__nargs = '*'
-
 		else:
 			if self.__cmdname is None or len(self.__cmdname) == 0 :
 				raise Exception('(%s) not set cmdname'%(self.__origkey))
@@ -297,6 +296,11 @@ class ExtKeyParse:
 			self.__iscmd = False
 			self.__flagname = self.__cmdname
 			self.__cmdname = None
+
+		if self.__isflag and self.__type == 'string' and self.__value == '+' and self.__flagname != '$':
+			self.__value = 0
+			self.__type = 'count'
+			self.__nargs = 0
 
 		if self.__isflag and self.__flagname == '$' and self.__type != 'dict':
 			if not ((self.__type == 'string' and (self.__value  in '+?*' )) or self.__type == 'int') :
@@ -781,6 +785,37 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
+	def test_A026(self):
+		flags = ExtKeyParse('dep','verbose|v','+',False)
+		self.assertEqual(flags.flagname,'verbose')
+		self.assertEqual(flags.shortflag,'v')
+		self.assertEqual(flags.prefix,'dep')
+		self.assertEqual(flags.type,'count')
+		self.assertEqual(flags.value,0)
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.nargs,0)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.optdest,'dep_verbose')
+		self.assertEqual(flags.longopt,'--dep-verbose')
+		self.assertEqual(flags.shortopt,'-v')
+		return
+
+	def test_A027(self):
+		flags = ExtKeyParse('','verbose|v## new help info ##','+',False)
+		self.assertEqual(flags.flagname,'verbose')
+		self.assertEqual(flags.shortflag,'v')
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.type,'count')
+		self.assertEqual(flags.value,0)
+		self.assertEqual(flags.helpinfo,' new help info ')
+		self.assertEqual(flags.nargs,0)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.optdest,'verbose')
+		self.assertEqual(flags.longopt,'--verbose')
+		self.assertEqual(flags.shortopt,'-v')
+		return
 
 
 def main():
