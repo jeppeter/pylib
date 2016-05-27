@@ -755,6 +755,8 @@ def set_log_level(args):
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
+	elif args.verbose >= 1 :
+		loglvl = logging.WARN
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
@@ -772,44 +774,43 @@ def out_map_pkgs(args,pkgs,maps):
 
 def dep_handler(args,context):
 	set_log_level(args)
-	if len(args.subnargs) < 1:
-		Usage(3,'packages need',parser)
 	maps = dict()
 	getpkgs,maps = get_all_deps(args.subnargs,args,maps)
 	out_map_pkgs(args,getpkgs,maps)	
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def rdep_handler(args,context):
 	set_log_level(args)
-	if len(args.subnargs) < 1:
-		Usage(3,'packages need',parser)
 	maps = dict()
 	insts = get_all_inst(args)
 	getpkgs,maps = get_all_rdeps(args.subnargs,args,insts,maps)
 	out_map_pkgs(args,getpkgs,maps)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def inst_handler(args,context):
 	set_log_level(args)
 	insts = get_all_inst(args)
+	args.subnargs = ''
 	out_pkgs(args,insts)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def rc_handler(args,context):
 	set_log_level(args)
 	rcs = get_all_rc(args)
+	args.subnargs = ''
 	out_pkgs(args,rcs)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def essentials_handler(args,context):
 	set_log_level(args)
 	essentials = get_essentials(args)
+	args.subnargs = ''
 	out_pkgs(args,essentials)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def debdep_handler(args,context):
@@ -817,7 +818,7 @@ def debdep_handler(args,context):
 	maps = dict()
 	maps = get_debdep(args,args.subnargs,maps)
 	out_map(args,maps)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def debname_handler(args,context):
@@ -825,7 +826,7 @@ def debname_handler(args,context):
 	maps = dict()
 	maps = get_debname(args,args.subnargs,maps)
 	out_map(args,maps)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 def prepare_handler(args,context):
@@ -834,7 +835,7 @@ def prepare_handler(args,context):
 		environment_before(args)
 	finally:
 		environment_after(args)
-	os.exit(0)
+	sys.exit(0)
 	return
 
 

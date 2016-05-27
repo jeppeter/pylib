@@ -26,7 +26,7 @@ dpkg_const_keywords = {
 }
 
 dpkg_command_line = {
-	'verbose:v' : '+',
+	'verbose|v' : '+',
 	'+dpkg' : dpkg_const_keywords
 }
 
