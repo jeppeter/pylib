@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import const
 import extargsparse
 
+
 dpkg_const_keywords = {
 	'root' : '/',
 	'dpkg' : 'dpkg',
@@ -24,6 +25,10 @@ dpkg_const_keywords = {
 	'jsonfile' : None ,
 	'rollback' : True,
 	'reserved' : False
+}
+
+dpkg_command_line = {
+	'+dpkg' : dpkg_const_keywords
 }
 
 def singleton(class_):
