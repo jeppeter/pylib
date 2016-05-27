@@ -749,78 +749,131 @@ def environment_after(args):
 		utils.umount_dir(d)
 	return
 
-
-
-def main():
-	usage_str='%s [options] {commands} pkgs...'%(sys.argv[0])
-	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
-	dpkgbase.add_dpkg_args(parser)
-	sub_parser = parser.add_subparsers(help='',dest='command')
-	dep_parser = sub_parser.add_parser('dep',help='get depends')
-	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
-	rdep_parser = sub_parser.add_parser('rdep',help='get rdepends')
-	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-	inst_parser = sub_parser.add_parser('inst',help='get installed')
-	rc_parser = sub_parser.add_parser('rc',help='get rcs')
-	essential_parser =sub_parser.add_parser('essentials',help='get essential')
-	debdep_parser = sub_parser.add_parser('debdep',help='get dep of deb')
-	debdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
-	debname_parser = sub_parser.add_parser('debname',help='get dep of deb')
-	debname_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get name')
-	prepare_parser = sub_parser.add_parser('prepare',help='get prepare')
-	args = parser.parse_args()
+def set_log_level(args):
 	loglvl= logging.ERROR
 	if args.verbose >= 3:
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
+def out_pkgs(args,pkgs):
+	maphandle.format_output(args.subnargs,pkgs,'::%s::'%(args.subcommand))
+	return
+
+def out_map(args,maps):
+	maphandle.output_map(args.subnargs,maps,'::%s::'%(args.subcommand))
+	return
+
+def out_map_pkgs(args,pkgs,maps):
+	out_pkgs(args,pkgs)
+	out_map(args,maps)
+
+def dep_handler(args,context):
+	set_log_level(args)
+	if len(args.subnargs) < 1:
+		Usage(3,'packages need',parser)
+	maps = dict()
+	getpkgs,maps = get_all_deps(args.subnargs,args,maps)
+	out_map_pkgs(args,getpkgs,maps)	
+	os.exit(0)
+	return
+
+def rdep_handler(args,context):
+	set_log_level(args)
+	if len(args.subnargs) < 1:
+		Usage(3,'packages need',parser)
+	maps = dict()
+	insts = get_all_inst(args)
+	getpkgs,maps = get_all_rdeps(args.subnargs,args,insts,maps)
+	out_map_pkgs(args,getpkgs,maps)
+	os.exit(0)
+	return
+
+def inst_handler(args,context):
+	set_log_level(args)
+	insts = get_all_inst(args)
+	out_pkgs(args,insts)
+	os.exit(0)
+	return
+
+def rc_handler(args,context):
+	set_log_level(args)
+	rcs = get_all_rc(args)
+	out_pkgs(args,rcs)
+	os.exit(0)
+	return
+
+def essentials_handler(args,context):
+	set_log_level(args)
+	essentials = get_essentials(args)
+	out_pkgs(args,essentials)
+	os.exit(0)
+	return
+
+def debdep_handler(args,context):
+	set_log_level(args)
+	maps = dict()
+	maps = get_debdep(args,args.subnargs,maps)
+	out_map(args,maps)
+	os.exit(0)
+	return
+
+def debname_handler(args,context):
+	set_log_level(args)
+	maps = dict()
+	maps = get_debname(args,args.subnargs,maps)
+	out_map(args,maps)
+	os.exit(0)
+	return
+
+def prepare_handler(args,context):
+	set_log_level(args)
+	try:
+		environment_before(args)
+	finally:
+		environment_after(args)
+	os.exit(0)
+	return
+
+
+dpkg_dep_commandline = {
+	'dep<__main__.dep_handler>## get dpkg depend ##' : {
+		'$' : '+'
+	},
+	'rdep<__main__.rdep_handler>## get dpkg rdepndend ##' : {
+		'$' : '+'
+	},
+	'inst<__main__.inst_handler>## list all install for dpkg ##':{
+		'$' : 0
+	},
+	'rc<__main__.rc_handler>## list all rc mode packages ##' : {
+		'$' : 0
+	},
+	'essentials<__main__.essentials_handler>## list all essentials package ##' : {
+		'$' : 0
+	},
+	'debdep<__main__.debdep_handler>## list dependend for the .deb file ##' : {
+		'$' : '+'
+	},
+	'debname<__main__.debname_handler>## list package name for .deb file ##' : {
+		'$' : '+'
+	},
+	'prepare<__main__.prepare_handler>## to make prepare for every running ##' : {
+		'$' : 0
+	}
+}
+
+def main():
+	usage_str='%s [options] {commands} pkgs...'%(sys.argv[0])
+	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
+	parser = dpkgbase.add_dpkg_args(parser)
+	parser.load_command_line(dpkg_dep_commandline)
+	args = parser.parse_command_line()
 
 	args = dpkgbase.load_dpkg_jsonfile(args)
-	maps = dict()
-	if args.command == 'dep':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		getpkgs,maps = get_all_deps(args.pkgs,args,maps)
-	elif args.command == 'inst':
-		getpkgs = get_all_inst(args)
-		args.pkgs = ''
-	elif args.command == 'rdep':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		insts = get_all_inst(args)
-		getpkgs,maps = get_all_rdeps(args.pkgs,args,insts,maps)
-	elif args.command == 'rc':
-		getpkgs = get_all_rc(args)
-		args.pkgs = ''
-	elif args.command == 'essentials':
-		getpkgs = get_essentials(args)
-		args.pkgs = ''
-	elif args.command == 'debdep':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)		
-		maps = get_debdep(args,args.pkgs,maps)
-		args.pkgs = maps.keys()
-	elif args.command == 'debname':
-		if len(args.pkgs) < 1:
-			Usage(3,'packages need',parser)
-		maps = get_debname(args,args.pkgs,maps)
-		for k in maps.keys():
-			curpath = maps[k]
-			maps[k] = [curpath]
-		args.pkgs = maps.keys()
-	elif args.command == 'prepare':
-		try:
-			environment_before(args)
-		finally:
-			environment_after(args)
-	else:
-		Usage(3,'can not get %s'%(args.command),parser)
-	if args.command == 'dep' or args.command == 'rdep' or args.command == 'inst' or args.command == 'rc' \
-	   or args.command == 'essentials':
-		maphandle.format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
-	if args.command == 'dep'  or args.command == 'rdep' or args.command == 'debdep' or args.command == 'debname':
-		maphandle.output_map(args.pkgs,maps,'::%s::'%(args.command))
+	Usage(3,'no command specified',parser)
 	return
 
 if __name__ == '__main__':
