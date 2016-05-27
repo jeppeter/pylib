@@ -415,12 +415,63 @@ def Usage(ec,fmt,parser):
 	parser.print_help(fp)
 	sys.exit(ec)
 
+def set_log_level(args):
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	elif args.verbose >= 1 :
+		loglvl = logging.WARN
+	# we delete old handlers ,and set new handler
+	delone = True
+	logger = logging.getLogger()
+	while delone:
+		delone = False
+		for hdl in logger.handlers:
+			logger.removeHandler(hdl)
+			delone = True	
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
+def out_pkgs(args,pkgs):
+	maphandle.format_output(args.subnargs,pkgs,'::%s::'%(args.subcommand))
+	return
+
+def out_map(args,maps):
+	maphandle.output_map(args.subnargs,maps,'::%s::'%(args.subcommand))
+	return
+
+def dep_tce(args,context):
+	set_log_level(args)
+
+tce_dep_command_line = {
+	'dep<dep_tce>## tce dep list ##' : {
+		'$' : '+'
+	},
+	'rdep<rdep_tce>## tce rdep list##' : {
+		'$' : '+'
+	},
+	'tree<tree_tce>## tce tree list##' : {
+		'list|l' : [],
+		'$' : '+'
+	},
+	'inst<inst_tce>## tce installed list##' : {
+		'$' : 0
+	},
+	'all<all_tce>## all tce available ##' : {
+		'$' : 0
+	}
+}
 
 
 def main():
 	usage_str='%s [options] {commands} pkgs...'%(sys.argv[0])
 	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
 	parser = tcebase.add_tce_args(parser)
+	parser.load_command_line(tce_dep_command_line)
+	args = parser.parse_command_line()
+
 	sub_parser = parser.add_subparsers(help='',dest='command')
 	dep_parser = sub_parser.add_parser('dep',help='get depends')
 	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
