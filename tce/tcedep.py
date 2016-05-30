@@ -22,11 +22,26 @@ import extargsparse
 class TceDepBase(tcebase.TceBase):
 	def __init__(self):
 		self.__deps = []
+		self.__lineno = 0
+		self.__validline = False
 		return
 
 	def get_input(self,l):
+		self.__lineno += 1
+		if self.__lineno > 1  and not self.__validline:
+			# we can not get this
+			return
+		else:
+			sarr  = re.split(':',l)
+			if len(sarr) > 1:
+				logging.warn('get input error(%s)'%(l))
+				self.__validline = False
+				self.__deps = []
+				return
+			self.__validline = True
 		l = self.strip_line(l)
 		if len(l) > 0:
+
 			if l not in self.__deps:
 				self.__deps.append(l)
 		return
@@ -81,18 +96,23 @@ class TceAvailBase(tcebase.TceBase):
 
 class TceTreeBase(tcebase.TceBase):
 	def __init__(self,args):
+		self.__validline = False
 		self.__lineno = 0
 		self.__deppaths=[]
 		self.__deplists = []
 		self.__curdeps = []
 		self.__curspace = 0
 		self.__depmaps = dict()
+		self.__origmaps = dict()
 		self.__tczexpr = re.compile('\s*(.+)\.tcz$',re.I)
 		self.set_tce_attrs(args)
 		return
 
 	def set_dep_map(self,depmaps):
 		self.__depmaps = depmaps
+		self.__origmaps = dict()
+		for p in depmaps.keys():
+			self.__origmaps[k] = depmaps[k]
 		return
 
 	def __count_space(self,l):
@@ -155,6 +175,17 @@ class TceTreeBase(tcebase.TceBase):
 	def get_input(self,l):
 		l = l.rstrip('\r\t\n ')
 		self.__lineno += 1
+		if self.__lineno > 1 and not self.__validline :
+			return
+		else:
+			# we should test whether it is format ok
+			sarr = re.split(':',l)
+			if len(sarr) > 1 :
+				logging.warn('get tree error(%s)'%(l))
+				self.__validline = False
+				self.__depmaps = self.__origmaps
+				return
+			self.__validline = True
 		if len(l) == 0 :
 			self.__pop_out(0,None)
 			return
@@ -237,9 +268,9 @@ def filter_context(instr,context):
 	return
 
 
-class TceDep(TceDepBase):
+class TceWgetDep(TceDepBase):
 	def __init__(self,args):
-		super(TceDep,self).__init__()
+		super(TceWgetDep,self).__init__()
 		self.set_tce_attrs(args)
 		return
 
@@ -267,7 +298,7 @@ class TceAvail(TceAvailBase):
 		self.set_tce_attrs(args)
 
 	def get_avails(self):
-		cmd = '"%s" -q -O - %s/%s/%s/tcz/'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform)
+		cmd = '"%s" -q -O - "%s/%s/%s/tcz/"'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform)
 		logging.info('run (%s)'%(cmd))
 		retval = cmdpack.run_command_callback(cmd,filter_context,self)
 		if retval != 0:
@@ -287,16 +318,32 @@ class TceTree(TceTreeBase):
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
 		return self.get_dep_map()
 
+class TceWgetTree(TceTreeBase):
+	def __init__(self,args):
+		super(TceWgetTree,self).__init__(args)
+		return
+
+	def get_dep_tree(self,pkgname,depmaps):
+		cmd = '"%s" -q -O - "%s/%s/%s/tcz/%s.tcz.tree"'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
+		logging.info('run (%s)'%(cmd))
+		self.set_dep_map(depmaps)
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0 :
+			if retval != 8:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			logging.warn('can not get %s tree'%(pkgname))
+		return self.get_dep_map()
+
 
 def get_available(args):
 	tceavail = TceAvail(args)
 	return tceavail.get_avails()
 
-def get_all_deps(args,maps):
+def get_all_wget_deps(args,maps):
 	avails = get_available(args)
 	for p in avails:
 		if p not in maps.keys():
-			tcedep = TceDep(args)
+			tcedep = TceWgetDep(args)
 			maps[p] = tcedep.get_deps(p)
 	return maps
 
@@ -306,7 +353,7 @@ def get_dep(args,pkgs,depmap):
 	for p in pkgs:
 		if p in depmap.keys():
 			continue
-		tcedep = TceDep(args)
+		tcedep = TceWgetDep(args)
 		depmap[p] = tcedep.get_deps(p)
 
 	for p in pkgs:
@@ -317,9 +364,9 @@ def get_dep(args,pkgs,depmap):
 	slen = len(alldeps)
 	while True:
 		for p in alldeps:
-			if p not in depmap.key():
-				tcedep = TceDep(args)
-				depmap[p] = tcedep.get_deps()
+			if p not in depmap.keys():
+				tcedep = TceWgetDep(args)
+				depmap[p] = tcedep.get_deps(p)
 		newdeps = []
 		for p in alldeps:
 			newdeps.append(p)
@@ -348,11 +395,11 @@ def transform_to_rdep(depmaps,rdepmaps):
 				rdepmaps[cp].append(p)
 	return depmaps,rdepmaps
 
-def get_rdep(args,pkgs,depmaps,rdepmaps):
+def get_wget_rdep(args,pkgs,depmaps,rdepmaps):
 	scaned = 0
 	for p in pkgs:
 		if p not in rdepmaps.keys() and scaned == 0:
-			depmaps = get_all_deps(args,depmaps)
+			depmaps = get_all_wget_deps(args,depmaps)
 			scaned = 1
 	if scaned > 0:
 		depmaps,rdepmaps = transform_to_rdep(depmaps,rdepmaps)
@@ -371,7 +418,7 @@ def get_rdep(args,pkgs,depmaps,rdepmaps):
 				if scaned > 0:
 					continue
 				else:
-					depmaps = get_all_deps(args,depmaps)
+					depmaps = get_all_wget_deps(args,depmaps)
 					depmaps,rdepmaps = transform_to_rdep(depmaps,rdepmaps)
 					scaned = 1
 			if p in rdepmaps.keys():
@@ -414,6 +461,7 @@ def Usage(ec,fmt,parser):
 		fp.write('%s\n'%(fmt))
 	parser.print_help(fp)
 	sys.exit(ec)
+	return
 
 def set_log_level(args):
 	loglvl= logging.ERROR
@@ -435,14 +483,90 @@ def out_map(args,maps):
 	maphandle.output_map(args.subnargs,maps,'::%s::'%(args.subcommand))
 	return
 
+def combine_map(mainmaps,partmaps):
+	for k in partmaps.keys():
+		if k not in mainmaps.keys():
+			mainmaps[k] = []
+		for cp in partmaps[k]:
+			if cp not in mainmaps[k]:
+				mainmaps[k].append(cp)
+	return mainmaps
+
 def dep_tce(args,context):
 	set_log_level(args)
+	maps = dict()
+	getpkgs,maps = get_dep(args,args.subnargs,maps)
+	out_pkgs(args,getpkgs)
+	out_map(args,maps)
+	sys.exit(0)
+	return
+
+def tree_tce(args,context):
+	set_log_level(args)
+	maps = get_dep_tree(args,args.subnargs)
+	format_tree(args,maps,args.tree_list)
+	sys.exit(0)
+	return
+
+def wgetrdep_tce(args,context):
+	set_log_level(args)
+	maps = dict()
+	maps2 = dict()
+	getpkgs,maps2,maps=get_wget_rdep(args,args.subnargs,maps2,maps)
+	out_pkgs(args,getpkgs)
+	out_map(args,maps)
+	sys.exit(0)
+	return
+
+def inst_tce(args,context):
+	set_log_level(args)
+	sys.exit(0)
+	return
+
+def all_tce(args,context):
+	set_log_level(args)
+	getpkgs = get_available(args)
+	args.subnargs = []
+	out_pkgs(args,getpkgs)
+	sys.exit(0)
+	return
+
+def alldep_tce(args,context):
+	set_log_level(args)
+	getpkgs = get_available(args)
+	depmaps = dict()
+	getpkgs,depmaps = get_dep(args,getpkgs,depmaps)	
+	format_tree(args,depmaps,None,args.alldep_output)
+	sys.exit(0)
+	return
+
+def wgettree_tce(args,context):
+	set_log_level(args)
+	depmaps = dict()
+	for p in args.subnargs:
+		wtree= TceWgetTree(args)
+		depmaps = wtree.get_dep_tree(p,depmaps)
+	for p in args.subnargs:
+		format_tree(args,depmaps,p)
+	sys.exit(0)
+	return
+
+
+def loaddep_tce(args,context):
+	if len(args.subnargs) < 2:
+		Usage(3,'<depfile> pkgs...',context)
+	depmaps = dict()
+	depmaps = get_dep_tree(args,[args.subnargs[0]])
+	format_tree(args,depmaps,args.subnargs[1:])
+	sys.exit(0)
+	return
+
 
 tce_dep_command_line = {
 	'dep<dep_tce>## tce dep list ##' : {
 		'$' : '+'
 	},
-	'rdep<rdep_tce>## tce rdep list##' : {
+	'wgetrdep<wgetrdep_tce>## tce rdep list##' : {
 		'$' : '+'
 	},
 	'tree<tree_tce>## tce tree list##' : {
@@ -454,6 +578,16 @@ tce_dep_command_line = {
 	},
 	'all<all_tce>## all tce available ##' : {
 		'$' : 0
+	},
+	'wgettree<wgettree_tce>## wget tree value ##' : {
+		'$' : '+'
+	},
+	'alldep<alldep_tce>## to make all dep into a file default out stdout ##' :{
+		'output|O' : None,
+		'$' : 0
+	},
+	'loaddep<loaddep_tce>## load dep file from the file and set depend for one : depfile ,deppkg ...##' :{
+		'$' : '+'
 	}
 }
 
@@ -463,55 +597,8 @@ def main():
 	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage=usage_str)
 	parser = tcebase.add_tce_args(parser)
 	parser.load_command_line(tce_dep_command_line)
-	args = parser.parse_command_line()
-
-	sub_parser = parser.add_subparsers(help='',dest='command')
-	dep_parser = sub_parser.add_parser('dep',help='get depends')
-	dep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get depend')
-	rdep_parser = sub_parser.add_parser('rdep',help='get rdepends')
-	rdep_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='package to get rdepend')
-	tree_parser = sub_parser.add_parser('tree',help='get dep from tree files')
-	tree_parser.add_argument('pkgs',metavar='N',type=str,nargs='+',help='files parse dep tree')
-	tree_parser.add_argument('--list',dest='listpkg',action='store',default=None,help='specified the list pkg')
-	inst_parser = sub_parser.add_parser('inst',help='get installed')
-	all_parser = sub_parser.add_parser('all',help='get all available')
-	args = parser.parse_args()	
-	loglvl= logging.ERROR
-	if args.verbose >= 3:
-		loglvl = logging.DEBUG
-	elif args.verbose >= 2:
-		loglvl = logging.INFO
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	args = tcebase.load_tce_jsonfile(args)
-	getpkgs = []
-	maps = dict()
-	maps2 = dict()
-	if args.command == 'dep':
-		if len(args.pkgs) < 1:
-			Usage(3,parser,'%s need a package at least'%(args.command))
-		getpkgs,maps = get_dep(args,args.pkgs,maps)
-	elif args.command == 'rdep':
-		if len(args.pkgs) < 1:
-			Usage(3,parser,'%s need a package at least'%(args.command))
-
-		getpkgs,maps2,maps=get_rdep(args,args.pkgs,maps2,maps)
-	elif args.command == 'inst':
-		pass
-	elif args.command == 'tree':
-		if len(args.pkgs) < 1:
-			Usage(3,parser,'%s need a package at least'%(args.command))
-		maps = get_dep_tree(args,args.pkgs)
-		format_tree(args,maps,args.listpkg)
-	elif args.command == 'all' :
-		getpkgs = get_available(args)
-		args.pkgs = ''
-	else:
-		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'command (%s) not recognized'%(args.command))
-	
-	if args.command == 'all' or args.command == 'dep'  or args.command == 'rdep':
-		maphandle.format_output(args.pkgs,getpkgs,'::%s::'%(args.command))
-	if args.command == 'dep' or args.command == 'rdep' :
-		maphandle.output_map(args.pkgs,maps,'::%s::'%(args.command))
+	args = parser.parse_command_line(None,parser)
+	Usage(3,'please specified a command',parser)
 	return
 
 if __name__ =='__main__':
