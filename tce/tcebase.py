@@ -20,7 +20,7 @@ tce_const_keywords = {
 	'cat' : 'cat',
 	'rm' : 'rm',
 	'sudoprefix' : 'sudo',
-	'optional_dir' : '/cde/optional',
+	'optional_dir' : '/cde',
 	'trymode' : False,
 	'platform' : 'x86_64',
 	'mount' : 'mount',
@@ -30,7 +30,7 @@ tce_const_keywords = {
 	'chmod' : 'chmod',
 	'jsonfile' : None,
 	'perspace' : 3 ,
-	'depmapfile' : None
+	'depmapfile' : None,
 }
 
 

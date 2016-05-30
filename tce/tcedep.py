@@ -221,6 +221,28 @@ class TceTreeBase(tcebase.TceBase):
 			retval = self.__pop_out(0,None)
 		return self.__depmaps
 
+
+class TceInstBase(tcebase.TceBase):
+	def __init__(self,args):
+		super(TceInstBase,self).__init__()
+		self.set_tce_attrs(args)
+		self.__tczexpr = re.compile('(.+)\.tcz$',re.I)
+		self.__insts = []
+		return
+
+	def get_input(self,l):
+		l = l.rstrip(' \t\r\n')
+		l = l.strip(' \t')
+		m = self.__tczexpr.findall(l)
+		if m and len(m) > 0:
+			if m[0] not in self.__insts:
+				self.__insts.append(m[0])
+		return
+
+	def get_inst(self):
+		return self.__insts
+
+
 class TceTreeFormat(tcebase.TceBase):
 	def __init__(self,args):
 		self.__depmaps = dict()
@@ -336,6 +358,19 @@ class TceWgetTree(TceTreeBase):
 			logging.warn('can not get %s tree'%(pkgname))
 		return self.get_dep_map()
 
+
+class TceInst(TceInstBase):
+	def __init__(self,args):
+		super(TceInst,self).__init__(args)
+		return
+
+	def get_insts(self):
+		cmd = '"%s" "%s/onboot.lst"'%(self.tce_cat,self.tce_optional_dir)
+		logging.info('cmd (%s)'%(cmd))
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0:
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return self.get_inst()
 
 def get_available(args):
 	tceavail = TceAvail(args)
@@ -528,10 +563,20 @@ def wgetrdep_tce(args,context):
 	sys.exit(0)
 	return
 
+
 def inst_tce(args,context):
+	tceinst = TceInst(args)
+	return tceinst.get_insts()
+
+def inst_handler(args,context):
 	set_log_level(args)
+	insts = inst_tce(args,context)
+	args.subnargs = []
+	out_pkgs(args,insts)
 	sys.exit(0)
 	return
+
+
 
 def all_tce(args,context):
 	set_log_level(args)
@@ -590,7 +635,7 @@ tce_dep_command_line = {
 		'list|l' : [],
 		'$' : '+'
 	},
-	'inst<inst_tce>## tce installed list##' : {
+	'inst<inst_handler>## tce installed list##' : {
 		'$' : 0
 	},
 	'all<all_tce>## all tce available ##' : {
