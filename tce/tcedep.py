@@ -305,7 +305,7 @@ class TceWgetDep(TceDepBase):
 			cmd += '"%s" "%s" "%s"'%(self.tce_sudoprefix,self.tce_cat,depfile)
 		else:
 			# nothing is ,so we download from the file
-			cmd += '"%s" -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
+			cmd += '"%s" --timeout=%d -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		retval = cmdpack.run_command_callback(cmd,filter_context,self)
 		if retval != 0:
 			if retval != 8 :
@@ -322,7 +322,7 @@ class TceAvail(TceAvailBase):
 		self.set_tce_attrs(args)
 
 	def get_avails(self):
-		cmd = '"%s" -q -O - "%s/%s/%s/tcz/"'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform)
+		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform)
 		logging.info('run (%s)'%(cmd))
 		retval = cmdpack.run_command_callback(cmd,filter_context,self)
 		if retval != 0:
@@ -348,7 +348,7 @@ class TceWgetTree(TceTreeBase):
 		return
 
 	def get_dep_tree(self,pkgname,depmaps):
-		cmd = '"%s" -q -O - "%s/%s/%s/tcz/%s.tcz.tree"'%(self.tce_wget,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
+		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/%s.tcz.tree"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
 		logging.info('run (%s)'%(cmd))
 		self.set_dep_map(depmaps)
 		retval = cmdpack.run_command_callback(cmd,filter_context,self)
@@ -362,6 +362,7 @@ class TceWgetTree(TceTreeBase):
 class TceInst(TceInstBase):
 	def __init__(self,args):
 		super(TceInst,self).__init__(args)
+		self.set_tce_attrs(args)
 		return
 
 	def get_insts(self):
@@ -371,6 +372,56 @@ class TceInst(TceInstBase):
 		if retval != 0:
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
 		return self.get_inst()
+
+	def __write_inst_inner(self,lstfile,s):
+		with open(lstfile,'w+') as f:
+			f.write(s)
+		return
+
+	def __write_inst(self,pkgs):
+		s = ''
+		pkgs.sort()
+		for p in pkgs:
+			s += '%s.tcz\n'%(p)
+
+		self.__write_inst_inner('%s/xbase.lst'%(self.tce_optional_dir),s)
+		self.__write_inst_inner('%s/copy2fs.lst'%(self.tce_optional_dir),s)
+		self.__write_inst_inner('%s/onboot.lst'%(self.tce_optional_dir),s)
+		return
+
+
+	def add_inst(self,pkgs):
+		insts = self.get_insts()
+		added = 0
+		if isinstance(pkgs,list):
+			for p in pkgs:
+				if p not in insts:
+					added += 1
+					insts.append(p)
+		else:
+			if pkgs not in insts:
+				insts.append(pkgs)
+				added += 1
+		if added > 0:
+			self.__write_inst(insts)
+		return
+
+	def rm_inst(self,pkgs):
+		insts = self.get_insts()
+		removed = 0
+		if isinstance(pkgs,list):
+			for p in pkgs:
+				if p in insts:
+					insts.remove(p)
+					removed += 1
+		else:
+			if pkgs in insts:
+				insts.remove(pkgs)
+				removed += 1
+
+		if removed > 0:
+			self.__write_inst(insts)
+		return
 
 def get_available(args):
 	tceavail = TceAvail(args)

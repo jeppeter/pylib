@@ -31,6 +31,7 @@ tce_const_keywords = {
 	'jsonfile' : None,
 	'perspace' : 3 ,
 	'depmapfile' : None,
+	'timeout' : 10
 }
 
 

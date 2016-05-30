@@ -60,10 +60,78 @@ class TceMd5(TceMd5Base):
 		return True
 
 
-class TceDownload(tcebase.TceBase):
+
+class TceCheck(tcedep.TceInst):
 	def __init__(self,args):
-		super(TceDownload,self).__init__()
-		self.set_tce_attrs(args)
+		super(TceCheck,self).__init__(args)
+		self.__args = args
+		self.__md5expr = re.compile('(.+)\.tcz\.md5\.txt$',re.I)
+		self.__tczexpr = re.compile('(.+)\.tcz$',re.I)
+		return
+
+	def __get_directory_valid(self):
+		tczfiles = []
+		md5files = []
+		tczdict = dict()
+		for f in os.listdir('%s/optional'%(self.tce_optional_dir)):
+			if os.path.isfile('%s/optional/%s'%(self.tce_optional_dir,f)):
+				m = self.__md5expr.findall(f)
+				if m and len(m) > 0:
+					if f not in md5files:
+						md5files.append(f)
+				m = self.__tczexpr.findall(f)
+				if m and len(m) > 0:
+					if f not in tczfiles:
+						tczfiles.append(f)
+		# now to pair it
+		for p in tczfiles:
+			curmd5 = '%s.md5.txt'%(p)
+			if curmd5 in md5files:
+				tczdict[p] = curmd5
+
+		# now we check the file
+		tcemd5 = TceMd5(self.__args)
+		validpkgs = []
+		for p in tczdict.keys():
+			curtcz = '%s/optional/%s'%(self.tce_optional_dir,p)
+			curmd5 = '%s/optional/%s'%(self.tce_optional_dir,tczdict[p])
+			retval = tcemd5.check_md5(curmd5,curtcz)
+			if retval :
+				m = self.__tczexpr.findall(p)
+				if m and len(m) > 0:
+					if m[0] not in validpkgs:
+						validpkgs.append(m[0])
+		return validpkgs
+
+
+	def check_validate(self):
+		# first we should read all insts
+		insts = self.get_insts()
+		validpkgs = self.__get_directory_valid()
+
+		corrupted = []
+		missed = []
+		for p in insts:
+			if p not in validpkgs:
+				if p not in corrupted:
+					corrupted.append(p)
+
+		for p in validpkgs:
+			if p not in insts:
+				if p not in missed:
+					missed.append(p)
+
+		logging.warn('corrupted (%s)'%(corrupted))
+		logging.warn('missed (%s)'%(missed))
+		self.rm_inst(corrupted)
+		self.add_inst(missed)
+
+		return corrupted,missed
+
+
+class TceDownload(tcedep.TceInst):
+	def __init__(self,args):
+		super(TceDownload,self).__init__(args)
 		self.__args = args
 		return
 
@@ -80,12 +148,12 @@ class TceDownload(tcebase.TceBase):
 				logging.info('%s file already in'%(pkg))
 				return
 
-		cmd = '"%s" -O "%s" "%s/%s/%s/tcz/%s.tcz" '%(self.tce_wget,tczfile,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
+		cmd = '"%s" --timeout=%d -O "%s" "%s/%s/%s/tcz/%s.tcz" '%(self.tce_wget,self.tce_timeout,tczfile,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		logging.info('run cmd(%s)'%(cmd))
 		retval = cmdpack.run_command_callback(cmd,None,None)
 		if retval != 0:
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
-		cmd = '"%s" -O "%s" "%s/%s/%s/tcz/%s.tcz.md5.txt"'%(self.tce_wget,md5file,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
+		cmd = '"%s" --timeout=%d -O "%s" "%s/%s/%s/tcz/%s.tcz.md5.txt"'%(self.tce_wget,self.tce_timeout,md5file,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		logging.info('run cmd(%s)'%(cmd))
 		retval = cmdpack.run_command_callback(cmd,None,None)
 		if retval != 0:
@@ -130,10 +198,87 @@ class TceInstPkgBase(TceDownload):
 
 	def install_pkg(self,pkg,parser):
 		addpkgs = self.download_pkg(pkg,parser)
-		self.__append_file(addpkgs,'%s/copy2fs.lst'%(self.tce_optional_dir))
-		self.__append_file(addpkgs,'%s/xbase.lst'%(self.tce_optional_dir))
-		self.__append_file(addpkgs,'%s/onboot.lst'%(self.tce_optional_dir))
+		self.add_inst(addpkgs)
 		return
+
+class TceRmPkgBase(tcebase.TceBase):
+	def __init__(self,args):
+		super(TceRmPkgBase,self).__init__()
+		self.set_tce_attrs(args)
+		self.__args = args
+		self.__callidx = 0
+		return
+
+	def __remove_pkg_inner(self,pkgs):
+		if isinstance(pkgs,list):
+			cmds = '"%" -f '%(self.tce_rm)
+			for p in pkgs:
+				cmds += ' "%s/optional/%s.tcz" "%s/optional/%s.tcz.md5.txt"'%(self.tce_optional_dir,p,self.tce_optional_dir,p)			
+		else:
+			cmds = '"%s" -f "%s/optional/%s.tcz" "%s/optional/%s.tcz.md5.txt"'%(self.tce_rm,self.tce_optional_dir,pkgs,self.tce_optional_dir,pkgs)
+		logging.info('rm (%s)'%(cmds))
+		retval = cmdpack.run_command_callback(cmds,None,None)
+		if retval != 0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return
+
+
+	def __remove_pkg_recursive(self,pkg,insts,depmaps,rdepmaps):
+		ok = True
+		self.__callidx += 1
+		rmpkgs = []
+		if self.__callidx > 50:
+			return False,rmpkgs,insts,depmaps,rdepmaps
+		allrdeps,depmaps,rdepmaps = tcedep.get_wget_rdep(self.__args,[pkg],depmaps,rdepmaps)
+		willremoved = []
+		if pkg in allrdeps:
+			self.__remove_pkg_inner(allrdeps)
+			for p in allrdeps:
+				if p in insts:
+					insts.remove(p)
+					if p not in rmpkgs:
+						rmpkgs.append(p)
+		else:
+			for p in allrdeps:
+				if p in insts:
+					if p not in willremoved:
+						willremoved.append(p)
+		while len(willremoved) > 0 and ok :
+			curpkg = willremoved.pop(0)
+			ok,removed , insts,depmaps,rdepmaps = self.__remove_pkg_recursive(curpkg,insts,depmaps,rdepmaps)
+			for p in removed:
+				if p not in rmpkgs:
+					rmpkgs.append(p)
+				if p in insts:
+					insts.remove(p)
+				if p in willremoved:
+					willremoved.remove(p)
+
+		if ok and pkg in insts:
+			self.__remove_pkg_inner(pkg)
+			if pkg not in rmpkgs:
+				rmpkgs.append(pkg)
+			insts.remove(pkg)
+		self.__callidx -= 1
+		return ok,rmpkgs,insts,depmaps,rdepmaps
+
+
+
+	def rm_pkg(self,pkgs,parser):
+		depmaps = tcedep.get_alldep_from_file(self.__args)
+		rdepmaps = dict()
+		depmaps,rdepmaps = tcedep.transform_to_rdep(depmaps,rdepmaps)
+		insts = tcedep.inst_tce(self.__args,parser)
+		removed = []
+		for p in pkgs:
+			ok , curremoved,insts,depmaps,rdepmaps = self.__remove_pkg_recursive(p,insts,depmaps,rdepmaps)
+			if not ok :
+				raise dbgexp.DebugException(dbgexp.ERROR_DOWNLOAD_ERROR,'can not remove error(%s)'%(p))
+			for cp in curremoved:
+				if cp not in removed:
+					removed.append(cp)
+		return removed
+
 
 
 
@@ -164,6 +309,23 @@ def install_handler(args,context):
 	for p in args.subnargs:
 		tceinstall.install_pkg(p,context)
 	sys.exit(0)
+	return
+
+def check_handler(args,context):
+	tcedep.set_log_level(args)
+	tcecheck = TceCheck(args)
+	tcecheck.check_validate()
+	sys.exit(0)
+	return
+
+def rm_handler(args,context):
+	tcedep.set_log_level(args)
+	tcerm = TceRmPkgBase(args)
+	removed = tcerm.rm_pkg(args.subnargs,context)
+	tceinst = tcedep.TceInst(args)
+	tceinst.rm_inst(removed)
+	sys.exit(0)
+	return
 
 
 tce_inst_command_line={
@@ -171,6 +333,12 @@ tce_inst_command_line={
 		'$' : '+'
 	},
 	'install<install_handler>## install packages... ##':{
+		'$' : '+'
+	},
+	'check<check_handler>## check install and make integrition ##' : {
+		'$' : 0
+	},
+	'rm<rm_handler>## remove packages... ##' : {
 		'$' : '+'
 	}
 }
