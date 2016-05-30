@@ -24,6 +24,7 @@ class TceDepBase(tcebase.TceBase):
 		self.__deps = []
 		self.__lineno = 0
 		self.__validline = False
+		self.__tczexpr = re.compile('(.+)\.tcz$',re.I)
 		return
 
 	def get_input(self,l):
@@ -41,9 +42,10 @@ class TceDepBase(tcebase.TceBase):
 			self.__validline = True
 		l = self.strip_line(l)
 		if len(l) > 0:
-
-			if l not in self.__deps:
-				self.__deps.append(l)
+			m = self.__tczexpr.findall(l)
+			if m and len(m) > 0:
+				if m[0] not in self.__deps:
+					self.__deps.append(m[0])
 		return
 
 	def get_depend(self):
@@ -143,7 +145,7 @@ class TceTreeBase(tcebase.TceBase):
 		if len(self.__deppaths) == 0:
 			return
 		assert(len(self.__deppaths) > 0)
-		assert(len(self.__curdeps) > 0)
+		assert(len(self.__curdeps) >= 0)
 		retval = True
 		while cnt < len(self.__deppaths) and retval:
 			retval = self.__pop_out_inner()
@@ -555,9 +557,11 @@ def wgettree_tce(args,context):
 def loaddep_tce(args,context):
 	if len(args.subnargs) < 2:
 		Usage(3,'<depfile> pkgs...',context)
+	set_log_level(args)
 	depmaps = dict()
 	depmaps = get_dep_tree(args,[args.subnargs[0]])
-	format_tree(args,depmaps,args.subnargs[1:])
+	for p in args.subnargs[1:]:
+		format_tree(args,depmaps,p)
 	sys.exit(0)
 	return
 
