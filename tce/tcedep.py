@@ -477,6 +477,14 @@ def set_log_level(args):
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
+def get_alldep_from_file(args):
+	maps = dict()
+	if args.tce_depmapfile is not None:
+		logging.info('loading from %s'%(args.tce_depmapfile))
+		tcetree = TceTree(args)
+		maps = tcetree.get_dep_tree(args.tce_depmapfile,maps)
+	return maps
+
 def out_pkgs(args,pkgs):
 	maphandle.format_output(args.subnargs,pkgs,'::%s::'%(args.subcommand))
 	return
@@ -496,7 +504,7 @@ def combine_map(mainmaps,partmaps):
 
 def dep_tce(args,context):
 	set_log_level(args)
-	maps = dict()
+	maps = get_alldep_from_file(args)
 	getpkgs,maps = get_dep(args,args.subnargs,maps)
 	out_pkgs(args,getpkgs)
 	out_map(args,maps)
@@ -513,7 +521,7 @@ def tree_tce(args,context):
 def wgetrdep_tce(args,context):
 	set_log_level(args)
 	maps = dict()
-	maps2 = dict()
+	maps2 = get_alldep_from_file(args)
 	getpkgs,maps2,maps=get_wget_rdep(args,args.subnargs,maps2,maps)
 	out_pkgs(args,getpkgs)
 	out_map(args,maps)
@@ -536,7 +544,7 @@ def all_tce(args,context):
 def alldep_tce(args,context):
 	set_log_level(args)
 	getpkgs = get_available(args)
-	depmaps = dict()
+	depmaps = get_alldep_from_file(args)
 	getpkgs,depmaps = get_dep(args,getpkgs,depmaps)	
 	format_tree(args,depmaps,None,args.alldep_output)
 	sys.exit(0)
@@ -555,12 +563,17 @@ def wgettree_tce(args,context):
 
 
 def loaddep_tce(args,context):
-	if len(args.subnargs) < 2:
-		Usage(3,'<depfile> pkgs...',context)
+	if len(args.subnargs) < 1:
+		Usage(3,'pkgs...',context)
+	pkgs = args.subnargs
 	set_log_level(args)
-	depmaps = dict()
-	depmaps = get_dep_tree(args,[args.subnargs[0]])
-	for p in args.subnargs[1:]:
+	depmaps = get_alldep_from_file(args)
+	if len(depmaps.keys()) == 0:
+		if len(args.subnargs) < 2:
+			Usage(3,'<depfile> pkgs...',context)
+		depfile = pkgs.shift()
+		depmaps = get_dep_tree(args,[depfile])
+	for p in pkgs:
 		format_tree(args,depmaps,p)
 	sys.exit(0)
 	return
