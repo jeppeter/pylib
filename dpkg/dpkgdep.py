@@ -759,13 +759,6 @@ def set_log_level(args):
 	elif args.verbose >= 1 :
 		loglvl = logging.WARN
 	# we delete old handlers ,and set new handler
-	delone = True
-	logger = logging.getLogger()
-	while delone:
-		delone = False
-		for hdl in logger.handlers:
-			logger.removeHandler(hdl)
-			delone = True	
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
