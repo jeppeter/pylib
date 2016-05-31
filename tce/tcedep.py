@@ -243,6 +243,90 @@ class TceInstBase(tcebase.TceBase):
 		return self.__insts
 
 
+class TceListBase(tcebase.TceBase):
+	def __init__(self,args):
+		super(TceListBase,self).__init__()
+		self.set_tce_attrs(args)
+		self.__lists = []
+		return
+
+	def get_input(self,l):
+		l = l.rstrip(' \t\r\n')
+		if len(l) > 0:
+			if l not in self.__lists:
+				self.__lists.append(l)
+		return
+
+	def get_lists(self):
+		return self.__lists
+
+class TceListFileBase(tcebase.TceBase):
+	def __init__(self,args):
+		super(TceListFileBase,self).__init__()
+		self.set_tce_attrs(args)
+		self.__listmap = dict()
+		self.__fileexpr = re.compile('^[\s]+(.+)$',re.I)
+		self.__tczexpr = re.compile('^(.+)\.tcz$',re.I)
+		self.__curtcz = None
+		self.__curfiles = []
+		self.__lineno = 0
+		return
+
+	def __set_tczfiles(self,pkgname,pkgfiles):
+		if pkgname is None:
+			return
+		if pkgname not in self.__listmap.keys():
+			self.__listmap[pkgname] = pkgfiles
+		else:
+			for p in pkgfiles:
+				if p not in self.__listmap[pkgname]:
+					self.__listmap[pkgname].append(p)
+		return
+
+	def __flush_tczfiles(self,curtcz):
+		self.__set_tczfiles(self.__curtcz,self.__curfiles)
+		self.__curtcz = curtcz
+		self.__curfiles = []
+		return
+
+	def get_input(self,l):
+		self.__lineno += 1
+		l = l.rstrip('\t \r\n')
+		m = self.__tczexpr.findall(l)
+		if m and len(m) > 0:
+			self.__flush_tczfiles(m[0])
+			return
+
+		m = self.__fileexpr.findall(l)
+		if m and len(m) > 0:
+			if self.__curtcz is not None:
+				if m[0] not in self.__curfiles:
+					self.__curfiles.append(m[0])
+			return
+		return
+
+	def get_list_files(self,pkg):
+		self.__flush_tczfiles(None)
+		if pkg in self.__listmap.keys():
+			return self.__listmap[pkg]
+		return []
+
+	def get_list_map(self):
+		self.__flush_tczfiles(None)
+		return self.__listmap
+
+	def format_list_map(self,listmap):
+		s = ''
+		for p in listmap.keys():
+			s += '%s.tcz\n'%(p)
+			for cp in listmap[p]:
+				s += ' ' * self.tce_perspace
+				s += '%s\n'%(cp)
+		return s
+
+
+
+
 class TceTreeFormat(tcebase.TceBase):
 	def __init__(self,args):
 		self.__depmaps = dict()
@@ -422,6 +506,37 @@ class TceInst(TceInstBase):
 		if removed > 0:
 			self.__write_inst(insts)
 		return
+
+
+class TceList(TceListBase):
+	def __init__(self,args):
+		super(TceList,self).__init__(args)
+		return
+
+	def get_lists_command(self,pkgname):
+		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/%s.tcz.list"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
+		logging.info('run (%s)'%(cmd))
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0 :
+			if retval != 8:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			logging.warn('can not get (%s) list'%(pkgname))
+		return self.get_lists()
+
+
+class TceListFile(TceListFileBase):
+	def __init__(self,args):
+		super(TceListFile,self).__init__(args)
+		return
+
+	def get_lists_file(self,pkgname,listfile):
+		cmd = '"%s" "%s"'%(self.tce_cat,listfile)
+		logging.info('run (%s)'%(cmd))
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return self.get_list_files(pkgname)
+
 
 def get_available(args):
 	tceavail = TceAvail(args)
@@ -642,7 +757,7 @@ def alldep_tce(args,context):
 	getpkgs = get_available(args)
 	depmaps = get_alldep_from_file(args)
 	getpkgs,depmaps = get_dep(args,getpkgs,depmaps)	
-	format_tree(args,depmaps,None,args.alldep_output)
+	format_tree(args,depmaps,None,args.output)
 	sys.exit(0)
 	return
 
@@ -675,7 +790,50 @@ def loaddep_tce(args,context):
 	return
 
 
+def formatlist_handler(args,context):
+	set_log_level(args)
+	listmap = dict()
+	logging.info('formatlist')
+	if args.subnargs is None or len(args.subnargs) == 0:
+		getpkgs = get_available(args)
+		logging.info('getpkgs %s'%(getpkgs))
+		for p in getpkgs:
+			tcelists = TceList(args)
+			listmap[p] = tcelists.get_lists_command(p)
+	else:
+		logging.info('subnargs %s'%(args.subnargs))
+		for p in args.subnargs:
+			tcelists = TceList(args)
+			listmap[p] = tcelists.get_lists_command(p)
+	tcelistfile = TceListFileBase(args)
+	s = tcelistfile.format_list_map(listmap)
+	if args.output is None:
+		sys.stdout.write(s)
+	else:
+		with open(args.output,'w+') as f:
+			f.write(s)
+	sys.exit(0)
+	return
+
+def getlist_handler(args,context):
+	set_log_level(args)
+	if args.tce_listsfile is None:
+		Usage(3,'please specified TCE_LISTSFILE',context)
+	tcelistsfile = TceListFile(args)
+	listmaps = dict()
+	for p in args.subnargs:
+		listmaps[p] = tcelistsfile.get_lists_file(p,args.tce_listsfile)
+	tcelistfile = TceListFileBase(args)
+	s = tcelistfile.format_list_map(listmaps)
+	sys.stdout.write(s)
+	sys.exit(0)
+	return
+
+
+
+
 tce_dep_command_line = {
+	'output|O' : None,
 	'dep<dep_tce>## tce dep list ##' : {
 		'$' : '+'
 	},
@@ -696,10 +854,15 @@ tce_dep_command_line = {
 		'$' : '+'
 	},
 	'alldep<alldep_tce>## to make all dep into a file default out stdout ##' :{
-		'output|O' : None,
 		'$' : 0
 	},
 	'loaddep<loaddep_tce>## load dep file from the file and set depend for one : depfile ,deppkg ...##' :{
+		'$' : '+'
+	},
+	'formatlist<formatlist_handler>## format file list in tce ##' : {
+		'$' : '*'
+	},
+	'getlist<getlist_handler>## get list file for pkg... ##' : {
 		'$' : '+'
 	}
 }
