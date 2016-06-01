@@ -530,11 +530,9 @@ class TceListFile(TceListFileBase):
 		return
 
 	def get_lists_file(self,pkgname,listfile):
-		cmd = '"%s" "%s"'%(self.tce_cat,listfile)
-		logging.info('run (%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0 :
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		with open(listfile,'r+') as f:
+			for l in f:
+				self.get_input(l)
 		return self.get_list_files(pkgname)
 
 	def get_lists_map(self,listfile):
