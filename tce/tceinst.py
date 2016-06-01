@@ -11,6 +11,8 @@ import sys
 import argparse
 import logging
 import hashlib
+import tempfile
+import pwd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import dbgexp
@@ -279,8 +281,129 @@ class TceRmPkgBase(tcebase.TceBase):
 					removed.append(cp)
 		return removed
 
+class TceExtract(tcebase.TceBase):
+	def __init__(self,args):
+		super(TceExtract,self).__init__()
+		self.set_tce_attrs(args)
+		self.__args = args
+		self.__mountdir = None
+		self.__mkdirs = []
+		self.__cpfiles = []
+		return
+
+	def extract_pkg(self,pkg):
+		# now first 
+		self.__mkdirs = []
+		self.__cpfiles = []
+		success = False
+		try:
+			self.umount_dir()
+			self.__mountdir = tempfile.mkdtemp(prefix='tcz')		
+			cmd = '"%s" "%s" -o loop "%s/optional/%s.tcz" "%s"'%(self.tce_sudoprefix,self.tce_mount,self.tce_optional_dir,pkg,self.__mountdir)
+			retval = cmdpack.run_command_callback(cmd,None,None)
+			if retval != 0 :
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			# now we should get the list file
+			for root,dirs,files in os.walk(self.__mountdir):
+				curroot = root.replace(self.__mountdir,'')
+				rootext = '%s/%s'%(self.tce_root,curroot)
+				for curf in files:
+					fromf = '%s/%s'%(root,curf)
+					tof = '%s/%s'%(rootext,curf)
+					logging.info('cp (%s) => (%s)'%(fromf,tof))
+					if not self.tce_trymode and not os.path.isdir(rootext):
+						cmd = '"%s" "%s" -p "%s"'%(self.tce_sudoprefix,self.tce_mkdir,rootext)
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+						if rootext not in self.__mkdirs:
+							self.__mkdirs.append(rootext)
+						dstat = os.stat(root)
+						uowner = pwd.getpwuid(dstat.st_uid).pw_name
+						gowner = pwd.getpwuid(dstat.st_gid).pw_name
+						cmd = '"%s" "%s" %s:%s %s'%(self.tce_sudoprefix,self.tce_chown,uowner,gowner,rootext)
+						logging.info('mkdir %s mode (%s:%s)'%(rootext,uowner,gowner))
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+					if not self.tce_trymode:
+						cmd = '"%s" "%s" -a "%s" "%s"'%(self.tce_sudoprefix,self.tce_cp,fromf,tof)
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+						if tof not in self.__cpfiles:
+							self.__cpfiles.append(tof)				
+			success = True
+		finally:
+			if self.tce_rollback and not success:
+				cmd = '"%s" "%s" -f '%(self.tce_sudoprefix,self.tce_rm)
+				removed = 0
+				for p in self.__cpfiles:
+					cmd += ' "%s"'%(p)
+					removed += 1
+
+				if removed > 0 :
+					cmdpack.run_command_callback(cmd,None,None)
+				cmd = '"%s" "%s" -rf '%(self.tce_sudoprefix,self.tce_rm)
+				removed = 0
+				for p in self.__mkdirs:
+					cmd += ' "%s"'%(p)
+					removed += 1
+				if removed > 0 :
+					cmdpack.run_command_callback(cmd ,None,None)
+			self.umount_dir()
+		return
+
+	def unextract_pkg(self,pkg):
+		totallistmap = tcedep.getlist_tce(self.__args)
+		if pkg in totallistmap.keys():
+			removed = 0
+			cmd = '"%s" "%s" -f '%(self.tce_sudoprefix,self.tce_rm)
+			for p in totallistmap[pkg]:
+				curf = '%s/%s'%(self.tce_root,p)
+				if os.path.isfile(curf)  :
+					logging.info('remove %s'%(curf))
+					if not self.tce_trymode:
+						cmd += ' "%s"'%(curf)
+						removed += 1
+			if removed > 0:
+				retval = cmdpack.run_command_callback(cmd,None,None)
+				if retval != 0:
+					raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			removedirs = 0
+			cmd = '"%s" "%s" -rf'%(self.tce_sudoprefix,self.tce_rm)
+			for p in totallistmap[pkg]:
+				curd = '%s/%s'%(self.tce_root,p)
+				if os.path.isdir(curd):
+					if not os.listdir(curd):
+						logging.info('remove %s'%(curd))
+						if not self.tce_trymode:
+							cmd += ' "%s"'%(curd)
+							removedirs += 1
+			if removedirs > 0:
+				retval = cmdpack.run_command_callback(cmd,None,None)
+				if retval != 0:
+					raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return
 
 
+
+
+
+
+
+	def umount_dir(self):
+		if self.__mountdir is not None:
+			cmd = '"%s" "%s" "%s"'%(self.tce_sudoprefix,self.tce_umount,self.__mountdir)
+			retval = cmdpack.run_command_callback(cmd,None,None)
+			if retval != 0 :
+				logging.warn('run (%s) error(%d)'%(cmd,retval))
+			os.removedirs(self.__mountdir)
+		self.__mountdir = None
+		return
+
+	def __del__(self):
+		self.umount_dir()
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -318,6 +441,23 @@ def check_handler(args,context):
 	sys.exit(0)
 	return
 
+def extract_handler(args,context):
+	tcedep.set_log_level(args)
+	tceex = TceExtract(args)
+	for p in args.subnargs:
+		tceex.extract_pkg(p)
+	sys.exit(0)
+	return
+
+def unextract_handler(args,context):
+	tcedep.set_log_level(args)
+	tceex = TceExtract(args)
+	for p in args.subnargs:
+		tceex.unextract_pkg(p)
+	sys.exit(0)
+	return
+
+
 def rm_handler(args,context):
 	tcedep.set_log_level(args)
 	tcerm = TceRmPkgBase(args)
@@ -339,6 +479,12 @@ tce_inst_command_line={
 		'$' : 0
 	},
 	'rm<rm_handler>## remove packages... ##' : {
+		'$' : '+'
+	},
+	'extract<extract_handler>## extract packages... to root ##' : {
+		'$' : '+'
+	},
+	'unextract<unextract_handler>## just opposite fro packages... ##' : {
 		'$' : '+'
 	}
 }

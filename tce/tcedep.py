@@ -537,6 +537,15 @@ class TceListFile(TceListFileBase):
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
 		return self.get_list_files(pkgname)
 
+	def get_lists_map(self,listfile):
+		cmd = '"%s" "%s"'%(self.tce_cat,listfile)
+		logging.info('run (%s)'%(cmd))
+		retval = cmdpack.run_command_callback(cmd,filter_context,self)
+		if retval != 0 :
+			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		return self.get_list_map()
+
+
 
 def get_available(args):
 	tceavail = TceAvail(args)
@@ -815,14 +824,27 @@ def formatlist_handler(args,context):
 	sys.exit(0)
 	return
 
+global_listmaps = dict()
+
+def getlist_tce(args):
+	global global_listmaps
+	if len(global_listmaps.keys()) > 0:
+		return global_listmaps
+	tcelistsfile = TceListFile(args)
+	global_listmaps = tcelistsfile.get_lists_map()
+	return global_listmaps
+
+
 def getlist_handler(args,context):
 	set_log_level(args)
 	if args.tce_listsfile is None:
 		Usage(3,'please specified TCE_LISTSFILE',context)
-	tcelistsfile = TceListFile(args)
+	totallistmaps = getlist_tce(args)
 	listmaps = dict()
 	for p in args.subnargs:
-		listmaps[p] = tcelistsfile.get_lists_file(p,args.tce_listsfile)
+		listmaps[p] = []
+		if p in totallistmaps.keys():
+			listmaps[p] = totallistmaps[p]
 	tcelistfile = TceListFileBase(args)
 	s = tcelistfile.format_list_map(listmaps)
 	sys.stdout.write(s)

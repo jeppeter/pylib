@@ -240,6 +240,7 @@ class ExtArgsParse(argparse.ArgumentParser):
         putparser = self
         if curparser is not None:
             putparser = curparser.parser
+        self.__logger.info('set (%s) (%s) (%s)'%(longopt,shortopt,optdest))
         if keycls.value :
             if shortopt :
                 putparser.add_argument(shortopt,longopt,dest=optdest,default=None,action='store_false',help=helpinfo)
@@ -1361,6 +1362,35 @@ class ExtArgsTestCase(unittest.TestCase):
             if jsonfile is not None:
                 os.remove(jsonfile)
             jsonfile = None
+        return
+
+    def test_A020(self):
+        commandline= '''
+        {
+            "verbose|v" : "+",
+            "rollback|R" : true,
+            "$port|P" : {
+                "value" : 3000,
+                "type" : "int",
+                "nargs" : 1 , 
+                "helpinfo" : "port to connect"
+            },
+            "dep" : {
+                "list|l" : [],
+                "string|s" : "s_var",
+                "$" : "+"
+            }
+        }
+        '''
+        parser = ExtArgsParse()
+        args = parser.parse_command_line(['-P','9000','dep','--dep-string','ee','ww'])
+        self.assertEqual(args.verbose,0)
+        self.assertEqual(args.port, 9000)
+        self.assertEqual(args.rollback,False)
+        self.assertEqual(args.subcommand,'dep')
+        self.assertEqual(args.dep_list,[])
+        self.assertEqual(args.dep_string,'ee')
+        self.assertEqual(args.subnargs,['ww'])
         return
 
 
