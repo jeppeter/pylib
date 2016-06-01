@@ -538,11 +538,9 @@ class TceListFile(TceListFileBase):
 		return self.get_list_files(pkgname)
 
 	def get_lists_map(self,listfile):
-		cmd = '"%s" "%s"'%(self.tce_cat,listfile)
-		logging.info('run (%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0 :
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		with open(listfile,'r+') as f:
+			for l in f:
+				self.get_input(l)
 		return self.get_list_map()
 
 
@@ -675,17 +673,6 @@ def Usage(ec,fmt,parser):
 	sys.exit(ec)
 	return
 
-def set_log_level(args):
-	loglvl= logging.ERROR
-	if args.verbose >= 3:
-		loglvl = logging.DEBUG
-	elif args.verbose >= 2:
-		loglvl = logging.INFO
-	elif args.verbose >= 1 :
-		loglvl = logging.WARN
-	# we delete old handlers ,and set new handler
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	return
 
 def get_alldep_from_file(args):
 	maps = dict()
@@ -713,7 +700,7 @@ def combine_map(mainmaps,partmaps):
 	return mainmaps
 
 def dep_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	maps = get_alldep_from_file(args)
 	getpkgs,maps = get_dep(args,args.subnargs,maps)
 	out_pkgs(args,getpkgs)
@@ -722,14 +709,14 @@ def dep_tce(args,context):
 	return
 
 def tree_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	maps = get_dep_tree(args,args.subnargs)
 	format_tree(args,maps,args.tree_list)
 	sys.exit(0)
 	return
 
 def wgetrdep_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	maps = dict()
 	maps2 = get_alldep_from_file(args)
 	getpkgs,maps2,maps=get_wget_rdep(args,args.subnargs,maps2,maps)
@@ -744,7 +731,7 @@ def inst_tce(args,context):
 	return tceinst.get_insts()
 
 def inst_handler(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	insts = inst_tce(args,context)
 	args.subnargs = []
 	out_pkgs(args,insts)
@@ -754,7 +741,7 @@ def inst_handler(args,context):
 
 
 def all_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	getpkgs = get_available(args)
 	args.subnargs = []
 	out_pkgs(args,getpkgs)
@@ -762,7 +749,7 @@ def all_tce(args,context):
 	return
 
 def alldep_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	getpkgs = get_available(args)
 	depmaps = get_alldep_from_file(args)
 	getpkgs,depmaps = get_dep(args,getpkgs,depmaps)	
@@ -771,7 +758,7 @@ def alldep_tce(args,context):
 	return
 
 def wgettree_tce(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	depmaps = dict()
 	for p in args.subnargs:
 		wtree= TceWgetTree(args)
@@ -786,7 +773,7 @@ def loaddep_tce(args,context):
 	if len(args.subnargs) < 1:
 		Usage(3,'pkgs...',context)
 	pkgs = args.subnargs
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	depmaps = get_alldep_from_file(args)
 	if len(depmaps.keys()) == 0:
 		if len(args.subnargs) < 2:
@@ -800,7 +787,7 @@ def loaddep_tce(args,context):
 
 
 def formatlist_handler(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	listmap = dict()
 	logging.info('formatlist')
 	if args.subnargs is None or len(args.subnargs) == 0:
@@ -831,12 +818,12 @@ def getlist_tce(args):
 	if len(global_listmaps.keys()) > 0:
 		return global_listmaps
 	tcelistsfile = TceListFile(args)
-	global_listmaps = tcelistsfile.get_lists_map()
+	global_listmaps = tcelistsfile.get_lists_map(args.tce_listsfile)
 	return global_listmaps
 
 
 def getlist_handler(args,context):
-	set_log_level(args)
+	tcebase.set_log_level(args)
 	if args.tce_listsfile is None:
 		Usage(3,'please specified TCE_LISTSFILE',context)
 	totallistmaps = getlist_tce(args)

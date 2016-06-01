@@ -298,7 +298,7 @@ class TceExtract(tcebase.TceBase):
 		success = False
 		try:
 			self.umount_dir()
-			self.__mountdir = tempfile.mkdtemp(prefix='tcz')		
+			self.__mountdir = tempfile.mkdtemp(prefix='%s.tcz'%(pkg))		
 			cmd = '"%s" "%s" -o loop "%s/optional/%s.tcz" "%s"'%(self.tce_sudoprefix,self.tce_mount,self.tce_optional_dir,pkg,self.__mountdir)
 			retval = cmdpack.run_command_callback(cmd,None,None)
 			if retval != 0 :
@@ -353,6 +353,76 @@ class TceExtract(tcebase.TceBase):
 					cmdpack.run_command_callback(cmd ,None,None)
 			self.umount_dir()
 		return
+
+	def extract_pkg_with_test(self,pkg):
+		# now first 
+		self.__mkdirs = []
+		self.__cpfiles = []
+		success = False
+		try:
+			self.umount_dir()
+			self.__mountdir = tempfile.mkdtemp(prefix='%s.tcz'%(pkg))		
+			cmd = '"%s" "%s" -o loop "%s/optional/%s.tcz" "%s"'%(self.tce_sudoprefix,self.tce_mount,self.tce_optional_dir,pkg,self.__mountdir)
+			retval = cmdpack.run_command_callback(cmd,None,None)
+			if retval != 0 :
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			# now we should get the list file
+			for root,dirs,files in os.walk(self.__mountdir):
+				curroot = root.replace(self.__mountdir,'')
+				rootext = '%s/%s'%(self.tce_root,curroot)
+				for curf in files:
+					fromf = '%s/%s'%(root,curf)
+					tof = '%s/%s'%(rootext,curf)
+					if not self.tce_trymode and not os.path.isdir(rootext):
+						cmd = '"%s" "%s" -p "%s"'%(self.tce_sudoprefix,self.tce_mkdir,rootext)
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+						if rootext not in self.__mkdirs:
+							self.__mkdirs.append(rootext)
+						dstat = os.stat(root)
+						uowner = pwd.getpwuid(dstat.st_uid).pw_name
+						gowner = pwd.getpwuid(dstat.st_gid).pw_name
+						cmd = '"%s" "%s" %s:%s %s'%(self.tce_sudoprefix,self.tce_chown,uowner,gowner,rootext)
+						logging.info('mkdir %s mode (%s:%s)'%(rootext,uowner,gowner))
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+					if not self.tce_trymode:
+						if os.path.isfile(tof):
+							# this 
+							if len(self.__cpfiles) == 0 and len(self.__mkdirs) == 0 :
+								logging.info('guess %s alread installed'%(pkg))
+								success = True
+								return
+						logging.info('cp (%s) => (%s)'%(fromf,tof))
+						cmd = '"%s" "%s" -a "%s" "%s"'%(self.tce_sudoprefix,self.tce_cp,fromf,tof)
+						retval = cmdpack.run_command_callback(cmd,None,None)
+						if retval != 0:
+							raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+						if tof not in self.__cpfiles:
+							self.__cpfiles.append(tof)				
+			success = True
+		finally:
+			if self.tce_rollback and not success:
+				cmd = '"%s" "%s" -f '%(self.tce_sudoprefix,self.tce_rm)
+				removed = 0
+				for p in self.__cpfiles:
+					cmd += ' "%s"'%(p)
+					removed += 1
+
+				if removed > 0 :
+					cmdpack.run_command_callback(cmd,None,None)
+				cmd = '"%s" "%s" -rf '%(self.tce_sudoprefix,self.tce_rm)
+				removed = 0
+				for p in self.__mkdirs:
+					cmd += ' "%s"'%(p)
+					removed += 1
+				if removed > 0 :
+					cmdpack.run_command_callback(cmd ,None,None)
+			self.umount_dir()
+		return
+
 
 	def unextract_pkg(self,pkg):
 		totallistmap = tcedep.getlist_tce(self.__args)
@@ -417,7 +487,7 @@ def Usage(ec,fmt,parser):
 	return
 
 def download_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	logging.info('download %s'%(args.subnargs))
 	tcedownload = TceDownload(args)
 	for p in args.subnargs:
@@ -426,7 +496,7 @@ def download_handler(args,context):
 	return
 
 def install_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	logging.info('install %s'%(args.subnargs))
 	tceinstall = TceInstPkgBase(args)
 	for p in args.subnargs:
@@ -435,14 +505,14 @@ def install_handler(args,context):
 	return
 
 def check_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	tcecheck = TceCheck(args)
 	tcecheck.check_validate()
 	sys.exit(0)
 	return
 
 def extract_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	tceex = TceExtract(args)
 	for p in args.subnargs:
 		tceex.extract_pkg(p)
@@ -450,16 +520,43 @@ def extract_handler(args,context):
 	return
 
 def unextract_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	tceex = TceExtract(args)
 	for p in args.subnargs:
 		tceex.unextract_pkg(p)
 	sys.exit(0)
 	return
 
+def extractinst_handler(args,context):
+	tcebase.set_log_level(args)
+	insts = tcedep.inst_tce(args,context)
+	tceex = TceExtract(args)
+	for p in insts:
+		tceex.extract_pkg(p)
+	sys.exit(0)
+	return
+
+def extractinsttest_handler(args,context):
+	tcebase.set_log_level(args)
+	insts = tcedep.inst_tce(args,context)
+	tceex = TceExtract(args)
+	for p in insts:
+		tceex.extract_pkg_with_test(p)
+	sys.exit(0)
+	return
+
+def unextractinst_handler(args,context):
+	tcebase.set_log_level(args)
+	insts = tcedep.inst_tce(args,context)
+	tceex = TceExtract(args)
+	for p in insts:
+		tceex.unextract_pkg(p)
+	sys.exit(0)
+	return
+
 
 def rm_handler(args,context):
-	tcedep.set_log_level(args)
+	tcebase.set_log_level(args)
 	tcerm = TceRmPkgBase(args)
 	removed = tcerm.rm_pkg(args.subnargs,context)
 	tceinst = tcedep.TceInst(args)
@@ -486,6 +583,15 @@ tce_inst_command_line={
 	},
 	'unextract<unextract_handler>## just opposite fro packages... ##' : {
 		'$' : '+'
+	},
+	'extractinst<extractinst_handler>## to extract all install packages into tce_root ##' :{
+		'$' : 0
+	},
+	'unextractinst<unextractinst_handler>## to unextract all install packages from tce_root ##':{
+		'$' : 0
+	},
+	'extractinsttest<extractinsttest_handler>## test whether packages installed ##' : {
+		'$' : 0
 	}
 }
 

@@ -8,6 +8,7 @@ import re
 import json
 import os
 import sys
+import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import const
 import extargsparse
@@ -61,6 +62,19 @@ tce_base_command_line = {
 	'verbose|v' : '+',
 	'+tce' : tce_const_keywords
 }
+
+def set_log_level(args):
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	elif args.verbose >= 1 :
+		loglvl = logging.WARN
+	# we delete old handlers ,and set new handler
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
 
 def add_tce_args(parser):
 	if not isinstance(parser,extargsparse.ExtArgsParse):
