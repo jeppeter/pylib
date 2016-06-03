@@ -21,7 +21,14 @@ def run_read_cmd(cmd):
 
 def __trans_to_string(s):
 	if sys.version[0] == '3':
-		return s.decode(encoding='UTF-8')
+		encodetype = ['UTF-8','latin-1']
+		idx=0
+		while idx < len(encodetype):
+			try:
+				return s.decode(encoding=encodetype[idx])
+			except:
+				idx += 1
+		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'not valid bytes (%s)'%(repr(s)))
 	return s
 
 def read_line(pin,ch='\r'):
