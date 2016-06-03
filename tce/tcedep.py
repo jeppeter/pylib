@@ -266,6 +266,7 @@ class TceListFileBase(tcebase.TceBase):
 		self.set_tce_attrs(args)
 		self.__listmap = dict()
 		self.__fileexpr = re.compile('^[\s]+(.+)$',re.I)
+		self.__pathexpr = re.compile('.*/.*',re.I)
 		self.__tczexpr = re.compile('^(.+)\.tcz$',re.I)
 		self.__curtcz = None
 		self.__curfiles = []
@@ -299,29 +300,62 @@ class TceListFileBase(tcebase.TceBase):
 
 		m = self.__fileexpr.findall(l)
 		if m and len(m) > 0:
-			if self.__curtcz is not None:
-				if m[0] not in self.__curfiles:
-					self.__curfiles.append(m[0])
+			if self.__pathexpr.match(m[0]):
+				if self.__curtcz is not None:
+					if m[0] not in self.__curfiles:
+						self.__curfiles.append(m[0])
+			else:
+				logging.warn('[%d](%s) not path'%(self.__lineno,l))
 			return
 		return
 
+	def __get_lists_clear(self,pkgname):
+		if pkgname in self.__listmap.keys():
+			self.__listmap[pkgname].sort()
+			cont = True
+			while cont:
+				cont = False
+				lastp = None
+				for p in self.__listmap[pkgname]:
+					if lastp is not None:
+						if p.startswith('%s/'%(lastp)):
+							logging.warn('<%s> delete %s'%(pkgname,lastp))
+							self.__listmap[pkgname].remove(lastp)
+							cont = True
+							break
+					lastp = p
+					lastp = lastp.rstrip('/\\')
+			return self.__listmap[pkgname]
+		return []
+
+
+
 	def get_list_files(self,pkg):
 		self.__flush_tczfiles(None)
-		if pkg in self.__listmap.keys():
-			return self.__listmap[pkg]
-		return []
+		return self.__get_lists_clear(pkg)
 
 	def get_list_map(self):
 		self.__flush_tczfiles(None)
+		for p in self.__listmap.keys():
+			self.__get_lists_clear(p)
 		return self.__listmap
 
 	def format_list_map(self,listmap):
-		s = ''
+		keys = []
 		for p in listmap.keys():
+			if p not in keys:
+				keys.append(p)
+		keys.sort()
+		s = ''
+		for p in keys:
 			s += '%s.tcz\n'%(p)
+			cnt = 0
 			for cp in listmap[p]:
 				s += ' ' * self.tce_perspace
 				s += '%s\n'%(cp)
+				cnt += 1
+			if cnt == 0 :
+				logging.warn('<%s> empty'%(p))
 		return s
 
 
@@ -392,6 +426,7 @@ class TceWgetDep(TceDepBase):
 			cmd += '"%s" --timeout=%d -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		cont = True
 		tries = 0
+		logging.info('run (%s)'%(cmd))
 		while cont:
 			cont = False
 			retval = cmdpack.run_command_callback(cmd,filter_context,self)
@@ -853,10 +888,13 @@ def getlist_handler(args,context):
 		Usage(3,'please specified TCE_LISTSFILE',context)
 	totallistmaps = getlist_tce(args)
 	listmaps = dict()
-	for p in args.subnargs:
-		listmaps[p] = []
-		if p in totallistmaps.keys():
-			listmaps[p] = totallistmaps[p]
+	if args.subnargs is not None and len(args.subnargs) > 0 :
+		for p in args.subnargs:
+			listmaps[p] = []
+			if p in totallistmaps.keys():
+				listmaps[p] = totallistmaps[p]
+	else:
+		listmaps = totallistmaps
 	tcelistfile = TceListFileBase(args)
 	s = tcelistfile.format_list_map(listmaps)
 	sys.stdout.write(s)
@@ -897,7 +935,7 @@ tce_dep_command_line = {
 		'$' : '*'
 	},
 	'getlist<getlist_handler>## get list file for pkg... ##' : {
-		'$' : '+'
+		'$' : '*'
 	}
 }
 
