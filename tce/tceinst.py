@@ -149,17 +149,30 @@ class TceDownload(tcedep.TceInst):
 			if retval :
 				logging.info('%s file already in'%(pkg))
 				return
-
 		cmd = '"%s" --timeout=%d -O "%s" "%s/%s/%s/tcz/%s.tcz" '%(self.tce_wget,self.tce_timeout,tczfile,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		logging.info('run cmd(%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,None,None)
-		if retval != 0:
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		tries = 0
+		cont = True
+		while cont:
+			cont = False
+			retval = cmdpack.run_command_callback(cmd,None,None)
+			if retval != 0 and tries > self.tce_maxtries:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			elif retval != 0 :
+				cont = True
+				tries += 1
 		cmd = '"%s" --timeout=%d -O "%s" "%s/%s/%s/tcz/%s.tcz.md5.txt"'%(self.tce_wget,self.tce_timeout,md5file,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
 		logging.info('run cmd(%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,None,None)
-		if retval != 0:
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		tries = 0
+		cont = True
+		while cont:
+			cont = False
+			retval = cmdpack.run_command_callback(cmd,None,None)
+			if retval != 0 and tries > self.tce_maxtries:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			elif retval != 0:
+				cont = True
+				tries += 1
 		retval = self.__check_file(md5file,tczfile)
 		if not retval:
 			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run check(%s)(%s) not match '%(md5file,tczfile))

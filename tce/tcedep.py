@@ -390,13 +390,20 @@ class TceWgetDep(TceDepBase):
 		else:
 			# nothing is ,so we download from the file
 			cmd += '"%s" --timeout=%d -q -O - %s/%s/%s/tcz/%s.tcz.dep'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkg)
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0:
-			if retval != 8 :
-				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
-			else:
-				logging.warn('%s(%s) no dep'%(pkg,cmd))
-				return []
+		cont = True
+		tries = 0
+		while cont:
+			cont = False
+			retval = cmdpack.run_command_callback(cmd,filter_context,self)
+			if retval != 0:
+				if retval != 8 and tries > self.tce_maxtries:
+					raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+				elif retval != 8:
+					logging.warn('%s(%s) no dep'%(pkg,cmd))
+					tries += 1
+					cont = True
+				else:
+					return []
 		return self.get_depend()
 
 
@@ -408,9 +415,16 @@ class TceAvail(TceAvailBase):
 	def get_avails(self):
 		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform)
 		logging.info('run (%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0:
-			raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+		cont = True
+		tries = 0
+		while cont:
+			cont = False
+			retval = cmdpack.run_command_callback(cmd,filter_context,self)
+			if retval != 0 and tries > self.tce_maxtries:
+				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+			elif retval != 0 :
+				cont = True
+				tries += 1
 		return self.get_avail()
 
 class TceTree(TceTreeBase):
@@ -434,12 +448,19 @@ class TceWgetTree(TceTreeBase):
 	def get_dep_tree(self,pkgname,depmaps):
 		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/%s.tcz.tree"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
 		logging.info('run (%s)'%(cmd))
-		self.set_dep_map(depmaps)
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0 :
-			if retval != 8:
-				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
-			logging.warn('can not get %s tree'%(pkgname))
+		tries = 0
+		cont = True
+		while cont:
+			cont = False
+			self.set_dep_map(depmaps)
+			retval = cmdpack.run_command_callback(cmd,filter_context,self)
+			if retval != 0 :
+				if retval != 8 and tries > self.tce_maxtries:
+					raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+				elif retval != 8:
+					logging.warn('can not get %s tree'%(pkgname))
+					tries += 1
+					cont = True
 		return self.get_dep_map()
 
 
@@ -514,13 +535,19 @@ class TceList(TceListBase):
 		return
 
 	def get_lists_command(self,pkgname):
+		tries = 0
 		cmd = '"%s" --timeout=%d -q -O - "%s/%s/%s/tcz/%s.tcz.list"'%(self.tce_wget,self.tce_timeout,self.tce_mirror,self.tce_tceversion,self.tce_platform,pkgname)
 		logging.info('run (%s)'%(cmd))
-		retval = cmdpack.run_command_callback(cmd,filter_context,self)
-		if retval != 0 :
-			if retval != 8:
-				raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
-			logging.warn('can not get (%s) list'%(pkgname))
+		cont = True
+		while cont:
+			cont = False
+			retval = cmdpack.run_command_callback(cmd,filter_context,self)
+			if retval != 0 :
+				if retval != 8 and tries > 5:
+					raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd(%s) error(%d)'%(cmd,retval))
+				elif retval != 8:
+					tries += 1
+					cont = True
 		return self.get_lists()
 
 

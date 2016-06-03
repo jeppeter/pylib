@@ -36,7 +36,8 @@ tce_const_keywords = {
 	'perspace' : 3 ,
 	'depmapfile' : None,
 	'timeout' : 10,
-	'listsfile' : None
+	'listsfile' : None,
+	'maxtries' : 5
 }
 
 
