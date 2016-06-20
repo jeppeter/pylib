@@ -196,6 +196,8 @@ class TceDownload(tcedep.TceInst):
 			self.__download_pkg(pkg,'%s/optional/'%(self.tce_optional_dir))
 			if pkg not in addedpkgs:
 				addedpkgs.append(pkg)
+		else:
+			logging.info('pkg %s already in'%(pkg))
 		return addedpkgs
 
 class TceInstPkgBase(TceDownload):
