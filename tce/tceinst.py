@@ -196,8 +196,6 @@ class TceDownload(tcedep.TceInst):
 			self.__download_pkg(pkg,'%s/optional/'%(self.tce_optional_dir))
 			if pkg not in addedpkgs:
 				addedpkgs.append(pkg)
-		else:
-			logging.info('pkg %s already in'%(pkg))
 		return addedpkgs
 
 class TceInstPkgBase(TceDownload):
@@ -582,22 +580,22 @@ def rm_handler(args,context):
 
 tce_inst_command_line={
 	'download<download_handler>##download pkg...##' : {
-		'$' : '+'
+		'$' : '*'
 	},
 	'install<install_handler>## install packages... ##':{
-		'$' : '+'
+		'$' : '*'
 	},
 	'check<check_handler>## check install and make integrition ##' : {
 		'$' : 0
 	},
 	'rm<rm_handler>## remove packages... ##' : {
-		'$' : '+'
+		'$' : '*'
 	},
 	'extract<extract_handler>## extract packages... to root ##' : {
-		'$' : '+'
+		'$' : '*'
 	},
 	'unextract<unextract_handler>## just opposite fro packages... ##' : {
-		'$' : '+'
+		'$' : '*'
 	},
 	'extractinst<extractinst_handler>## to extract all install packages into tce_root ##' :{
 		'$' : 0
