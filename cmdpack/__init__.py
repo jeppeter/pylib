@@ -4,14 +4,12 @@ import os
 import sys
 import subprocess
 import logging
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
-import dbgexp
 
 def run_cmd_wait(cmd,mustsucc=1):
 	logging.debug('run (%s)'%(cmd))
 	ret = subprocess.call(cmd,shell=True)
 	if mustsucc and ret != 0:
-		raise dbgexp.DebugException(dbgexp.ERROR_RUN_CMD,'run cmd (%s) error'%(cmd))
+		raise Exception('run cmd (%s) error'%(cmd))
 	return ret
 
 def run_read_cmd(cmd):
@@ -28,7 +26,7 @@ def __trans_to_string(s):
 				return s.decode(encoding=encodetype[idx])
 			except:
 				idx += 1
-		raise dbgexp.DebugException(dbgexp.ERROR_INVALID_PARAMETER,'not valid bytes (%s)'%(repr(s)))
+		raise Exception('not valid bytes (%s)'%(repr(s)))
 	return s
 
 def read_line(pin,ch='\r'):
