@@ -2,18 +2,34 @@
 
 import re
 import sys
-import argparse
+import extargsparse
 import logging
 
-def match(restr,instr):
+def set_logging(args):
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
+def match(args,ctx):
+	set_logging(args)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
 	expr = re.compile(restr)	
 	if expr.match(instr):
 		print ('(%s) match (%s)'%(instr,restr))
 	else:
 		print ('(%s) not match (%s)'%(instr,restr))
+	sys.exit(0)
 	return
 
-def findall(restr,instr):
+def findall(args,ctx):
+	set_logging(args)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
 	expr = re.compile(restr)
 	m =  expr.findall(instr)
 	if m :
@@ -23,17 +39,47 @@ def findall(restr,instr):
 		print ('%s'%(s))
 	else:
 		print ('(%s) no more for (%s)'%(instr,restr))
+	sys.exit(0)
 	return
 
-def imatch(restr,instr):
+def filefindall(args,ctx):
+	restr = args.subnargs[0]
+	expr = re.compile(restr)
+	fin = sys.stdin
+	fout = sys.stdout
+	if args.infile is not None:
+		fin = open(args.infile,'r')
+	if args.outfile is not None:
+		fout = open(args.outfile,'w')
+	cnt = 1
+	for l in fin:
+		l = l.rstrip('\r\n')
+		m = expr.findall(l)
+		if m :
+			fout.write('[%d]'%(cnt))
+			for i in range(len(m)):
+				fout.write('\t[%d] %s'%(i,m[i]))
+			fout.write('\n')
+		cnt += 1
+	sys.exit(0)
+	return
+
+def imatch(args,ctx):
+	set_logging(args)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
 	expr = re.compile(restr,re.I)
 	if expr.match(instr):
 		print ('(%s) ignore match (%s)'%(instr,restr))
 	else:
 		print ('(%s) not ignore match (%s)'%(instr,restr))
+	sys.exit(0)
 	return
 
-def ifindall(restr,instr):
+def ifindall(args,ctx):
+	set_logging(args)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
 	expr = re.compile(restr,re.I)
 	m =  expr.findall(instr)
 	if m :
@@ -43,17 +89,34 @@ def ifindall(restr,instr):
 		print ('%s'%(s))
 	else:
 		print ('(%s) no more for (%s)'%(instr,restr))
+	sys.exit(0)
 	return
 
-def sub(restr,instr,replstr):
+def sub(args,ctx):
+	set_logging(args)
+	if len(args.subnargs) < 2:
+		Usage(3,'sub restr instr [replstr]',ctx)
+	if len(args.subnargs) < 3:
+		restr = args.subnargs[0]
+		instr = args.subnargs[1]
+		replstr = ''
+	else:
+		restr = args.subnargs[0]
+		instr = args.subnargs[1]
+		replstr = args.subnargs[2]
 	newstr = re.sub(restr,replstr,instr)
 	print('(%s) sub(%s)(%s) => (%s)'%(instr,restr,replstr,newstr))
+	sys.exit(0)
 	return
 
-def split(restr,instr):
+def split(args,ctx):
+	set_logging(args)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
 	sarr = re.split(restr,instr)
 	for i in range(len(sarr)):
 		print('[%d] (%s)'%(i,sarr[i]))
+	sys.exit(0)
 	return
 
 def Usage(ec,fmt,parser):
@@ -67,53 +130,39 @@ def Usage(ec,fmt,parser):
 	sys.exit(ec)
 
 
-def main():
-	parser = argparse.ArgumentParser(description='re test',usage='%s [options]'%(sys.argv[0]))	
-	#parser.add_argument('-r','--restr',default=None,help='re str to set')
-	#parser.add_argument('-i','--instr',default=None,help='instr to set')
-	parser.add_argument('-v','--verbose',default=0,action='count')
-	sub_parser = parser.add_subparsers(help='',dest='command')
-	match_parser = sub_parser.add_parser('match',help='re.match')
-	ignore_parser = sub_parser.add_parser('imatch',help='re.match with re.I')
-	match_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	ignore_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	findall_parser = sub_parser.add_parser('findall',help='re.findall')
-	ifindall_parser = sub_parser.add_parser('ifindall',help='re.findall with re.I')
-	findall_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	ifindall_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	subre_parser = sub_parser.add_parser('sub',help='re.sub')
-	subre_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	split_parser = sub_parser.add_parser('split',help='re.split')
-	split_parser.add_argument('strs',metavar='N',type=str,nargs='+',help='restr instr')
-	args = parser.parse_args()
-	#if args.restr is None or args.instr is None:
-	#	Usage(3,'need instr and restr',parser)
 
-	loglvl= logging.ERROR
-	if args.verbose >= 3:
-		loglvl = logging.DEBUG
-	elif args.verbose >= 2:
-		loglvl = logging.INFO
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	if len(args.strs) < 2:
-		Usage(3,'restr instr need',parser)
-	if args.command == 'match':
-		match(args.strs[0],args.strs[1])
-	elif args.command == 'findall':
-		findall(args.strs[0],args.strs[1])
-	elif args.command == 'ifindall':
-		ifindall(args.strs[0],args.strs[1])
-	elif args.command == 'imatch':
-		imatch(args.strs[0],args.strs[1])
-	elif args.command == 'sub':
-		if len(args.strs) < 3:
-			sub(args.strs[0],args.strs[1],'')
-		else:
-			sub(args.strs[0],args.strs[1],args.strs[2])
-	elif args.command == 'split':
-		split(args.strs[0],args.strs[1])
-	else:
-		Usage(3,'unrecognize %s'%(args.command),parser)
+command = {
+	'verbose|v' : '+',
+	'infile|i' : None,
+	'outfile|o' : None,
+	'match<match>##call re.match func##' : {
+		'$' : 2
+	},
+	'imatch<imatch>##call re.match with re.I##' : {
+		'$' : 2
+	},
+	'findall<findall>##re.findall##' : {
+		'$' : 2
+	},
+	'ifindall<ifindall>##re.findall with re.I##' : {
+		'$' : 2
+	},
+	'sub<sub>##re.sub##' : {
+		'$' : '+'
+	},
+	'split<split>##re.split##' : {
+		'$' : 2
+	},
+	'filefindall<filefindall>##re.findall in file##' : {
+		'$' : 1
+	}
+}
+
+def main():
+	global command
+	parser = extargsparse.ExtArgsParse()
+	parser.load_command_line(command)
+	parser.parse_command_line()
 	return
 
 
