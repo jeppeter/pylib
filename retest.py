@@ -43,8 +43,6 @@ def findall(args,ctx):
 	return
 
 def filefindall(args,ctx):
-	restr = args.subnargs[0]
-	expr = re.compile(restr)
 	fin = sys.stdin
 	fout = sys.stdout
 	if args.infile is not None:
@@ -52,15 +50,58 @@ def filefindall(args,ctx):
 	if args.outfile is not None:
 		fout = open(args.outfile,'w')
 	cnt = 1
+	exprs = []
+	for s in args.subnargs:
+		exprs.append(re.compile(s))
 	for l in fin:
 		l = l.rstrip('\r\n')
-		m = expr.findall(l)
-		if m :
-			fout.write('[%d]'%(cnt))
-			for i in range(len(m)):
-				fout.write('\t[%d] %s'%(i,m[i]))
+		for expr in exprs:
+			m = expr.findall(l)
+			if m :
+				fout.write('[%d]'%(cnt))
+				for i in range(len(m)):
+					fout.write('\t[%d] %s'%(i,m[i]))
+				fout.write('(%s)\n'%(l))
+		cnt += 1
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
+	sys.exit(0)
+	return
+
+def filter(args,ctx):
+	fin = sys.stdin
+	fout = sys.stdout
+	if args.infile is not None:
+		fin = open(args.infile,'r')
+	if args.outfile is not None:
+		fout = open(args.outfile,'w')
+	cnt = 1
+	exprs = []
+	for s in args.subnargs:
+		exprs.append(re.compile(s))
+	for l in fin:
+		l = l.rstrip('\r\n')
+		matched = 0
+		for expr in exprs:
+			m = expr.match(l)
+			if m :
+				matched = 1
+				break
+		if matched :
+			fout.write('%s\n'%(l))
+		else:
 			fout.write('\n')
 		cnt += 1
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
 	sys.exit(0)
 	return
 
@@ -154,8 +195,12 @@ command = {
 		'$' : 2
 	},
 	'filefindall<filefindall>##re.findall in file##' : {
-		'$' : 1
+		'$' : '+'
+	},
+	'filter<filter>##re.match for file##' : {
+		'$' : '+'
 	}
+
 }
 
 def main():
