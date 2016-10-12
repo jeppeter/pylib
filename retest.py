@@ -160,6 +160,56 @@ def split(args,ctx):
 	sys.exit(0)
 	return
 
+def grpdict_impl(restr,instr,propstr):
+	expr = re.compile(restr)
+	m = expr.match(instr)
+	if m is not None:
+		groups = m.groupdict(propstr)
+		print('(%s) match (%s)'%(instr,restr))
+		for k in groups.keys():
+			print('   [%s]=(%s)'%(k,groups[k]))
+	else:
+		print('%s not match (%s)'%(instr,restr))
+	return
+
+def grpdict(args,ctx):
+	set_logging(args)
+	if len(args.subnargs) < 2:
+		sys.stderr.write('%s restr instr [propstr]'%(sys.argv[0]))
+		sys.exit(5)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
+	propstr = ''
+	if len(args.subnargs) > 2:
+		propstr = args.subnargs[2]
+	grpdict_impl(restr,instr,propstr)
+	sys.exit(0)
+	return
+
+def grpfile(args,ctx):
+	fin = sys.stdin
+	restr = args.subnargs[0]
+	propstr = ''
+	if len(args.subnargs) > 1:
+		propstr = args.subnargs[1]
+	if args.infile is not None:
+		fin = open(args.infile,'r+')
+	for l in fin:
+		l = l.rstrip('\r\n')
+		l = l.rstrip(' \t')
+		l = l.strip(' \t')
+		if l.startswith('#'):
+			continue
+		if len(l) == 0 :
+			continue
+		instr = l
+		grpdict_impl(restr,instr,propstr)
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	sys.exit(0)
+	return
+
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
 	if ec == 0 :
@@ -198,6 +248,12 @@ command = {
 		'$' : '+'
 	},
 	'filter<filter>##re.match for file##' : {
+		'$' : '+'
+	},
+	'grpdict<grpdict>##re.match with groupdict##' : {
+		'$' : '+'
+	},
+	'grpfile<grpfile>##re.match with groupdict in file##' : {
 		'$' : '+'
 	}
 
