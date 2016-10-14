@@ -160,8 +160,11 @@ def split(args,ctx):
 	sys.exit(0)
 	return
 
-def grpdict_impl(restr,instr,propstr):
-	expr = re.compile(restr)
+def grpdict_impl(restr,instr,propstr,casesensitive=False):
+	if casesensitive:
+		expr = re.compile(restr,re.I)
+	else:
+		expr = re.compile(restr)
 	m = expr.match(instr)
 	if m is not None:
 		groups = m.groupdict(propstr)
@@ -183,6 +186,20 @@ def grpdict(args,ctx):
 	if len(args.subnargs) > 2:
 		propstr = args.subnargs[2]
 	grpdict_impl(restr,instr,propstr)
+	sys.exit(0)
+	return
+
+def igrpdict(args,ctx):
+	set_logging(args)
+	if len(args.subnargs) < 2:
+		sys.stderr.write('%s restr instr [propstr]'%(sys.argv[0]))
+		sys.exit(5)
+	restr = args.subnargs[0]
+	instr = args.subnargs[1]
+	propstr = ''
+	if len(args.subnargs) > 2:
+		propstr = args.subnargs[2]
+	grpdict_impl(restr,instr,propstr,True)
 	sys.exit(0)
 	return
 
@@ -209,6 +226,74 @@ def grpfile(args,ctx):
 	fin = None
 	sys.exit(0)
 	return
+
+def igrpfile(args,ctx):
+	fin = sys.stdin
+	restr = args.subnargs[0]
+	propstr = ''
+	if len(args.subnargs) > 1:
+		propstr = args.subnargs[1]
+	if args.infile is not None:
+		fin = open(args.infile,'r+')
+	for l in fin:
+		l = l.rstrip('\r\n')
+		l = l.rstrip(' \t')
+		l = l.strip(' \t')
+		if l.startswith('#'):
+			continue
+		if len(l) == 0 :
+			continue
+		instr = l
+		grpdict_impl(restr,instr,propstr,True)
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	sys.exit(0)
+	return
+
+
+def search_impl(restr,instr,caseinsensitive= False):
+	if caseinsensitive:
+		expr = re.compile(restr,re.I)
+	else:
+		expr = re.compile(restr)
+	m = expr.search(instr)
+	if m :
+		i = 0
+		print('(%s) search (%s)'%(restr,instr))
+		while True:
+			try:
+				p = m.group(i)
+				print('    [%d] (%s)'%(i,p))
+			except:
+				break
+			i += 1
+	else:
+		print('(%s) not search (%s)'%(restr,instr))
+	return
+
+def search(args,ctx):
+	set_logging(args)
+	if len(args.subnargs) < 2:
+		Usage(3,'%s restr instr...'%(args.command),ctx)
+		sys.exit(3)
+	restr = args.subnargs[0]
+	for s in args.subnargs[1:]:
+		search_impl(restr,s)
+	sys.exit(0)
+	return
+
+def isearch(args,ctx):
+	set_logging(args)
+	if len(args.subnargs) < 2:
+		Usage(3,'%s restr instr...'%(args.command),ctx)
+		sys.exit(3)
+	restr = args.subnargs[0]
+	for s in args.subnargs[1:]:
+		search_impl(restr,s,True)
+	sys.exit(0)
+	return
+
 
 def Usage(ec,fmt,parser):
 	fp = sys.stderr
@@ -253,10 +338,21 @@ command = {
 	'grpdict<grpdict>##re.match with groupdict##' : {
 		'$' : '+'
 	},
+	'igrpdict<igrpdict>##re.match ignore case with groupdict##' : {
+		'$' : '+'
+	},
 	'grpfile<grpfile>##re.match with groupdict in file##' : {
 		'$' : '+'
+	},
+	'igrpfile<igrpfile>##re.match ignore case with groupdict in file##' : {
+		'$' : '+'
+	},
+	'search<search>##re.search ##' : {
+		'$' : '+'
+	},
+	'isearch<isearch>##re.search ignore case ##' : {
+		'$' : '+'
 	}
-
 }
 
 def main():
