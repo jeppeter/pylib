@@ -149,7 +149,11 @@ def get_enum_node(ast,enumname):
 	retnode = []
 	times = 0
 	while len(possiblenodes) > 0:
-		assert(times < 50)
+		try:
+			assert(times < 50)
+		except:
+			logging.error('search for (%s)(%s)'%(sys.exc_info()[0],enumname))
+			sys.exit(3)
 		k = possiblenodes[0]
 		#logging.info('cmp\n%s'%(get_node_desc(k)))
 		possiblenodes= possiblenodes[1:]
@@ -180,6 +184,16 @@ def get_enum_node(ast,enumname):
 		times += 1
 	return retnode
 
+def get_decl_types(cnode):
+	retnodes = []
+	for (cname,child) in cnode.children():
+		if isinstance(child,pycparser.c_ast.IdentifierType):
+			retnodes.append(' '.join(child.names))
+		else:
+			retnodes.extend(get_decl_types(child))
+	return retnodes
+
+
 def struct_impl(args,ast):
 	fout = sys.stdout
 	for k in args.subnargs:
@@ -202,6 +216,43 @@ def struct_impl(args,ast):
 				fout.write('%s None\n'%(k))
 	return
 
+def structtotal_impl(args,ast):
+	fout = sys.stdout
+	scannames = args.subnargs
+	nodedecl = dict()
+	wrongnames = []
+	searched = []
+
+	while len(scannames) > 0:
+		curname = scannames[0]
+		scannames = scannames[1:]
+		curnode = get_struct_node(ast,curname)
+		if len(curnode) > 0:
+			if curname not in nodedecl.keys():
+				searched.append(curname)
+				nodedecl[curname] = curnode
+				declnames = get_decl_types(curnode[0])
+				for n in declnames:
+					if n in nodedecl.keys():
+						continue
+					if n == curname:
+						continue
+					if n in scannames:
+						continue
+					scannames.append(n)
+		else:
+			curnode = get_enum_node(ast,curname)
+			if len(curnode) > 0:
+				if curname not in nodedecl.keys():
+					searched.append(curname)
+					nodedecl[curname] = curnode
+
+	for k in searched:
+		fout.write('%s\n%s'%(k,get_node_desc(nodedecl[k])))
+	return
+
+
+
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
 	if len(gccecommand) == 0:
 		ast = pycparser.parse_file(file,use_cpp=False)
@@ -222,11 +273,23 @@ def struct_handler(args,parser):
 	sys.exit(0)
 	return
 
+def structtotal_handler(args,parser):
+	set_logging(args)
+	if args.input is None:
+		raise Exception('specify by --input|-i for file input')
+	gccecommand = []
+	parse_file_callback(gccecommand,args.input,structtotal_impl,args)
+	sys.exit(0)
+	return
+
 command_line = {
 	'input|i' : None,
 	'output|o' : None,
 	'verbose|v' : '+',
 	'struct<struct_handler>## get struct node ##' : {
+		'$' : '+'
+	},
+	'structtotal<structtotal_handler>## get all struct node for declare ##' : {
 		'$' : '+'
 	}
 }
