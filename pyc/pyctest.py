@@ -357,7 +357,6 @@ def __get_typedecl_type_name(ast,cnode,cname):
 def __get_decl_type_name(ast,cnode):
 	nodetype = NodeTypeDecl()
 	for (dname,d) in cnode.children():
-		logging.info('%s\n%s'%(dname,get_node_desc(d)))
 		if isinstance(d,pycparser.c_ast.TypeDecl):
 			nodetype += __get_decl_type_name(ast,d)
 		elif isinstance(d,pycparser.c_ast.IdentifierType):
