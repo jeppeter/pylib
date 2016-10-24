@@ -338,21 +338,6 @@ def structtotal_impl(args,ast):
 		i += 1
 	return
 
-def __get_typedecl_type_name(ast,cnode,cname):
-	nodetype = NodeTypeDecl()
-	if hasattr(cnode,'name'):
-		nodetype.memname += cnode.name
-	elif hasattr(cnode,'declname'):
-		nodetype.memname += cnode.declname
-	else:
-		logging.warn('%s : %s has not name\n%s'%(cnode.__class__.__name__,cname,get_node_desc(cnode)))
-	for (tname,t) in cnode.children():				
-		if t.__class__.__name__ == 'IdentifierType':
-			if (nodetype is not None) and (len(nodetype.typename) > 0):
-				logging.warn('%s : %s (%s)\n%s'%(t.__class__.__name__,tname,nodetype.typename,get_node_desc(t)))
-			nodetype.typename += ' '.join(t.names)
-	return nodetype
-
 
 def __get_decl_type_name(ast,cnode):
 	nodetype = NodeTypeDecl()
