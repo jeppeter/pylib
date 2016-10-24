@@ -8,6 +8,86 @@ import re
 import StringIO
 import logging
 
+class Utf8Encode:
+	def __dict_utf8(self,val):
+		newdict =dict()
+		for k in val.keys():
+			newk = self.__encode_utf8(k)
+			newv = self.__encode_utf8(val[k])
+			newdict[newk] = newv
+		return newdict
+
+	def __list_utf8(self,val):
+		newlist = []
+		for k in val:
+			newk = self.__encode_utf8(k)
+			newlist.append(newk)
+		return newlist
+
+	def __encode_utf8(self,val):
+		retval = val
+
+		if sys.version[0]=='2' and isinstance(val,unicode):
+			retval = val.encode('utf8')
+		elif isinstance(val,dict):
+			retval = self.__dict_utf8(val)
+		elif isinstance(val,list):
+			retval = self.__list_utf8(val)
+		return retval
+
+	def __init__(self,val):
+		self.__val = self.__encode_utf8(val)
+		return
+
+	def __str__(self):
+		return self.__val
+
+	def __repr__(self):
+		return self.__val
+	def get_val(self):
+		return self.__val
+
+class NodeTypeDecl(object):
+	def __init__(self):
+		self.typename = ''
+		self.memname = ''
+		self.ptrtype = 0
+		self.arraytype = 0
+		self.arraysize = 0
+		self.enumtype = False
+		self.prevnode = None
+		return
+
+	def __str__(self):
+		s = ''
+		s += 'type(%s)'%(self.typename)
+		s += 'mem(%s)'%(self.memname)
+		s += 'ptrtype(%s)'%(self.ptrtype)
+		s += 'arraytype(%s)'%(self.arraytype)
+		s += 'arraysize(%s)'%(self.arraysize)
+		s += 'enumtype(%s)'%(self.enumtype)
+		s += 'prevnode(%s)'%(self.prevnode)
+		return s
+
+	def __iadd__(self,other):
+		if not isinstance(other,NodeTypeDecl):
+			raise Exception('not NodeTypeDecl')
+		if len(other.typename) > 0:
+			self.typename = other.typename
+		if len(other.memname) > 0 :
+			self.memname = other.memname
+		if other.ptrtype > 0:
+			self.ptrtype += other.ptrtype
+		if other.arraytype > 0 :
+			self.arraytype += other.arraytype
+		if other.arraysize != 0:
+			self.arraysize = other.arraysize
+		if other.enumtype :
+			self.enumtype = other.enumtype
+		if self.prevnode is None and other.prevnode is not None:
+			self.prevnode = other.prevnode
+		return	self	
+
 def get_node_desc(node,tabs=0):
 	sio = StringIO.StringIO()
 	node.show(sio,offset=tabs*4)
@@ -49,6 +129,8 @@ def __has_decl_mem(cnode):
 	retval = False
 	for (cname,child) in cnode.children():
 		if isinstance(child,pycparser.c_ast.Decl):
+			return True
+		elif isinstance(child,pycparser.c_ast.FuncDecl):
 			return True
 	return retval
 
@@ -256,6 +338,84 @@ def structtotal_impl(args,ast):
 		i += 1
 	return
 
+def __get_typedecl_type_name(ast,cnode,cname):
+	nodetype = NodeTypeDecl()
+	if hasattr(cnode,'name'):
+		nodetype.memname += cnode.name
+	elif hasattr(cnode,'declname'):
+		nodetype.memname += cnode.declname
+	else:
+		logging.warn('%s : %s has not name\n%s'%(cnode.__class__.__name__,cname,get_node_desc(cnode)))
+	for (tname,t) in cnode.children():				
+		if t.__class__.__name__ == 'IdentifierType':
+			if (nodetype is not None) and (len(nodetype.typename) > 0):
+				logging.warn('%s : %s (%s)\n%s'%(t.__class__.__name__,tname,nodetype.typename,get_node_desc(t)))
+			nodetype.typename += ' '.join(t.names)
+	return nodetype
+
+
+def __get_decl_type_name(ast,cnode):
+	nodetype = NodeTypeDecl()
+	for (dname,d) in cnode.children():
+		logging.info('%s\n%s'%(dname,get_node_desc(d)))
+		if isinstance(d,pycparser.c_ast.TypeDecl):
+			nodetype += __get_decl_type_name(ast,d)
+		elif isinstance(d,pycparser.c_ast.IdentifierType):
+			nodetype.typename = ' '.join(d.names)
+		elif isinstance(d,pycparser.c_ast.PtrDecl):
+			nodetype += __get_decl_type_name(ast,d)
+			nodetype.ptrtype += 1
+		elif isinstance(d,pycparser.c_ast.ArrayDecl):
+			nodetype += __get_decl_type_name(ast,d)
+			nodetype.arraytype += 1
+		elif isinstance(d,pycparser.c_ast.Constant):
+			nodetype.arraysize += int(d.value)
+		else:
+			logging.warn('unknown type (%s)\n%s'%(dname,get_node_desc(d)))
+			nodetype += __get_decl_type_name(ast,d)
+	return nodetype
+
+
+def get_decl_type_name(ast,cnode):
+	nodetype = NodeTypeDecl()
+	nodetype.memname = cnode.name
+	nodetype += __get_decl_type_name(ast,cnode)
+	return nodetype
+
+
+def structmem_impl(args,ast):
+	fout = sys.stdout
+	for k in args.subnargs:
+		sarr = re.split('\.',k)
+		typename = sarr[0]
+		if len(sarr) <= 1:
+			cnodes = get_struct_node(ast,typename)
+			if len(cnodes) > 0:
+				fout.write('%s\n%s'%(__debug_node_array(cnodes,typename)))
+			else:
+				cnodes = get_enum_node(ast,typename)
+				if len(cnodes) > 0:
+					fout.write('%s\n%s'%(__debug_node_array(cnodes,typename)))
+				else:
+					fout.write('%s\n    None\n'%(typename))
+		else:
+			memname = sarr[1]
+			cnodes = get_struct_node(ast,typename)
+			output = False
+			if len(cnodes) > 0:
+				for (cname,child) in cnodes[0].children():
+					if isinstance(child,pycparser.c_ast.Decl):
+						nodetype = get_decl_type_name(ast,child)
+						if nodetype and  nodetype.memname == memname:
+							fout.write('%s.%s\n    %s\n'%(typename,memname,nodetype))
+							nodetype = None
+							output = True
+							break
+						logging.info('%s\n%s\n'%(nodetype,get_node_desc(child)))
+						nodetype = None
+			if not output:
+				fout.write('%s\n    None\n'%(typename))
+	return
 
 
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
@@ -287,6 +447,15 @@ def structtotal_handler(args,parser):
 	sys.exit(0)
 	return
 
+def structmem_handler(args,parser):
+	set_logging(args)
+	if args.input is None:
+		raise Exception('specify by --input|-i for file input')
+	gccecommand = []
+	parse_file_callback(gccecommand,args.input,structmem_impl,args)
+	sys.exit(0)
+	return
+
 command_line = {
 	'input|i' : None,
 	'output|o' : None,
@@ -295,6 +464,9 @@ command_line = {
 		'$' : '+'
 	},
 	'structtotal<structtotal_handler>## get all struct node for declare ##' : {
+		'$' : '+'
+	},
+	'structmem<structmem_handler>## list structure member nodetype ##' : {
 		'$' : '+'
 	}
 }
