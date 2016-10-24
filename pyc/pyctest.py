@@ -128,20 +128,26 @@ def __get_enum_node(ast,enumname=None):
 	return cnodes
 
 def __has_enum_list(cnode):
+	retval = False
 	for (cname ,child) in cnode.children():
 		if isinstance(child,pycparser.c_ast.EnumeratorList):
 			return True
+		else:
+			retval = __has_enum_list(child)
+			if retval:
+				return True
 	return False
 
 def __get_enum_decl(cnode):
 	retnames=[]
 	for (cname,child) in cnode.children():
-		if isinstance(child,pycparser.c_ast.Enum):
+		if isinstance(child,pycparser.c_ast.Enum) and child.name is not None:
 			#logging.info('append (%s)'%(child.name))
 			retnames.append(child.name)
 		else:
 			retnames.extend(__get_enum_decl(child))
 	return retnames
+
 
 def get_enum_node(ast,enumname):
 	possiblenodes = __get_enum_node(ast,enumname)
@@ -154,8 +160,10 @@ def get_enum_node(ast,enumname):
 		except:
 			logging.error('search for (%s)(%s)'%(sys.exc_info()[0],enumname))
 			sys.exit(3)
+		logging.info('%s'%(__debug_node_array(possiblenodes,'possiblenodes')))
+		logging.info('%s'%(__debug_node_array(abandonnodes,'abandonnodes')))
+		logging.info('%s'%(__debug_node_array(retnode,'retnode')))
 		k = possiblenodes[0]
-		#logging.info('cmp\n%s'%(get_node_desc(k)))
 		possiblenodes= possiblenodes[1:]
 		if __has_enum_list(k):
 			# if it is the node has declare ,so we have it
@@ -247,8 +255,12 @@ def structtotal_impl(args,ast):
 					searched.append(curname)
 					nodedecl[curname] = curnode
 
+	i = 0
 	for k in searched:
-		fout.write('%s\n%s'%(k,get_node_desc(nodedecl[k])))
+		if i > 0 :
+			fout.write('\n')
+		fout.write('%s'%(__debug_node_array(nodedecl[k],k)))
+		i += 1
 	return
 
 
