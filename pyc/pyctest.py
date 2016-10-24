@@ -155,14 +155,7 @@ def get_enum_node(ast,enumname):
 	retnode = []
 	times = 0
 	while len(possiblenodes) > 0:
-		try:
-			assert(times < 50)
-		except:
-			logging.error('search for (%s)(%s)'%(sys.exc_info()[0],enumname))
-			sys.exit(3)
-		logging.info('%s'%(__debug_node_array(possiblenodes,'possiblenodes')))
-		logging.info('%s'%(__debug_node_array(abandonnodes,'abandonnodes')))
-		logging.info('%s'%(__debug_node_array(retnode,'retnode')))
+		assert(times < 50)
 		k = possiblenodes[0]
 		possiblenodes= possiblenodes[1:]
 		if __has_enum_list(k):
