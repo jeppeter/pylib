@@ -58,6 +58,7 @@ class NodeTypeDecl(object):
 		self.prevnode = None
 		self.structnode = None
 		self.funcdeclnode = None
+		self.namevarname = None
 		return
 
 	def __str__(self):
@@ -76,6 +77,7 @@ class NodeTypeDecl(object):
 			s += 'funcdeclnode(%s)'%(get_node_desc(self.funcdeclnode))
 		else:
 			s += 'funcdelc(None)'
+		s += 'namevarname(%s)'%(self.namevarname)
 		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
