@@ -123,7 +123,7 @@ def __get_struct_node(ast,structname=None):
 	cnodes = []
 	for (cname,child) in ast.children():
 		if isinstance(child,pycparser.c_ast.Typedef) and ( structname is None or  child.name == structname):
-			#logging.info('append\n%s'%(get_node_desc(child)))
+			logging.info('append\n%s'%(get_node_desc(child)))
 			cnodes.append(child)
 		elif isinstance(child,pycparser.c_ast.Typedef):
 			cnodes.extend(__get_struct_node(child,structname))
@@ -134,7 +134,7 @@ def __get_struct_node(ast,structname=None):
 		elif isinstance(child,pycparser.c_ast.Union) and child.name is None:
 			cnodes.extend(__get_struct_node(child,structname))
 		elif isinstance(child,pycparser.c_ast.Struct) and ( structname is None or child.name == structname):
-			#logging.info('append\n%s'%(get_node_desc(child)))
+			logging.info('append\n%s'%(get_node_desc(child)))
 			cnodes.append(child)
 		elif isinstance(child,pycparser.c_ast.Struct):
 			cnodes.extend(__get_struct_node(child,structname))
@@ -170,6 +170,17 @@ def __get_struct_decl(cnode):
 			retnames.extend(__get_struct_decl(child))
 	return retnames
 
+def __get_inner_struct(cnode):
+	retnodes = []
+	for (cname,c) in cnode.children():
+		if isinstance(c,pycparser.c_ast.Struct):
+			retval = __has_decl_mem(c)
+			if retval:
+				retnodes.append(c)
+		else:
+			retnodes.extend(__get_inner_struct(c))
+	return retnodes
+
 def get_struct_node(ast,structname):
 	possiblenodes = __get_struct_node(ast,structname)
 	abandonnodes = []
@@ -177,8 +188,10 @@ def get_struct_node(ast,structname):
 	times = 0
 	while len(possiblenodes) > 0:
 		assert(times < 50)
+		logging.info('%s'%(__debug_node_array(possiblenodes,'possiblenodes')))
+		logging.info('%s'%(__debug_node_array(abandonnodes,'abandonnodes')))
+		logging.info('%s'%(__debug_node_array(retnode,'retnode')))
 		k = possiblenodes[0]
-		#logging.info('cmp\n%s'%(get_node_desc(k)))
 		possiblenodes= possiblenodes[1:]
 		if __has_decl_mem(k):
 			# if it is the node has declare ,so we have it
@@ -187,7 +200,7 @@ def get_struct_node(ast,structname):
 			abandonnodes.append(k)
 			for n in __get_struct_decl(k):
 				# it like typedef struct __st st_t; we find __st
-				#logging.info('get struct (%s)'%(n))
+				logging.info('get struct (%s)'%(n))
 				getnodes = __get_struct_node(ast,n)
 				i = 0
 				for ck in getnodes:
@@ -204,6 +217,16 @@ def get_struct_node(ast,structname):
 						continue
 					#logging.info('will add\n%s'%(get_node_desc(ck)))
 					possiblenodes.append(ck)
+			for n in __get_inner_struct(k):
+				if n in retnode:
+					continue
+				if n in abandonnodes:
+					continue
+				if n in possiblenodes:
+					continue
+				if n == k:
+					continue
+				possiblenodes.append(n)
 		times += 1
 	return retnode
 
