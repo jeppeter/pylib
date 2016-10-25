@@ -56,6 +56,7 @@ class NodeTypeDecl(object):
 		self.arraysize = 0
 		self.enumtype = False
 		self.prevnode = None
+		self.structnode = None
 		return
 
 	def __str__(self):
@@ -66,6 +67,10 @@ class NodeTypeDecl(object):
 		s += 'arraytype(%s)'%(self.arraytype)
 		s += 'arraysize(%s)'%(self.arraysize)
 		s += 'enumtype(%s)'%(self.enumtype)
+		if self.structnode is not None:
+			s += 'structnode(%s)'%(get_node_desc(self.structnode))
+		else:
+			s += 'structnode(None)'
 		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
@@ -86,6 +91,8 @@ class NodeTypeDecl(object):
 			self.enumtype = other.enumtype
 		if self.prevnode is None and other.prevnode is not None:
 			self.prevnode = other.prevnode
+		if self.structnode is None and other.structnode is not None:
+			self.structnode = other.structnode
 		return	self	
 
 def get_node_desc(node,tabs=0):
@@ -354,11 +361,14 @@ def __get_decl_type_name(ast,cnode):
 			nodetype.arraytype += 1
 		elif isinstance(d,pycparser.c_ast.Constant):
 			nodetype.arraysize += int(d.value)
+		elif isinstance(d,pycparser.c_ast.Struct):
+			nodetype.structnode = d
+			if d.name is not None:
+				nodetype.typename = d.name
 		else:
 			logging.warn('unknown type (%s)\n%s'%(dname,get_node_desc(d)))
 			nodetype += __get_decl_type_name(ast,d)
 	return nodetype
-
 
 def get_decl_type_name(ast,cnode):
 	nodetype = NodeTypeDecl()
@@ -387,19 +397,42 @@ def structmem_impl(args,ast):
 			cnodes = get_struct_node(ast,typename)
 			output = False
 			if len(cnodes) > 0:
-				for (cname,child) in cnodes[0].children():
-					if isinstance(child,pycparser.c_ast.Decl):
-						nodetype = get_decl_type_name(ast,child)
-						if nodetype and  nodetype.memname == memname:
-							fout.write('%s.%s\n    %s\n'%(typename,memname,nodetype))
+				i = 1
+				curnode = cnodes[0]
+				cont = True
+				while cont and i < len(sarr) and (curnode is not None):
+					cont = False
+					for (cname,child) in curnode.children():
+						if isinstance(child,pycparser.c_ast.Decl):
+							nodetype = get_decl_type_name(ast,child)
+							if nodetype and  nodetype.memname == memname:
+								if (i+1) == len(sarr):
+									fout.write('%s\n    %s\n'%(k,nodetype))
+									nodetype = None
+									output = True
+									break
+								else:
+									i += 1
+									curnode = nodetype.structnode
+									memname = sarr[i]
+									cont = True
+									break
+							logging.info('%s\n%s\n'%(nodetype,get_node_desc(child)))
 							nodetype = None
-							output = True
-							break
-						logging.info('%s\n%s\n'%(nodetype,get_node_desc(child)))
-						nodetype = None
 			if not output:
 				fout.write('%s\n    None\n'%(typename))
 	return
+
+def get_declare_member(cnodes):
+	retnodes = []
+	for (cname,c) in cnodes.children():
+		if isinstance(c,pycparser.c_ast.Decl):
+			retnodes.append(c)
+		else:
+			retnodes.extend(get_declare_member(c))
+	return retnodes
+
+
 
 
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
@@ -451,6 +484,9 @@ command_line = {
 		'$' : '+'
 	},
 	'structmem<structmem_handler>## list structure member nodetype ##' : {
+		'$' : '+'
+	},
+	'listmem<listmem_handler>## list member ##' : {
 		'$' : '+'
 	}
 }
