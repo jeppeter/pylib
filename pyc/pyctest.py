@@ -57,6 +57,7 @@ class NodeTypeDecl(object):
 		self.enumtype = False
 		self.prevnode = None
 		self.structnode = None
+		self.funcdeclnode = None
 		return
 
 	def __str__(self):
@@ -71,6 +72,10 @@ class NodeTypeDecl(object):
 			s += 'structnode(%s)'%(get_node_desc(self.structnode))
 		else:
 			s += 'structnode(None)'
+		if self.funcdeclnode is not None:
+			s += 'funcdeclnode(%s)'%(get_node_desc(self.funcdeclnode))
+		else:
+			s += 'funcdelc(None)'
 		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
@@ -93,6 +98,8 @@ class NodeTypeDecl(object):
 			self.prevnode = other.prevnode
 		if self.structnode is None and other.structnode is not None:
 			self.structnode = other.structnode
+		if self.funcdeclnode is None and other.funcdeclnode is not None:
+			self.funcdeclnode = other.funcdeclnode
 		return	self	
 
 def get_node_desc(node,tabs=0):
@@ -365,6 +372,8 @@ def __get_decl_type_name(ast,cnode):
 			nodetype.structnode = d
 			if d.name is not None:
 				nodetype.typename = d.name
+		elif isinstance(d,pycparser.c_ast.FuncDecl):
+			nodetype.funcdeclnode = d
 		else:
 			logging.warn('unknown type (%s)\n%s'%(dname,get_node_desc(d)))
 			nodetype += __get_decl_type_name(ast,d)
@@ -423,17 +432,61 @@ def structmem_impl(args,ast):
 				fout.write('%s\n    None\n'%(typename))
 	return
 
+def listmem_impl(args,ast):
+	fout = sys.stdout
+	for k in args.subnargs:
+		sarr = re.split('\.',k)
+		typename = sarr[0]
+		if len(sarr) <= 1:
+			cnodes = get_struct_node(ast,typename)
+			if len(cnodes) > 0:
+				retnodes = get_declare_member(cnodes[0])
+				fout.write(__debug_node_array(retnodes,'%s members'%(typename)))
+			else:
+				cnodes = get_enum_node(ast,typename)
+				if len(cnodes) > 0:
+					fout.write('%s\n%s'%(__debug_node_array(cnodes,typename)))
+				else:
+					fout.write('%s\n    None\n'%(typename))
+		else:
+			memname = sarr[1]
+			cnodes = get_struct_node(ast,typename)
+			output = False
+			if len(cnodes) > 0:
+				i = 1
+				curnode = cnodes[0]
+				cont = True
+				while cont and i < len(sarr) and (curnode is not None):
+					cont = False
+					for (cname,child) in curnode.children():
+						if isinstance(child,pycparser.c_ast.Decl):
+							nodetype = get_decl_type_name(ast,child)
+							if nodetype and  nodetype.memname == memname:
+								if (i+1) == len(sarr):
+									retnodes = get_declare_member(nodetype.structnode)
+									fout.write(__debug_node_array(retnodes,'%s members'%(k)))
+									nodetype = None
+									output = True
+									break
+								else:
+									i += 1
+									curnode = nodetype.structnode
+									memname = sarr[i]
+									cont = True
+									break
+							logging.info('%s\n%s\n'%(nodetype,get_node_desc(child)))
+							nodetype = None
+			if not output:
+				fout.write('%s\n    None\n'%(k))
+	return
+
+
 def get_declare_member(cnodes):
 	retnodes = []
 	for (cname,c) in cnodes.children():
 		if isinstance(c,pycparser.c_ast.Decl):
 			retnodes.append(c)
-		else:
-			retnodes.extend(get_declare_member(c))
 	return retnodes
-
-
-
 
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
 	if len(gccecommand) == 0:
@@ -472,6 +525,16 @@ def structmem_handler(args,parser):
 	parse_file_callback(gccecommand,args.input,structmem_impl,args)
 	sys.exit(0)
 	return
+
+def listmem_handler(args,parser):
+	set_logging(args)
+	if args.input is None:
+		raise Exception('specify by --input|-i for file input')
+	gccecommand = []
+	parse_file_callback(gccecommand,args.input,listmem_impl,args)
+	sys.exit(0)
+	return
+
 
 command_line = {
 	'input|i' : None,
