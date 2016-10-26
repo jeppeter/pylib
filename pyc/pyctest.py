@@ -119,26 +119,6 @@ def set_logging(args):
 	return
 
 
-def __get_struct_node(ast,structname=None):
-	cnodes = []
-	for (cname,child) in ast.children():
-		if isinstance(child,pycparser.c_ast.Typedef) and ( structname is None or  child.name == structname):
-			logging.info('append\n%s'%(get_node_desc(child)))
-			cnodes.append(child)
-		elif isinstance(child,pycparser.c_ast.Typedef):
-			cnodes.extend(__get_struct_node(child,structname))
-		elif isinstance(child,pycparser.c_ast.TypeDecl):
-			cnodes.extend(__get_struct_node(child,structname))
-		elif isinstance(child,pycparser.c_ast.Decl) and child.name is None:
-			cnodes.extend(__get_struct_node(child,structname))
-		elif isinstance(child,pycparser.c_ast.Union) and child.name is None:
-			cnodes.extend(__get_struct_node(child,structname))
-		elif isinstance(child,pycparser.c_ast.Struct) and ( structname is None or child.name == structname):
-			logging.info('append\n%s'%(get_node_desc(child)))
-			cnodes.append(child)
-		elif isinstance(child,pycparser.c_ast.Struct):
-			cnodes.extend(__get_struct_node(child,structname))
-	return cnodes
 
 
 def __has_decl_mem(cnode):
@@ -182,71 +162,11 @@ def __get_inner_struct(cnode):
 	return retnodes
 
 def get_struct_node(ast,structname):
-	possiblenodes = __get_struct_node(ast,structname)
-	abandonnodes = []
 	retnode = []
-	times = 0
-	while len(possiblenodes) > 0:
-		assert(times < 50)
-		logging.info('%s'%(__debug_node_array(possiblenodes,'possiblenodes')))
-		logging.info('%s'%(__debug_node_array(abandonnodes,'abandonnodes')))
-		logging.info('%s'%(__debug_node_array(retnode,'retnode')))
-		k = possiblenodes[0]
-		possiblenodes= possiblenodes[1:]
-		if __has_decl_mem(k):
-			# if it is the node has declare ,so we have it
-			retnode.append(k)
-		else:
-			abandonnodes.append(k)
-			for n in __get_struct_decl(k):
-				# it like typedef struct __st st_t; we find __st
-				logging.info('get struct (%s)'%(n))
-				getnodes = __get_struct_node(ast,n)
-				i = 0
-				for ck in getnodes:
-					i += 1
-					#logging.info('[%d]ck\n%s'%(i,get_node_desc(ck)))
-					if ck in retnode:
-					#if __nodes_in(retnode,ck):
-						continue
-					#if __nodes_in(possiblenodes,ck):
-					if ck in possiblenodes:
-						continue
-					#if __nodes_in(abandonnodes,ck):
-					if ck in abandonnodes:
-						continue
-					#logging.info('will add\n%s'%(get_node_desc(ck)))
-					possiblenodes.append(ck)
-			for n in __get_inner_struct(k):
-				if n in retnode:
-					continue
-				if n in abandonnodes:
-					continue
-				if n in possiblenodes:
-					continue
-				if n == k:
-					continue
-				possiblenodes.append(n)
-		times += 1
+	if structname in ast.structdef.keys():
+		retnode.append(ast.structdef[structname])
 	return retnode
 
-def __get_enum_node(ast,enumname=None):
-	cnodes = []
-	for (cname,child) in ast.children():
-		if isinstance(child,pycparser.c_ast.Typedef) and (enumname is None or child.name == enumname):
-			cnodes.append(child)
-		elif isinstance(child,pycparser.c_ast.Typedef):
-			cnodes.extend(__get_enum_node(child,enumname))
-		elif isinstance(child,pycparser.c_ast.TypeDecl):
-			cnodes.extend(__get_enum_node(child,enumname))
-		elif isinstance(child,pycparser.c_ast.Decl) and child.name is None:
-			cnodes.extend(__get_enum_node(child,enumname))
-		elif isinstance(child,pycparser.c_ast.Union) and child.name is None:
-			cnodes.extend(__get_enum_node(child,enumname))
-		elif isinstance(child,pycparser.c_ast.Enum) and ( enumname is None or child.name == enumname):
-			#logging.info('append\n%s'%(get_node_desc(child)))
-			cnodes.append(child)
-	return cnodes
 
 def __has_enum_list(cnode):
 	retval = False
@@ -271,39 +191,9 @@ def __get_enum_decl(cnode):
 
 
 def get_enum_node(ast,enumname):
-	possiblenodes = __get_enum_node(ast,enumname)
-	abandonnodes = []
 	retnode = []
-	times = 0
-	while len(possiblenodes) > 0:
-		assert(times < 50)
-		k = possiblenodes[0]
-		possiblenodes= possiblenodes[1:]
-		if __has_enum_list(k):
-			# if it is the node has declare ,so we have it
-			retnode.append(k)
-		else:
-			abandonnodes.append(k)
-			for n in __get_enum_decl(k):
-				# it like typedef struct __st st_t; we find __st
-				#logging.info('get struct (%s)'%(n))
-				getnodes = __get_enum_node(ast,n)
-				i = 0
-				for ck in getnodes:
-					i += 1
-					#logging.info('[%d]ck\n%s'%(i,get_node_desc(ck)))
-					if ck in retnode:
-					#if __nodes_in(retnode,ck):
-						continue
-					#if __nodes_in(possiblenodes,ck):
-					if ck in possiblenodes:
-						continue
-					#if __nodes_in(abandonnodes,ck):
-					if ck in abandonnodes:
-						continue
-					#logging.info('will add\n%s'%(get_node_desc(ck)))
-					possiblenodes.append(ck)
-		times += 1
+	if enumname in ast.enumdef.keys():
+		retnode.append(ast.enumdef[enumname])
 	return retnode
 
 def get_decl_types(cnode):
@@ -513,14 +403,133 @@ def get_declare_member(cnodes):
 			retnodes.append(c)
 	return retnodes
 
+
+def __append_list_prevnode(prevnode,cnode):
+	nodetype = NodeTypeDecl()
+	nodetype.prevnode = prevnode
+	nodetype.structnode = cnode
+	return nodetype
+
+
+def __callback_struct_enum_def(newast,c,prevnode,callback):
+	nodetype = __append_list_prevnode(prevnode,c)
+	if callback is not None:
+		callback(newast,c,nodetype)
+	nodetype = None
+	return
+
+def __get_name_prevnode(cnode,prevnode):
+	curname = cnode.name
+	if curname is None:
+		curprevnode = prevnode
+		while curprevnode is not None:
+			cn = curprevnode.structnode
+			if isinstance(cn ,pycparser.c_ast.TypeDecl):
+				if cn.declname is not None:
+					curname = cn.declname
+					break
+			elif isinstance(cn,pycparser.c_ast.Typedef):
+				if cn.name is not None:
+					curname = cn.name
+					break
+			curprevnode = curprevnode.prevnode
+	return curname
+
+
+def __make_struct_enum_def(newast,cnode,prevnode):
+	if isinstance(cnode,pycparser.c_ast.Typedef) or isinstance(cnode,pycparser.c_ast.Decl) or \
+			isinstance(cnode,pycparser.c_ast.PtrDecl) or isinstance(cnode,pycparser.c_ast.TypeDecl) or \
+			isinstance(cnode,pycparser.c_ast.Union) or isinstance(cnode,pycparser.c_ast.ArrayDecl) or \
+			isinstance(cnode,pycparser.c_ast.Constant) or isinstance(cnode,pycparser.c_ast.BinaryOp) or \
+			isinstance(cnode,pycparser.c_ast.InitList) or isinstance(cnode,pycparser.c_ast.NamedInitializer) or\
+			isinstance(cnode,pycparser.c_ast.CompoundLiteral) or isinstance(cnode,pycparser.c_ast.Typename) or \
+			isinstance(cnode,pycparser.c_ast.Cast) or isinstance(cnode,pycparser.c_ast.UnaryOp) or \
+			isinstance(cnode,pycparser.c_ast.StructRef):
+		for (cname,c) in cnode.children():
+			__callback_struct_enum_def(newast,c,prevnode,__make_struct_enum_def)
+	elif isinstance(cnode,pycparser.c_ast.Struct):
+		retnodes = get_declare_member(cnode)
+		if len(retnodes) > 0:
+			curname = __get_name_prevnode(cnode,prevnode)
+			if curname is not None:
+				if curname not in newast.structdef.keys():
+					newast.structdef[cnode.name] = cnode
+				else:
+					if get_node_desc(cnode) != get_node_desc(newast.structdef[curname]) :
+						logging.warn('(%s)(%s) already defined (%s)'%(
+							curname,get_node_desc(cnode),get_node_desc(newast.structdef[curname])))
+			else:
+				newast.structnotlists.append(cnode)
+		else:
+			newast.structnotlists.append(cnode)
+	elif isinstance(cnode,pycparser.c_ast.Enum):
+		retval = __has_enum_list(cnode)
+		if retval :
+			curname = __get_name_prevnode(cnode,prevnode)
+			if curname is not None:
+				if curname not in newast.enumdef.keys():
+					newast.enumdef[curname] = cnode
+				else:
+					logging.warn('(%s)(%s) already defined (%s)'%(
+						curname,get_node_desc(cnode),get_node_desc(newast.enumdef[curname])))
+			else:
+				newast.enumnotlists.append(cnode)
+		else:
+			newast.enumnotlists.append(cnode)
+	elif isinstance(cnode,pycparser.c_ast.FuncDecl) or isinstance(cnode,pycparser.c_ast.FuncDef) or \
+		isinstance(cnode,pycparser.c_ast.IdentifierType) or isinstance(cnode,pycparser.c_ast.ID):
+		pass
+	else:
+		logging.warn('can not pass %s(%s)'%(cnode.__class__.__name__,get_node_desc(cnode)))
+	return
+
+class NewAst(object):
+	pass
+
+def make_struct_enum_def(ast):
+	newast = NewAst()
+	newast.structdef = dict()
+	newast.enumdef = dict()
+	newast.structnotlists = []
+	newast.enumnotlists = []
+	newast.ast = ast
+
+	for (cname,c) in ast.children():
+		__make_struct_enum_def(newast,c,None)
+
+	i = 0
+	for k in newast.enumnotlists:
+		if k.name is not  None:
+			if k.name not in newast.enumdef.keys():
+				logging.warn('[%d]\n%s'%(i,get_node_desc(k)))
+		i += 1
+	newast.enumnotlists = []
+	i = 0
+	for k in newast.structnotlists:
+		if k.name is not None:
+			if k.name in newast.structdef.keys():
+				pass
+			else:
+				logging.warn('[%d]\n%s'%(i,get_node_desc(k)))
+		else:
+			logging.warn('[%d]\n%s'%(i,get_node_desc(k)))
+		i += 1
+	newast.structnotlists = []
+	newast.ast = ast
+	return newast
+
+def sortlist_impl(args,ast):
+	return
+
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
 	if len(gccecommand) == 0:
 		ast = pycparser.parse_file(file,use_cpp=False)
 	else:
 		ast = pycparser.parse_file(file,use_cpp=True,cpp_path=gccecommand[0],
 			cpp_args=gccecommand[1:])
+	newast = make_struct_enum_def(ast)
 	if callback is not None:
-		callback(ctx,ast)
+		callback(ctx,newast)
 	return ast
 
 
@@ -560,6 +569,15 @@ def listmem_handler(args,parser):
 	sys.exit(0)
 	return
 
+def sortlist_handler(args,parser):
+	set_logging(args)
+	if args.input is None:
+		raise Exception('specify by --input|-i for file input')
+	gccecommand = []
+	parse_file_callback(gccecommand,args.input,sortlist_impl,args)
+	sys.exit(0)
+	return
+
 
 command_line = {
 	'input|i' : None,
@@ -576,6 +594,9 @@ command_line = {
 	},
 	'listmem<listmem_handler>## list member ##' : {
 		'$' : '+'
+	},
+	'sortlist<sortlist_handler>## sortlist handler##' : {
+		'$' : 0
 	}
 }
 
