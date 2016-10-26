@@ -526,6 +526,10 @@ def make_struct_enum_def(ast):
 						logging.warn('[%d]\n    %s(%s)'%(i,get_node_desc(k),p))
 					else:
 						newast.enumdef[n] = enumnode
+				elif enumnode is not None:
+					if get_node_desc(enumnode) != get_node_desc(newast.enumdef[n]):
+						logging.warn('[%d]\n    %s(%s)\n   %s'%(
+							i,get_node_desc(k),p,get_node_desc(newast.enumdef[n])))
 		else:
 			logging.warn('[%d]node:\n    %s\n    %s'%(i,get_node_desc(k),p))
 		# now to get the name
@@ -549,6 +553,10 @@ def make_struct_enum_def(ast):
 						logging.warn('[%d]\n    %s(%s)'%(i,get_node_desc(k),p))
 					else:
 						newast.structdef[n] = structnode
+				elif structnode is not None:
+					if get_node_desc(structnode) != get_node_desc(newast.structdef[n]):
+						logging.warn('[%d]\n    %s(%s)\n   %s'%(
+							i,get_node_desc(k),p,get_node_desc(newast.structdef[n])))
 		else:
 			logging.warn('[%d]node:\n    %s\n    %s'%(i,get_node_desc(k),p))
 		# now to get the name
