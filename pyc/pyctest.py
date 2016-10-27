@@ -65,7 +65,12 @@ class NodeTypeDecl(object):
 
 	def __str__(self):
 		s = ''
-		s += 'type(%s)'%(self.typename)
+		cnt = 0
+		curprevnode = self.prevnode
+		while curprevnode is not None:
+			cnt += 1
+			curprevnode = curprevnode.prevnode
+		s += '[%d]type(%s)'%(cnt,self.typename)
 		s += 'mem(%s)'%(self.memname)
 		s += 'ptrtype(%s)'%(self.ptrtype)
 		s += 'arraytype(%s)'%(self.arraytype)
