@@ -65,6 +65,7 @@ class NodeTypeDecl(object):
 
 	def __str__(self):
 		s = ''
+		s += 'prevnode(%s)'%(self.prevnode)
 		s += 'type(%s)'%(self.typename)
 		s += 'mem(%s)'%(self.memname)
 		s += 'ptrtype(%s)'%(self.ptrtype)
@@ -82,7 +83,6 @@ class NodeTypeDecl(object):
 		s += 'namevarname(%s)'%(self.namevarname)
 		s += 'checkptridx(%d)'%(self.checkptridx)
 		s += 'checkarrayidx(%d)'%(self.checkarrayidx)
-		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
 	def __iadd__(self,other):
@@ -302,6 +302,13 @@ def get_decl_type_name(ast,cnode):
 	nodetype = NodeTypeDecl()
 	nodetype.memname = cnode.name
 	nodetype += __get_decl_type_name(ast,cnode)
+	assert(nodetype.arraytype >= len(nodetype.arraysize))
+	if nodetype.arraytype > len(nodetype.arraysize):
+		# this like int *m_arr[32][][]; 
+		logging.info('arraytype %d len(%d)'%(nodetype.arraytype,len(nodetype.arraysize)))
+		morecnt = (nodetype.arraytype - len(nodetype.arraysize))
+		nodetype.arraytype -= morecnt
+		nodetype.ptrtype += morecnt
 	return nodetype
 
 
