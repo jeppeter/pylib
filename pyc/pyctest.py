@@ -65,7 +65,6 @@ class NodeTypeDecl(object):
 
 	def __str__(self):
 		s = ''
-		s += 'prevnode(%s)'%(self.prevnode)
 		s += 'type(%s)'%(self.typename)
 		s += 'mem(%s)'%(self.memname)
 		s += 'ptrtype(%s)'%(self.ptrtype)
@@ -83,6 +82,7 @@ class NodeTypeDecl(object):
 		s += 'namevarname(%s)'%(self.namevarname)
 		s += 'checkptridx(%d)'%(self.checkptridx)
 		s += 'checkarrayidx(%d)'%(self.checkarrayidx)
+		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
 	def __iadd__(self,other):
