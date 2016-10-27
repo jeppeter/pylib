@@ -113,6 +113,24 @@ class NodeTypeDecl(object):
 			self.funcdeclnode = other.funcdeclnode
 		return	self	
 
+	def clone(self,other):
+		if not isinstance(other,NodeTypeDecl):
+			raise Exception('not NodeTypeDecl')
+		self.typename = other.typename
+		self.memname = other.memname
+		self.ptrtype = other.ptrtype
+		self.arraytype = other.arraytype
+		self.arraysize = other.arraysize
+		self.enumtype = other.enumtype
+		self.prevnode = other
+		self.structnode = other.structnode
+		self.funcdeclnode = other.funcdeclnode
+		self.namevarname = other.namevarname
+		self.checkptridx = other.checkptridx
+		self.checkarrayidx = other.checkarrayidx
+		return
+
+
 def get_node_desc(node,tabs=0):
 	sio = StringIO.StringIO()
 	node.show(sio,offset=tabs*4)
