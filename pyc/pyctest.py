@@ -53,7 +53,7 @@ class NodeTypeDecl(object):
 		self.memname = ''
 		self.ptrtype = 0
 		self.arraytype = 0
-		self.arraysize = 0
+		self.arraysize = []
 		self.enumtype = False
 		self.prevnode = None
 		self.structnode = None
@@ -96,8 +96,8 @@ class NodeTypeDecl(object):
 			self.ptrtype += other.ptrtype
 		if other.arraytype > 0 :
 			self.arraytype += other.arraytype
-		if other.arraysize != 0:
-			self.arraysize = other.arraysize
+		if len(other.arraysize) != 0:
+			self.arraysize.extend(other.arraysize)
 		if other.enumtype :
 			self.enumtype = other.enumtype
 		if self.prevnode is None and other.prevnode is not None:
@@ -286,7 +286,7 @@ def __get_decl_type_name(ast,cnode):
 			nodetype += __get_decl_type_name(ast,d)
 			nodetype.arraytype += 1
 		elif isinstance(d,pycparser.c_ast.Constant):
-			nodetype.arraysize += int(d.value)
+			nodetype.arraysize.append(int(d.value))
 		elif isinstance(d,pycparser.c_ast.Struct):
 			nodetype.structnode = d
 			if d.name is not None:
