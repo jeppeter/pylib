@@ -59,6 +59,8 @@ class NodeTypeDecl(object):
 		self.structnode = None
 		self.funcdeclnode = None
 		self.namevarname = None
+		self.checkptridx = 0
+		self.checkarrayidx = 0
 		return
 
 	def __str__(self):
@@ -78,6 +80,8 @@ class NodeTypeDecl(object):
 		else:
 			s += 'funcdelc(None)'
 		s += 'namevarname(%s)'%(self.namevarname)
+		s += 'checkptridx(%d)'%(self.checkptridx)
+		s += 'checkarrayidx(%d)'%(self.checkarrayidx)
 		s += 'prevnode(%s)'%(self.prevnode)
 		return s
 
