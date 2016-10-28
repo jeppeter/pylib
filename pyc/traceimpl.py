@@ -107,8 +107,30 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 		i -= 1
 
 	origname = nodetype.namevarname
-	if nodetype.namevarname:
-		
+	tupleargs = []
+	if nodetype.ptrtype == 0:
+		format_args = r'(&({argname}'
+	else:
+		format_args = r'({argname}'
+	i = 0
+	while i < len(cntnamearr):
+		format_args += r'[%d]'
+		tupleargs.append(cntnamearr[i])
+		i += 1
+	if nodetype.ptrtype == 0:
+		format_args += r'))'
+	else:
+		format_args += r')'
+
+	s += __format_comment_tabs(args,tabs,'format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
+	logging.info('format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
+	_curs , _argname ,oldnamevar = __change_argname(args,tabs,argname,nodetype,format_args,tuple(tupleargs),True)
+	s += _curs
+
+
+
+	if True:
+		pass
 	else:
 		_argname = '%s'%(innerargname)
 		i = 0
@@ -151,9 +173,8 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 		i -= 1
 	tabs -= 1
 	s += __format_tabs(tabs,'} else {')
-	if setnodename :
-		nodetype.namevarname = origname
-		setnodename = 0
+	if nodetype :
+		nodetype.namevarname = oldnamevar
 	tabs += 1
 	if nodetype.namevarname:
 		s += __format_tabs(tabs,'qemu_log_mask(LOG_TRACE,"%%s pointer(%%p:%%ld(0x%%lx)) not accessible\\n",%s,%s,%s,%s);'%(
@@ -352,7 +373,9 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 	if nodetype:
 		oldnamevar = nodetype.namevarname
 	news = fmtstr%tup
+	logging.info('news (%s)'%(news))
 	newargname = news.format(argname=argname)
+	logging.info('newargname (%s)'%(newargname))
 	if nodetype and nodetype.namevarname:
 		if newtabs:
 			newnamevar = 'memname%d'%(tabs)
