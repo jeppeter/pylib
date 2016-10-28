@@ -10,6 +10,7 @@ import cmdpack
 import json
 import StringIO
 import inspect
+import re
 
 import pycencap
 
@@ -121,6 +122,8 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 		format_args += r'))'
 	else:
 		format_args += r')'
+
+	nodetype.namevarname = 'memname%d'%(tabs)
 
 	s += __format_comment_tabs(args,tabs,'format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
 	logging.info('format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
@@ -372,10 +375,10 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 	oldnamevar = None
 	if nodetype:
 		oldnamevar = nodetype.namevarname
-	news = fmtstr%tup
+	argfmt = re.sub(r'%d',r'%s',fmtstr)
+	news = argfmt%tup
 	logging.info('news (%s)'%(news))
 	newargname = news.format(argname=argname)
-	logging.info('newargname (%s)'%(newargname))
 	if nodetype and nodetype.namevarname:
 		if newtabs:
 			newnamevar = 'memname%d'%(tabs)
@@ -383,13 +386,18 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
 		if newnamevar not in args.char_array_args:
 			args.char_array_args.append(newnamevar)
-		news = fmtstr%(tup)
-		newfmtstr = news.format(argname=r'%s')
-		s += __format_tabs(tabs,'snprintf(%s,sizeof(%s),"%s",%s);'%(
-			newnamevar,newnamevar,newfmtstr,nodetype.namevarname))
+		varstr = 'snprintf(%s,sizeof(%s),"'%(newnamevar,newnamevar)
+		varfmt = fmtstr.format(argname=r'%s')
+		varstr += varfmt
+		varstr += '",%s'%(nodetype.namevarname)
+		i = 0
+		while i < len(tup):
+			varstr += ',%s'%(tup[i])
+			i += 1
+		varstr += ');'
+		s += __format_tabs(tabs,'%s'%(varstr))
 		nodetype.namevarname = newnamevar
 	return s,newargname,oldnamevar
-
 
 
 def __has_type_decl(ast,typename):
