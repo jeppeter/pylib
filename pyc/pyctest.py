@@ -454,7 +454,12 @@ def __callback_struct_enum_def(newast,c,prevnode,callback):
 
 def __get_name_prevnode(cnode,prevnode):
 	retnames = []
-	curname = cnode.name	
+	curname = None
+	if hasattr(cnode,'name'):
+		curname = cnode.name
+	else:
+		assert(isinstance(cnode,pycparser.c_ast.IdentifierType) or \
+				isinstance(cnode,pycparser.c_ast.FuncDecl))
 	curprevnode = prevnode
 	if curname is not None:
 		retnames.append(curname)
@@ -471,11 +476,63 @@ def __get_name_prevnode(cnode,prevnode):
 		curprevnode = curprevnode.prevnode
 	return retnames
 
+def __has_func_pointer(cnode,prevnode):
+	curprevnode = prevnode
+	retval = False
+	while curprevnode is not None:
+		cn = curprevnode.structnode
+		if isinstance(cn , pycparser.c_ast.PtrDecl):
+			retval =  True
+			break
+		curprevnode = curprevnode.prevnode
+	if retval:
+		# we check that it is under Typedef node
+		curprevnode = prevnode
+		while curprevnode is not None:
+			cn = curprevnode.structnode
+			if isinstance(cn , pycparser.c_ast.Typedef):
+				retval =  True
+				break
+			curprevnode = curprevnode.prevnode
+	return retval
+
+basic_types = ['long unsigned int',
+	'unsigned char',
+	'unsigned short int',
+	'unsigned int',
+	'unsigned long int',
+	'signed char',
+	'signed short int',
+	'signed int',
+	'signed long int',
+	'long int',
+	'int',
+	'void',
+	'char',
+	'short int']
+
+def __get_identifier_node(prevnode):
+	# we get the toppest node
+	retnode = None
+	curprevnode = prevnode
+	i = 0
+	while curprevnode is not None:
+		cn = curprevnode.structnode
+		retnode = cn
+		if isinstance(cn ,pycparser.c_ast.TypeDecl) or isinstance(cn,pycparser.c_ast.Typedef) or \
+			isinstance(cn,pycparser.c_ast.PtrDecl) or isinstance(cn,pycparser.c_ast.ArrayDecl) or \
+			isinstance(cn,pycparser.c_ast.IdentifierType) or isinstance(cn,pycparser.c_ast.FuncDecl):
+			pass
+		else:
+			logging.warn('unknown IdentifierType[%d](%s)\n%s'%(i,cn.__class__.__name__,get_node_desc(cn)))
+		i += 1
+		curprevnode = curprevnode.prevnode
+	return retnode
 
 def __make_struct_enum_def(newast,cnode,prevnode):
 	if isinstance(cnode,pycparser.c_ast.Typedef) or isinstance(cnode,pycparser.c_ast.Decl) or \
 			isinstance(cnode,pycparser.c_ast.PtrDecl) or isinstance(cnode,pycparser.c_ast.TypeDecl) or \
-			isinstance(cnode,pycparser.c_ast.Union) or isinstance(cnode,pycparser.c_ast.ArrayDecl) or \
+			isinstance(cnode,pycparser.c_ast.ArrayDecl) or \
 			isinstance(cnode,pycparser.c_ast.Constant) or isinstance(cnode,pycparser.c_ast.BinaryOp) or \
 			isinstance(cnode,pycparser.c_ast.InitList) or isinstance(cnode,pycparser.c_ast.NamedInitializer) or\
 			isinstance(cnode,pycparser.c_ast.CompoundLiteral) or isinstance(cnode,pycparser.c_ast.Typename) or \
@@ -490,7 +547,7 @@ def __make_struct_enum_def(newast,cnode,prevnode):
 			if len(retnames) > 0:
 				for curname in retnames:
 					if curname not in newast.structdef.keys():
-						newast.structdef[cnode.name] = cnode
+						newast.structdef[curname] = cnode
 					else:
 						if get_node_desc(cnode) != get_node_desc(newast.structdef[curname]) :
 							logging.warn('(%s)(%s) already defined (%s)'%(
@@ -520,9 +577,46 @@ def __make_struct_enum_def(newast,cnode,prevnode):
 			newast.enumnotlists.append(cnode)
 			newast.enumnotlists_prevnode.append(prevnode)
 
-	elif isinstance(cnode,pycparser.c_ast.FuncDecl) or isinstance(cnode,pycparser.c_ast.FuncDef) or \
-		isinstance(cnode,pycparser.c_ast.IdentifierType) or isinstance(cnode,pycparser.c_ast.ID):
+	elif  isinstance(cnode,pycparser.c_ast.FuncDef) or \
+		isinstance(cnode,pycparser.c_ast.ID) or isinstance(cnode,pycparser.c_ast.Union):
 		pass
+	elif isinstance(cnode,pycparser.c_ast.IdentifierType):
+		# now we should make like typedef unsigned long uint32_t;
+		# this is the code
+		retnames = __get_name_prevnode(cnode,prevnode)
+		name = ' '.join(cnode.names)	
+		if len(name) > 0:
+			if name not in basic_types and name not in newast.structdef.keys():
+				logging.warn('(%s) not in basic types'%(name))
+			structnode = __get_identifier_node(prevnode)
+			if len(retnames) > 0:
+				for curname in retnames:
+					if curname not in newast.structdef.keys():
+						newast.structdef[curname] = structnode
+					else:
+						if get_node_desc(structnode) != get_node_desc(newast.structdef[curname]):
+							logging.warn('[%s]\n    %s\n!!!!!!!!!!!!!\n   %s\n++++++++++++\n'%(
+								curname,get_node_desc(structnode),get_node_desc(newast.structdef[curname])))
+			else:
+				logging.warn('(%s) no defines'%(prevnode))
+		else:
+			logging.warn('(%s) IdentifierType\n   %s'%(prevnode,get_node_desc(cnode)))
+	elif isinstance(cnode,pycparser.c_ast.FuncDecl):
+		if __has_func_pointer(cnode,prevnode):
+			# we have defined this pointer
+			retnames = __get_name_prevnode(cnode,prevnode)
+			# no names
+			structnode = __get_identifier_node(prevnode)
+			if len(retnames) > 0:
+				for curname in retnames:
+					if curname not in newast.structdef.keys():
+						newast.structdef[curname] = structnode
+					else:
+						if get_node_desc(structnode) != get_node_desc(newast.structdef[curname]):
+							logging.warn('[%s]\n    %s\n!!!!!!!!!!!!!\n   %s\n++++++++++++\n'%(
+								curname,get_node_desc(structnode),get_node_desc(newast.structdef[curname])))
+			else:
+				logging.warn('(%s) no defines'%(prevnode))
 	else:
 		logging.warn('can not pass %s(%s)'%(cnode.__class__.__name__,get_node_desc(cnode)))
 	return
@@ -541,7 +635,14 @@ def make_struct_enum_def(ast):
 	newast.ast = ast
 
 	for (cname,c) in ast.children():
-		__make_struct_enum_def(newast,c,None)
+		if isinstance(c,pycparser.c_ast.Decl) and c.name is not None:
+			# we do not scan for declare
+			# like extern File* stderr;
+			continue
+		prevnode = NodeTypeDecl()
+		prevnode.structnode = c
+		__make_struct_enum_def(newast,c,prevnode)
+		prevnode = None
 
 	i = 0
 	assert(len(newast.enumnotlists) == len(newast.enumnotlists_prevnode))
@@ -601,7 +702,35 @@ def make_struct_enum_def(ast):
 	return newast
 
 def sortlist_impl(args,ast):
-	pass
+	fout = sys.stdout
+	if args.output is not None:
+		fout = open(args.output,'w+')
+	fout.write('structdef(%d)\n'%(len(ast.structdef.keys())))
+	i = 0
+	for k in sorted(ast.structdef.keys()):
+		fout.write('[%d]%s\n%s'%(i,k,get_node_desc(ast.structdef[k])))
+		i += 1
+
+	fout.write('enumdef(%d)\n'%(len(ast.enumdef.keys())))
+	i = 0
+	for k in sorted(ast.enumdef.keys()):
+		fout.write('[%d]%s\n%s'%(i,k,get_node_desc(ast.enumdef[k])))
+		i += 1
+
+	if fout != sys.stdout:
+		fout.close()
+	fout = None			
+	return
+
+def dump_impl(args,ast):
+	fout = sys.stdout
+	if args.output is not None:
+		fout = open(args.output,'w+')
+	ast.ast.show(fout)
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
+	return
 
 def parse_file_callback(gccecommand,file,callback=None,ctx=None):
 	if len(gccecommand) == 0:
@@ -660,6 +789,15 @@ def sortlist_handler(args,parser):
 	sys.exit(0)
 	return
 
+def dump_handler(args,parser):
+	set_logging(args)
+	if args.input is None:
+		raise Exception('specify by --input|-i for file input')
+	gccecommand = []
+	parse_file_callback(gccecommand,args.input,dump_impl,args)
+	sys.exit(0)
+	return
+
 
 command_line = {
 	'input|i' : None,
@@ -678,6 +816,9 @@ command_line = {
 		'$' : '+'
 	},
 	'sortlist<sortlist_handler>## sortlist handler##' : {
+		'$' : 0
+	},
+	'dump<dump_handler>## dump handler for tree##' : {
 		'$' : 0
 	}
 }
