@@ -1,0 +1,23 @@
+{
+    "defines": {
+        "__builtin_va_list": "void*",
+        "__attribute__(...)": "",
+        "__inline": "",
+        "__restrict": "",
+        "__extension__": "",
+        "__asm__(...)": "",
+        "__builtin_expect(expr,val)": "val",
+        "__signed__": "signed",
+        "__builtin_constant_p(x)": "x",
+        "__PY_C_PARSER__": "1",
+        "__thread": "",
+        "__uint128_t": "unsigned long long",
+        "__int128_t": "long long",
+        "asm": "",
+        "volatile(...)": "",
+        "__builtin_va_start(ap,arg)": "",
+        "__builtin_va_end(ap)": "",
+        "__builtin_va_arg(ap,type)": "(type)(ap)",
+        "__builtin_offsetof(type,mem)": "(&(((type*)0)->mem))"
+    }
+}

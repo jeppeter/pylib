@@ -1,0 +1,42 @@
+{
+	"init_args": {
+		"params": [{
+			"name": "arg1",
+			"type": "void*"
+		}],
+		"struct": [{
+			"name": "compound",
+			"type": "CompoundEx",
+			"arg": "arg1",
+			"pointertype": true
+		}]
+	},
+	"pairs": {
+		"AcpiMiscInfo": {
+			"pointers": ["dsdt_code"],
+			"lengths": ["dsdt_size"]
+		},
+		"GArray": {
+			"pointers": ["data"],
+			"lengths": ["len"]
+		},
+		"_GArray": {
+			"pointers": ["data"],
+			"lengths": ["len"]
+		}
+	},
+	"endings": {
+		"GList": {
+			"pointers": ["data", "next", "prev"]
+		},
+		"_GList": {
+			"pointers": ["data", "next", "prev"]
+		},
+		"_GSList": {
+			"pointers": ["data", "next"]
+		},
+		"GSList": {
+			"pointers": ["data", "next"]
+		}
+	}
+}
