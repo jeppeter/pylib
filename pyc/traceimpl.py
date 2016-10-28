@@ -123,8 +123,6 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 	else:
 		format_args += r')'
 
-	nodetype.namevarname = 'memname%d'%(tabs)
-
 	s += __format_comment_tabs(args,tabs,'format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
 	logging.info('format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
 	_curs , _argname ,oldnamevar = __change_argname(args,tabs,argname,nodetype,format_args,tuple(tupleargs),True)
@@ -280,12 +278,16 @@ def __format_structure_char_inner(args,tabs,argname,nodetype,ast):
 				if nodetype :
 					nodetype.namevarname = oldnamevar
 		else:
+			_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(*{argname})',tuple())
+			s += _curs
 			if nodetype is not None and nodetype.namevarname is not None:
-				s += __format_comment_tabs(args,tabs,'(%s)(%s)'%(argname,nodetype))
-				s += __format_tabs(tabs,'qemu_log_trace_char(%s,%s);'%(nodetype.namevarname,argname))
+				s += __format_comment_tabs(args,tabs,'(%s)(%s)'%(_argname,nodetype))
+				s += __format_tabs(tabs,'qemu_log_trace_char(%s,%s);'%(nodetype.namevarname,_argname))
 			else:
-				s += __format_comment_tabs(args,tabs,'(%s)(%s)'%(argname,nodetype))
-				s += __format_tabs(tabs,'qemu_log_trace_char("%s",%s);'%(argname,argname))
+				s += __format_comment_tabs(args,tabs,'(%s)(%s)'%(_argname,nodetype))
+				s += __format_tabs(tabs,'qemu_log_trace_char("%s",%s);'%(_argname,_argname))
+			if nodetype:
+				nodetype.namevarname = oldnamevar
 	elif nodetype and  (nodetype.ptrtype > 0) :
 		if (nodetype.checkptridx+1) >= nodetype.ptrtype :
 			if nodetype.namevarname is not None:
@@ -379,17 +381,22 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 	news = argfmt%tup
 	logging.info('news (%s)'%(news))
 	newargname = news.format(argname=argname)
-	if nodetype and nodetype.namevarname:
+	if nodetype and (nodetype.namevarname or newtabs ) :
 		if newtabs:
 			newnamevar = 'memname%d'%(tabs)
 		else:
+			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
+		if nodetype and (newnamevar == nodetype.namevarname):
 			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
 		if newnamevar not in args.char_array_args:
 			args.char_array_args.append(newnamevar)
 		varstr = 'snprintf(%s,sizeof(%s),"'%(newnamevar,newnamevar)
 		varfmt = fmtstr.format(argname=r'%s')
 		varstr += varfmt
-		varstr += '",%s'%(nodetype.namevarname)
+		if nodetype and nodetype.namevarname:
+			varstr += '",%s'%(nodetype.namevarname)
+		else:
+			varstr += '","%s"'%(argname)
 		i = 0
 		while i < len(tup):
 			varstr += ',%s'%(tup[i])
@@ -398,6 +405,7 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 		s += __format_tabs(tabs,'%s'%(varstr))
 		nodetype.namevarname = newnamevar
 	return s,newargname,oldnamevar
+
 
 
 def __has_type_decl(ast,typename):

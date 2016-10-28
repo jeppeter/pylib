@@ -117,17 +117,22 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 	news = argfmt%tup
 	logging.info('news (%s)'%(news))
 	newargname = news.format(argname=argname)
-	if nodetype and nodetype.namevarname:
+	if nodetype and (nodetype.namevarname or newtabs ) :
 		if newtabs:
 			newnamevar = 'memname%d'%(tabs)
 		else:
+			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
+		if nodetype and (newnamevar == nodetype.namevarname):
 			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
 		if newnamevar not in args.char_array_args:
 			args.char_array_args.append(newnamevar)
 		varstr = 'snprintf(%s,sizeof(%s),"'%(newnamevar,newnamevar)
 		varfmt = fmtstr.format(argname=r'%s')
 		varstr += varfmt
-		varstr += '",%s'%(nodetype.namevarname)
+		if nodetype and nodetype.namevarname:
+			varstr += '",%s'%(nodetype.namevarname)
+		else:
+			varstr += '","%s"'%(argname)
 		i = 0
 		while i < len(tup):
 			varstr += ',%s'%(tup[i])
@@ -150,8 +155,9 @@ def main():
 	nodetype.namevarname = 'memname1'
 	_curs,_argsname,oldnamevar = __change_argname(args,1,argname,nodetype,r'({argname}->%s)',tuple(['member']))
 	print('_curs(%s) _argsname(%s)'%(_curs,_argsname))
-	nodetype.namevarname = 'memname1'
-	_curs,_argsname,oldnamevar = __change_argname(args,1,argname,nodetype,r'{argname}[%d][%d][%d]',tuple(['cnt1','cnt2','cnt3']))
+	nodetype.namevarname = None
+	argname="info->m_char"
+	_curs,_argsname,oldnamevar = __change_argname(args,1,argname,nodetype,r'{argname}[%d][%d][%d]',tuple(['cnt1','cnt2','cnt3']),True)
 	print('_curs(%s) _argsname(%s)'%(_curs,_argsname))
 	nodetype.namevarname = 'memname1'
 
