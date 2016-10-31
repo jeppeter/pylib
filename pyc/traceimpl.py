@@ -704,13 +704,16 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 				if nodetype.arraytype > 0:
 					# for the array type ,so we should make this combine by
 					# structptr->arraymem [arrsize1][arrsize2];
-					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'{argname}->%s',tuple([nodetype.memname]))
+					s += __format_comment_tabs(args,tabs,'')
+					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,'{argname}->%s'%(nodetype.memname),tuple())
 				elif nodetype.ptrtype > 0 :
-					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'({argname}->%s)',tuple([nodetype.memname]))
+					s += __format_comment_tabs(args,tabs,'')
+					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,'({argname}->%s)'%(nodetype.memname),tuple())
 				else:
 					# this is not pointer ,we should change all into the pointer
 					# so we make this handle
-					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(&({argname}->%s))',tuple([nodetype.memname]))
+					s += __format_comment_tabs(args,tabs,'')
+					_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,'(&({argname}->%s))'%(nodetype.memname),tuple())
 				s += _curs
 				_curs,outbufferidx= __format_structure_struct_basic(args,tabs,nodetype.typename,
 					_argname,nodetype,ast,c,outbufferidx)

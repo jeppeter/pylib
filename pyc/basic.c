@@ -24,7 +24,7 @@ typedef unsigned char hwaddr[6];
 
 struct CompoundEx {
 	CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	Node* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
 	uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
 	FuncImpl m_func;
 	void (*m_func2)(CompoundEx* args);
