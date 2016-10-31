@@ -12,6 +12,10 @@
 		}]
 	},
 	"pairs": {
+		"CompoundEx" : {
+			"pointers" : ["dsdt_code"],
+			"lengths" : ["dsdt_size"]
+			},
 		"AcpiMiscInfo": {
 			"pointers": ["dsdt_code"],
 			"lengths": ["dsdt_size"]

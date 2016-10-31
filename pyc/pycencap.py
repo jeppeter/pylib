@@ -46,6 +46,7 @@ class Utf8Encode:
 class NodeTypeDecl(object):
 	def __init__(self):
 		self.parent_typename = ''
+		self.parent_argname = ''
 		self.typename = ''
 		self.memname = ''
 		self.ptrtype = 0
@@ -67,7 +68,10 @@ class NodeTypeDecl(object):
 		while curprevnode is not None:
 			cnt += 1
 			curprevnode = curprevnode.prevnode
-		s += '[%d]parent_typename(%s)typename(%s)'%(cnt,self.parent_typename,self.typename)
+		s += '[%d]'%(cnt)
+		s += 'parent_typename(%s)'%(self.parent_typename)
+		s += 'parent_argname(%s)'%(self.parent_argname)
+		s += 'typename(%s)'%(self.typename)
 		s += 'mem(%s)'%(self.memname)
 		s += 'ptrtype(%s)'%(self.ptrtype)
 		s += 'arraytype(%s)'%(self.arraytype)
@@ -92,6 +96,8 @@ class NodeTypeDecl(object):
 			raise Exception('not NodeTypeDecl')
 		if len(other.parent_typename) > 0:
 			self.parent_typename = other.parent_typename
+		if len(other.parent_argname) > 0:
+			self.parent_argname = other.parent_argname
 		if len(other.typename) > 0:
 			self.typename = other.typename
 		if len(other.memname) > 0 :
@@ -116,6 +122,7 @@ class NodeTypeDecl(object):
 		if not isinstance(other,NodeTypeDecl):
 			raise Exception('not NodeTypeDecl')
 		self.parent_typename = other.parent_typename
+		self.parent_argname = other.parent_argname
 		self.typename = other.typename
 		self.memname = other.memname
 		self.ptrtype = other.ptrtype

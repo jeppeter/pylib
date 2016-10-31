@@ -535,8 +535,8 @@ def __check_paires(args,tabs,typename,argname,prevnode,nodetype,ast,node,outbuff
 	s = ''
 	if not output and 'pairs' in args.cfgdict.keys():
 		pdict = args.cfgdict['pairs']
-		if typename in pdict.keys():
-			struct_pairs = pdict[typename]
+		if nodetype.parent_typename in pdict.keys():
+			struct_pairs = pdict[nodetype.parent_typename]
 			findidx = -1
 			if 'pointers' in struct_pairs.keys():
 				i = 0
@@ -557,7 +557,7 @@ def __check_paires(args,tabs,typename,argname,prevnode,nodetype,ast,node,outbuff
 				if findidx not in outbufferidx:
 					_ptrname = struct_pairs['pointers'][findidx]
 					_sizename = struct_pairs['lengths'][findidx]
-					s += __format_structure_buffer_pointer(args,tabs,argname,_ptrname,_sizename,ast)
+					s += __format_structure_buffer_pointer(args,tabs,nodetype.parent_argname,_ptrname,_sizename,ast)
 					outbufferidx.append(findidx)
 	return s,outbufferidx,output
 
@@ -590,7 +590,7 @@ def __format_structure_struct_basic(args,tabs,typename,argname,nodetype,ast,node
 	if not output:
 		if  (nodetype.structnode is not None):
 			if  nodetype.ptrtype == 0 and nodetype.arraytype == 0 and not nodetype.enumtype :
-				declnodes = get_declare_member(nodetype.structnode)
+				declnodes = pycencap.get_declare_member(nodetype.structnode)
 				logging.info(pycencap.debug_node_array(declnodes,'declnodes (%s)'%(nodetype)))
 				if len(declnodes) > 0:
 					# this is inner structure defined ,so we should make the inner structure handle
@@ -599,7 +599,7 @@ def __format_structure_struct_basic(args,tabs,typename,argname,nodetype,ast,node
 					#    struct  { BusState* lh_first; } gpios;
 					#    struct ClientHeaders {BusState* lh_first;} headers;
 					# }
-					curs,_argname,oldnamevar = __change_argname(arg,tabs,argname,nodetype,r'(&({argname}->%s))',tuple([nodetype.memname]))
+					curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(&({argname}->%s))',tuple([nodetype.memname]))
 					s += curs
 					s += __format_structure_struct_inner(args,tabs,'',_argname,nodetype,ast,nodetype.structnode)
 					if nodetype : 
@@ -663,8 +663,8 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 		# now to give the parent type
 		if prevnode:
 			nodetype.parent_typename = prevnode.parent_typename
+			nodetype.parent_argname = prevnode.parent_argname
 			nodetype.memname = prevnode.memname
-		if prevnode:
 			nodetype.namevarname = prevnode.namevarname
 		if nodetype.funcdeclnode is not None:
 			# this is function ,so we should make this function pointer
@@ -701,6 +701,7 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 					nodetype.namevarname = prevnode.namevarname
 				if prevnode:
 					nodetype.parent_typename = prevnode.typename
+					nodetype.parent_argname = argname
 				assert(len(nodetype.memname) > 0)
 				# now this would be ok for change
 				logging.info('Type(%s)(%s)(%s)'%(typename,argname,nodetype))

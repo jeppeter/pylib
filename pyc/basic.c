@@ -28,13 +28,8 @@ struct CompoundEx {
 	//char m_name3[32];
 	//uint32_t m_32bit;
 	//char* m_name;
-	uint64_t m_mem64;
-	uint8_t m_mem8;
-	uint16_t m_mem16;
-	int8_t m_mem8i;
-	int16_t m_mem16i;
-	int32_t m_mem32i;
-	int64_t m_mem64i;
+	uint8_t* dsdt_code;
+	uint32_t dsdt_size;
 };
 
 int main(int argc,char* argv[])
