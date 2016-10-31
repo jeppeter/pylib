@@ -319,7 +319,8 @@ format_funcs = {
 	'uint64_t' : __format_structure_int64_inner,
 	'gpointer' : __format_structure_pointer_inner,
 	'char' : __format_structure_char_inner ,
-	'int' : __format_structure_int_inner 
+	'int' : __format_structure_int_inner ,
+	'unsigned' : __format_structure_int_inner
 }
 
 def __last_basic_inner_func(args,tabs,argname,nodetype,ast,funcname):
@@ -514,17 +515,9 @@ def __check_recycle(args,tabs,typename,argname,prevnode,nodetype,ast,node,output
 				# we have pass it ,so we do not make anymore
 				s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s)(%s)  already debug'%(typename,argname,nodetype.memname,nodetype))
 				if  nodetype.ptrtype > 0:
-					curs ,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'{argname}->%s',tuple([nodetype.memname]))
-					s += curs
-					s += __format_structure_pointer_direct(args,tabs,_argname,nodetype,ast)
-					if nodetype:
-						nodetype.namevarname = oldnamevar
+					s += __format_structure_pointer_direct(args,tabs,argname,nodetype,ast)
 				elif nodetype.arraytype == 0 and nodetype.ptrtype == 0 and not nodetype.enumtype:
-					curs , _argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(&({argname}->%s))',tuple([nodetype.memname]))
-					s += curs
-					s += __format_structure_pointer_direct(args,tabs,_argname,nodetype,ast)
-					if nodetype : 
-						nodetype.namevarname = oldnamevar
+					s += __format_structure_pointer_direct(args,tabs,argname,nodetype,ast)
 				output = True
 				break
 			curnode = curnode.prevnode
@@ -593,17 +586,14 @@ def __format_structure_struct_basic(args,tabs,typename,argname,nodetype,ast,node
 				declnodes = pycencap.get_declare_member(nodetype.structnode)
 				logging.info(pycencap.debug_node_array(declnodes,'declnodes (%s)'%(nodetype)))
 				if len(declnodes) > 0:
+					s += __format_comment_tabs(args,tabs,'')
 					# this is inner structure defined ,so we should make the inner structure handle
 					# like 
 					# struct DeviceState {
 					#    struct  { BusState* lh_first; } gpios;
 					#    struct ClientHeaders {BusState* lh_first;} headers;
 					# }
-					curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(&({argname}->%s))',tuple([nodetype.memname]))
-					s += curs
-					s += __format_structure_struct_inner(args,tabs,'',_argname,nodetype,ast,nodetype.structnode)
-					if nodetype : 
-						nodetype.namevarname = oldnamevar
+					s += __format_structure_struct_inner(args,tabs,'',argname,nodetype,ast,nodetype.structnode)
 					output = True
 
 	if not output:
@@ -627,6 +617,7 @@ def __format_structure_struct_basic(args,tabs,typename,argname,nodetype,ast,node
 
 	if not output:
 		if __has_type_decl(ast,nodetype.typename):
+			s += __format_comment_tabs(args,tabs,'')
 			output = True
 			if nodetype.arraytype > nodetype.checkarrayidx:
 				s += __format_array_callback(args,tabs,nodetype.typename,argname,nodetype,ast,__format_structure_array_callback,None)

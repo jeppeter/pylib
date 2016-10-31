@@ -19,19 +19,39 @@ struct Node {
 typedef void (*FuncImpl)(CompoundEx* args);
 typedef void (FuncImplHandler)(CompoundEx* args);
 typedef uint64_t addr64_t;
+typedef _Bool bool;
+typedef unsigned char hwaddr[6];
 
 struct CompoundEx {
 	//CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
 	//CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	//uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
 	//FuncImpl m_func;
 	//void (*m_func2)(CompoundEx* args);
 	//char m_name3[32];
 	//uint32_t m_32bit;
 	//char* m_name;
-	FuncImplHandler* m_func3;
+	//FuncImplHandler* m_func3;
 	//uint8_t* dsdt_code;
 	//uint32_t dsdt_size;
+    struct {
+        /* If nonzero, specify bounds on access sizes beyond which a machine
+         * check is thrown.
+         */
+        unsigned min_access_size;
+        unsigned max_access_size;
+        /* If true, unaligned accesses are supported.  Otherwise unaligned
+         * accesses throw machine checks.
+         */
+         bool unaligned;
+        /*
+         * If present, and returns #false, the transaction is not accepted
+         * by the device (and results in machine dependent behaviour such
+         * as a machine check exception).
+         */
+        bool (*accepts)(void *opaque, hwaddr addr,
+                        unsigned size, bool is_write);
+    } valid;
 };
 
 int main(int argc,char* argv[])
@@ -42,6 +62,7 @@ int main(int argc,char* argv[])
 	pex = malloc(sizeof(*pex));
 	memset(pex,0,sizeof(*pex));
 
+#if 0
 	l = 0;
 	for (i=0;i<ARRAY_1_SIZE;i++) {
 		for (j = 0;j<ARRAY_2_SIZE;j++) {
@@ -61,7 +82,7 @@ int main(int argc,char* argv[])
 			}
 		}
 	}
-
+#endif
 	free(pex);
 	return 0;
 }
