@@ -228,6 +228,81 @@ def get_decl_types(cnode):
 			retnodes.extend(get_decl_types(child))
 	return retnodes
 
+def __oprate_node_format(c):
+	s = ''
+	if isinstance(c,pycparser.c_ast.BinaryOp):
+		childrends = []
+		i = 0
+		for (dname,d) in c.children():
+			childrends.append(__oprate_node_format(d))
+			i += 1
+		assert(i == 2)
+		if c.op in ['+','/','*','-']:
+			s += '(%s %s %s)'%(childrends[0],c.op,childrends[1])
+		else:
+			logging.warn('unknown op %s'%(c.op))
+	elif isinstance(c,pycparser.c_ast.UnaryOp):
+		childrends = []
+		i = 0
+		for (dname,d) in c.children():
+			childrends.append(__oprate_node_format(d))
+			i += 1
+		assert(i == 1)
+		if c.op == 'sizeof':
+			s += '(sizeof(%s))'%(childrends[0])
+		elif c.op == '-':
+			s += '(-%s)'%(childrends[0])
+		else:
+			logging.warn('unknown op (%s)'%(c.op))
+	elif isinstance(c,pycparser.c_ast.Constant):
+		s += '(%s)'%(c.value)
+	elif isinstance(c,pycparser.c_ast.Typename):
+		for (dname,d) in c.children():
+			s += __oprate_node_format(d)
+	elif isinstance(c,pycparser.c_ast.TypeDecl):
+		for (dname,d) in c.children():
+			s += __oprate_node_format(d)
+	elif isinstance(c,pycparser.c_ast.IdentifierType):
+		s += '%s'%(' '.join(c.names))
+	else:
+		logging.warn('unknown\n%s'%(get_node_desc(c)))
+	logging.info('s(%s)\n%s'%(s,get_node_desc(c)))
+	return s
+
+
+def oprate_node_format(opnode):
+	s = ''
+	if isinstance(opnode,pycparser.c_ast.BinaryOp):
+		i = 0
+		childrends = []
+		for (cname,c) in opnode.children():
+			assert(i < 2)
+			childrends.append(__oprate_node_format(c))
+			i += 1
+		assert(i == 2)
+		if opnode.op in ['+','/','*','-']:
+			s += '(%s %s %s)'%(childrends[0],opnode.op,childrends[1])
+		else:
+			logging.warn('unknown op (%s)\n%s'%(opnode.op,get_node_desc(opnode)))
+	elif isinstance(opnode,pycparser.c_ast.UnaryOp):
+		i = 0
+		childrends = []
+		for (cname,c) in opnode.children():
+			assert(i < 1)
+			childrends.append(__oprate_node_format(c))
+			i += 1
+		assert(i == 1)
+		if opnode.op == 'sizeof':
+			s += '(sizeof(%s))'%(childrends[0])
+		elif opnode.op == '-' :
+			s += '(-%s)'%(childrens[0])
+		else:
+			logging.warn('unknown op (%s)\n%s'%(opnode.op,get_node_desc(opnode)))
+	else:
+		logging.warn('unknown \n%s'%(get_node_desc(opnode)))
+	logging.info('s(%s)\n%s'%(s,get_node_desc(opnode)))
+	return s
+
 def __get_decl_type_name(ast,cnode):
 	nodetype = NodeTypeDecl()
 	for (dname,d) in cnode.children():
@@ -242,7 +317,10 @@ def __get_decl_type_name(ast,cnode):
 			nodetype += __get_decl_type_name(ast,d)
 			nodetype.arraytype += 1
 		elif isinstance(d,pycparser.c_ast.Constant):
-			nodetype.arraysize.append(int(d.value))
+			nodetype.arraysize.append(d.value)
+		elif isinstance(d,pycparser.c_ast.BinaryOp) or isinstance(d,pycparser.c_ast.UnaryOp):
+			logging.info('oprade handle')
+			nodetype.arraysize.append(oprate_node_format(d))
 		elif isinstance(d,pycparser.c_ast.Struct):
 			nodetype.structnode = d
 			if d.name is not None:

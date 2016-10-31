@@ -50,7 +50,10 @@ def __format_basic_check_inner(args,tabs,typename,argname,prevnode,ast,funcname)
 	s = ''
 	_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,prevnode,r'(*({argname}))',tuple([]))
 	s += _curs
-	s += __format_tabs(tabs,'%s(%s,*(%s));'%(funcname,_argname,argname))
+	if prevnode and prevnode.namevarname:
+		s += __format_tabs(tabs,'%s(%s,%s);'%(funcname,prevnode.namevarname,_argname))
+	else:
+		s += __format_tabs(tabs,'%s("%s",%s);'%(funcname,_argname,_argname))
 	if prevnode:
 		prevnode.namevarname = oldnamevar
 	return s
@@ -87,7 +90,7 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 	sizestr += '))'
 	i = 0
 	while i < len(nodetype.arraysize):
-		sizestr += '* %d'%(nodetype.arraysize[i])
+		sizestr += '* (%s)'%(nodetype.arraysize[i])
 		i += 1
 	sizestr += ';'
 	s += __format_tabs(tabs,sizestr)
@@ -103,7 +106,7 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 		cntnamearr.append(cntname)
 		if cntname not in args.int_args:
 			args.int_args.append(cntname)
-		s += __format_tabs(tabs,'for(%s = 0 ; %s < %d;%s ++){'%(
+		s += __format_tabs(tabs,'for(%s = 0 ; %s < (%s);%s ++){'%(
 			cntname,cntname,nodetype.arraysize[i],cntname))
 		tabs += 1
 		i -= 1
@@ -209,8 +212,10 @@ def __format_basic_inner_func(args,tabs,argname,nodetype,ast,funcname):
 	if nodetype.arraytype > nodetype.checkarrayidx:
 		s += __format_array_callback(args,tabs,nodetype.typename,argname,nodetype,ast,__format_basic_array_callback,funcname)
 	elif nodetype.ptrtype > 0:
-		s += check_pointer_structure(args,tabs,nodetype.typename,argname,None,ast,__format_basic_check_inner,funcname)
+		#s += check_pointer_structure(args,tabs,nodetype.typename,argname,None,ast,__format_basic_check_inner,funcname)
+		s += check_pointer_structure(args,tabs,nodetype.typename,argname,nodetype,ast,__format_basic_check_inner,funcname)
 	else:
+		s += __format_comment_tabs(args,tabs,'')
 		_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(*{argname})',tuple([]))
 		s += _curs
 		if nodetype and  nodetype.namevarname is not None:
@@ -326,19 +331,20 @@ format_funcs = {
 
 def __last_basic_inner_func(args,tabs,argname,nodetype,ast,funcname):
 	s = ''
-	if nodetype.namevarname:
-		_argname = nodetype.namevarname
-	else:
-		_argname = '"(%s->%s)"'%(argname,nodetype.memname)
-		if nodetype.ptrtype == 0:
-			_argname = '"&(%s->%s)"'%(argname,nodetype.memname)
-
 	if nodetype.ptrtype > nodetype.checkptridx:
 		#s += __format_comment_tabs(args,tabs,'')
-		s += __format_tabs(tabs,'%s(%s,%s);'%(funcname,_argname,argname))
+		s += check_pointer_structure()
+		_argname = argname
+		if nodetype.namevarname:
+			s += __format_tabs(tabs,'%s(%s,%s);'%(funcname,nodetype.namevarname,_argname))
+		else:
+			s += __format_tabs(tabs,'%s("%s",%s);'%(funcname,_argname,_argname))
 	else:
-		#s += __format_comment_tabs(args,tabs,'')
-		s += __format_tabs(tabs,'%s(%s,*(%s));'%(funcname,_argname,argname))
+		_argname = argname
+		if nodetype and nodetype.namevarname:
+			s += __format_tabs(tabs,'%s(%s,%s)'%(funcname,nodetype.namevarname,_argname))
+		else:
+			s += __format_tabs(tabs,'%s("%s",%s);'%(funcname,_argname,_argname))
 	return s
 
 
@@ -389,7 +395,7 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 		if nodetype and (newnamevar == nodetype.namevarname):
 			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
 		if newnamevar not in args.char_array_args:
-			s += __format_comment_tabs(args,tabs,'add (%s)'%(newnamevar))
+			#s += __format_comment_tabs(args,tabs,'add (%s)'%(newnamevar))
 			args.char_array_args.append(newnamevar)
 		varstr = 'snprintf(%s,sizeof(%s),"'%(newnamevar,newnamevar)
 		varfmt = fmtstr.format(argname=r'%s')
@@ -737,12 +743,12 @@ def format_structure(args,tabs,typename,argname,prevnode,ast):
 		if len(cnodes) > 0 :
 			s += __format_tabs(tabs,'qemu_log_trace_int("*(%s)",*(%s));'%(argname,argname))
 		else:
-			if typename in last_funcs.keys() and prevnode and prevnode.prevnode:
+			if typename in format_funcs.keys() and prevnode and prevnode.prevnode:
 				# it is the basic type so we should give this
 				nodetype = pycencap.NodeTypeDecl()
 				nodetype.clone(prevnode)
-				#s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s)'%(typename,argname,prevnode))
-				s += last_funcs[nodetype.typename](args,tabs,argname,nodetype,ast)
+				s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s)'%(typename,argname,nodetype))
+				s += format_funcs[nodetype.typename](args,tabs,argname,nodetype,ast)
 				nodetype = None
 			else:
 				s += __format_comment_tabs(args,tabs,'can not get (%s) argname (%s)'%(typename,argname))
@@ -765,7 +771,7 @@ def check_pointer_structure(args,tabs,typename,memname,prevnode,ast,callback=Non
 	sizename = 'size%d'%(tabs)
 	if sizename not in args.int_args:
 		args.int_args.append(sizename)
-	#s += __format_comment_tabs(args,tabs,'Type(%s) (%s)(%s) callback(%s)'%(typename,memname,prevnode,callback))
+	s += __format_comment_tabs(args,tabs,'Type(%s) (%s)(%s) callback(%s)'%(typename,memname,prevnode,callback))
 	s += __format_tabs(tabs,'%s = sizeof(*(%s));'%(sizename,memname))
 	s += __format_tabs(tabs,'accessok = access_pointer((void*)(%s),%s,ACCESS_READ);'%(memname,sizename))
 	s += __format_tabs(tabs,'if (accessok >= 0) {')

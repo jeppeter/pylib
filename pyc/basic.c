@@ -23,35 +23,20 @@ typedef _Bool bool;
 typedef unsigned char hwaddr[6];
 
 struct CompoundEx {
-	//CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	//CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	//uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	//FuncImpl m_func;
-	//void (*m_func2)(CompoundEx* args);
-	//char m_name3[32];
-	//uint32_t m_32bit;
-	//char* m_name;
-	//FuncImplHandler* m_func3;
-	//uint8_t* dsdt_code;
-	//uint32_t dsdt_size;
-    struct {
-        /* If nonzero, specify bounds on access sizes beyond which a machine
-         * check is thrown.
-         */
-        unsigned min_access_size;
-        unsigned max_access_size;
-        /* If true, unaligned accesses are supported.  Otherwise unaligned
-         * accesses throw machine checks.
-         */
-         bool unaligned;
-        /*
-         * If present, and returns #false, the transaction is not accepted
-         * by the device (and results in machine dependent behaviour such
-         * as a machine check exception).
-         */
-        bool (*accepts)(void *opaque, hwaddr addr,
-                        unsigned size, bool is_write);
-    } valid;
+	CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	FuncImpl m_func;
+	void (*m_func2)(CompoundEx* args);
+	char m_name3[32];
+	uint32_t m_32bit;
+	char* m_name;
+	FuncImplHandler* m_func3;
+	uint8_t* dsdt_code;
+	uint32_t dsdt_size;
+	int* m_intarr[ARRAY_1_SIZE * ARRAY_2_SIZE * ARRAY_3_SIZE];
+	int* m_intarr2[ARRAY_2_SIZE * sizeof(Node)][ARRAY_3_SIZE*(ARRAY_1_SIZE+sizeof(int))];
+
 };
 
 int main(int argc,char* argv[])
