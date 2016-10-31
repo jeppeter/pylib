@@ -62,11 +62,12 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 	setnodename = 0
 	innerargname = argname
 	assert(nodetype and nodetype.arraytype > 0)
-	if nodetype.namevarname is None:
-		# we use strname later when not specified the namevar
-		strname = 'memname%d'%(tabs)
-		if strname not in args.char_array_args:
-			args.char_array_args.append(strname)
+	#if nodetype.namevarname is None:
+	#	# we use strname later when not specified the namevar
+	#	strname = 'memname%d'%(tabs)
+	#	if strname not in args.char_array_args:
+	#		s += __format_comment_tabs(args,tabs,'push (%s)'%(strname))
+	#		args.char_array_args.append(strname)
 	cntnamearr = []
 	s += __format_tabs(tabs,'')
 	s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s) callback(%s)'%(typename,argname,nodetype,callback))
@@ -388,6 +389,7 @@ def __change_argname(args,tabs,argname,nodetype,fmtstr,tup,newtabs=False):
 		if nodetype and (newnamevar == nodetype.namevarname):
 			newnamevar = '%s_%d'%(nodetype.namevarname,tabs)
 		if newnamevar not in args.char_array_args:
+			s += __format_comment_tabs(args,tabs,'add (%s)'%(newnamevar))
 			args.char_array_args.append(newnamevar)
 		varstr = 'snprintf(%s,sizeof(%s),"'%(newnamevar,newnamevar)
 		varfmt = fmtstr.format(argname=r'%s')
