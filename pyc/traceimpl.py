@@ -48,7 +48,7 @@ def __format_comment_tabs(args,tabs,ins,callnum=1):
 
 def __format_basic_check_inner(args,tabs,typename,argname,prevnode,ast,funcname):
 	s = ''
-	_curs,_argname,oldnamevar = __change_argname(args,tabs,typename,argname,prevnode,r'(*({argname}))',tuple([]))
+	_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,prevnode,r'(*({argname}))',tuple([]))
 	s += _curs
 	s += __format_tabs(tabs,'%s(%s,*(%s));'%(funcname,_argname,argname))
 	if prevnode:
@@ -127,8 +127,6 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 	logging.info('format_args (%s) tupleargs(%s)'%(format_args,tuple(tupleargs)))
 	_curs , _argname ,oldnamevar = __change_argname(args,tabs,argname,nodetype,format_args,tuple(tupleargs),True)
 	s += _curs
-
-
 
 	if True:
 		pass
@@ -210,7 +208,7 @@ def __format_basic_inner_func(args,tabs,argname,nodetype,ast,funcname):
 	if nodetype.arraytype > nodetype.checkarrayidx:
 		s += __format_array_callback(args,tabs,nodetype.typename,argname,nodetype,ast,__format_basic_array_callback,funcname)
 	elif nodetype.ptrtype > 0:
-		s += check_pointer_structure(args,tabs,nodetype.typename,_argname,None,ast,__format_basic_check_inner,funcname)
+		s += check_pointer_structure(args,tabs,nodetype.typename,argname,None,ast,__format_basic_check_inner,funcname)
 	else:
 		_curs,_argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'(*{argname})',tuple([]))
 		s += _curs
@@ -471,17 +469,12 @@ def __check_endings(args,tabs,typename,argname,prevnode,nodetype,ast,node,output
 	s = ''
 	if not output and 'endings' in args.cfgdict.keys():
 		edict = args.cfgdict['endings']
-		if typename in edict.keys():
-			struct_endings = edict[typename]
+		if nodetype.parent_typename in edict.keys():
+			struct_endings = edict[nodetype.parent_typename]
 			if 'pointers' in struct_endings.keys():
 				if nodetype.memname in struct_endings['pointers']:
 					output = True
-					_argname = '%s->%s'%(argname,nodetype.memname)
-					curs , _argname,oldnamevar = __change_argname(args,tabs,argname,nodetype,r'{argname}->%s',tuple([nodetype.memname]))
-					s += curs
-					s += __format_structure_pointer_direct(args,tabs,_argname,nodetype,ast)
-					if nodetype:
-						nodetype.namevarname = oldnamevar
+					s += __format_structure_pointer_direct(args,tabs,argname,nodetype,ast)
 					logging.info('endings (%s)'%(s))
 	return s, output
 
@@ -667,6 +660,10 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 		# this is typedef structure ,so we should make this
 		nodetype = pycencap.get_typedef_type_name(ast,node)
 		nodetype.prevnode = prevnode
+		# now to give the parent type
+		if prevnode:
+			nodetype.parent_typename = prevnode.parent_typename
+			nodetype.memname = prevnode.memname
 		if prevnode:
 			nodetype.namevarname = prevnode.namevarname
 		if nodetype.funcdeclnode is not None:
@@ -702,6 +699,8 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 				nodetype.prevnode = prevnode
 				if prevnode and prevnode.namevarname:
 					nodetype.namevarname = prevnode.namevarname
+				if prevnode:
+					nodetype.parent_typename = prevnode.typename
 				assert(len(nodetype.memname) > 0)
 				# now this would be ok for change
 				logging.info('Type(%s)(%s)(%s)'%(typename,argname,nodetype))
@@ -725,6 +724,7 @@ def __format_structure_struct_inner(args,tabs,typename,argname,prevnode,ast,node
 				logging.info('argname(%s)prevnode(%s)'%(argname,prevnode))
 				s += __format_function_pionter_inner(args,tabs,argname,prevnode,ast)
 			else:
+				s += __format_comment_tabs(args,tabs,'%s : %s\n%s'%(c.__class__.__name__,cname,pycencap.get_node_desc(c)))
 				logging.warn('%s : %s\n%s'%(c.__class__.__name__,cname,pycencap.get_node_desc(c)))
 	return s
 

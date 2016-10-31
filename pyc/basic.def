@@ -37,6 +37,9 @@
 		},
 		"GSList": {
 			"pointers": ["data", "next"]
+		},
+		"CompoundEx" : {
+			"pointers" : ["m_64pbit","m_paddr64"]
 		}
 	}
 }

@@ -17,16 +17,24 @@ struct Node {
 
 
 typedef void (*FuncImpl)(CompoundEx* args);
+typedef uint64_t addr64_t;
 
 struct CompoundEx {
-	CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	//CompoundEx* m_cmparr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
+	//CompoundEx* m_carr[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
 	uint32_t m_array[ARRAY_1_SIZE][ARRAY_2_SIZE][ARRAY_3_SIZE];
-	FuncImpl m_func;
-	void (*m_func2)(CompoundEx* args);
-	char m_name3[32];
-	uint32_t m_32bit;
-	char* m_name;
+	//FuncImpl m_func;
+	//void (*m_func2)(CompoundEx* args);
+	//char m_name3[32];
+	//uint32_t m_32bit;
+	//char* m_name;
+	uint64_t m_mem64;
+	uint8_t m_mem8;
+	uint16_t m_mem16;
+	int8_t m_mem8i;
+	int16_t m_mem16i;
+	int32_t m_mem32i;
+	int64_t m_mem64i;
 };
 
 int main(int argc,char* argv[])
