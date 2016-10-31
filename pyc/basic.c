@@ -17,6 +17,7 @@ struct Node {
 
 
 typedef void (*FuncImpl)(CompoundEx* args);
+typedef void (FuncImplHandler)(CompoundEx* args);
 typedef uint64_t addr64_t;
 
 struct CompoundEx {
@@ -28,8 +29,9 @@ struct CompoundEx {
 	//char m_name3[32];
 	//uint32_t m_32bit;
 	//char* m_name;
-	uint8_t* dsdt_code;
-	uint32_t dsdt_size;
+	FuncImplHandler* m_func3;
+	//uint8_t* dsdt_code;
+	//uint32_t dsdt_size;
 };
 
 int main(int argc,char* argv[])

@@ -176,10 +176,10 @@ def __format_array_callback(args,tabs,typename,argname,nodetype,ast,callback,ctx
 		nodetype.namevarname = oldnamevar
 	tabs += 1
 	if nodetype.namevarname:
-		s += __format_tabs(tabs,'qemu_log_mask(LOG_TRACE,"%%s pointer(%%p:%%ld(0x%%lx)) not accessible\\n",%s,%s,%s,%s);'%(
+		s += __format_tabs(tabs,'qemu_log_mask(LOG_TRACE,"%%s pointer(%%p:%%d(0x%%x)) not accessible\\n",%s,%s,%s,%s);'%(
 			nodetype.namevarname,argname,sizename,sizename))
 	else:
-		s += __format_tabs(tabs,'qemu_log_mask(LOG_TRACE,"%s pointer(%%p:%%ld(0x%%lx)) not accessible\\n",%s,%s,%s);'%(
+		s += __format_tabs(tabs,'qemu_log_mask(LOG_TRACE,"%s pointer(%%p:%%d(0x%%x)) not accessible\\n",%s,%s,%s);'%(
 			argname,argname,sizename,sizename))
 	tabs -= 1
 	s += __format_tabs(tabs,'}')
@@ -636,12 +636,8 @@ def __format_structure_struct_basic(args,tabs,typename,argname,nodetype,ast,node
 				s += format_structure(args,tabs,nodetype.typename,argname,nodetype,ast)
 		elif nodetype.ptrtype > 0 :
 			output = True
-			curs , _argname, oldnamevar = __change_argname(args,tabs,argname,nodetype,r'{argname}->%s',tuple([nodetype.memname]))
-			s += curs
 			s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s)(%s)  structure not found'%(typename,argname,nodetype.memname,nodetype))
-			s += __format_structure_pointer_direct(args,tabs,_argname,nodetype,ast)
-			if nodetype:
-				nodetype.namevarname = oldnamevar
+			s += __format_structure_pointer_direct(args,tabs,argname,nodetype,ast)
 	if not output:
 		s += __format_comment_tabs(args,tabs,'(%s)(%s)(%s)(%s)  type not found'%(typename,argname,nodetype.memname,nodetype))
 		logging.warn('%s->%s not format\n%s'%(typename,nodetype.memname,pycencap.get_node_desc(node)))
