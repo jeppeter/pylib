@@ -84,7 +84,7 @@ class Utf8Encode:
 
 class ExtKeyParse:
 	flagspecial = ['value','prefix']
-	flagwords = ['flagname','helpinfo','shortflag','nargs']
+	flagwords = ['flagname','helpinfo','shortflag','nargs','varname']
 	cmdwords = ['cmdname','function','helpinfo']
 	otherwords = ['origkey','iscmd','isflag','type']
 	formwords = ['longopt','shortopt','optdest']
@@ -95,6 +95,7 @@ class ExtKeyParse:
 		self.__helpinfo = None
 		self.__shortflag = None
 		self.__nargs = None
+		self.__varname = None
 		self.__cmdname = None
 		self.__function = None
 		self.__origkey = None
@@ -105,7 +106,7 @@ class ExtKeyParse:
 
 	def __validate(self):
 		if self.__isflag:
-			assert(not self.__iscmd )
+			assert(not self.__iscmd)
 			if self.__function is not None:
 				raise Exception('(%s) can not accept function'%(self.__origkey))
 			if self.__type == 'dict' and self.__flagname:
@@ -148,7 +149,7 @@ class ExtKeyParse:
 			else:
 				if self.__flagname == '$' and self.__nargs is None:
 					# we make sure any args to have
-					self.__nargs = '*'
+					self.__nargs = '*'			
 		else:
 			if self.__cmdname is None or len(self.__cmdname) == 0 :
 				raise Exception('(%s) not set cmdname'%(self.__origkey))
@@ -160,6 +161,8 @@ class ExtKeyParse:
 				raise Exception('(%s) command must be dict'%(self.__origkey))
 			self.__prefix = self.__cmdname
 			self.__type = 'command'
+		if self.__isflag and self.__varname is None and self.__flagname != '$':
+			self.__varname = self.__flagname
 		return
 
 	def __set_flag(self,prefix,key,value):
@@ -274,9 +277,6 @@ class ExtKeyParse:
 					self.__cmdname = m[0]
 					cmdmod = True
 
-		m = self.__funcexpr.findall(self.__origkey)
-		if m and len(m):
-			self.__function = m[0]
 		m = self.__helpexpr.findall(self.__origkey)
 		if m and len(m) > 0:
 			self.__helpinfo = m[0]
@@ -323,6 +323,15 @@ class ExtKeyParse:
 				self.__type = 'string'
 		if self.__isflag and self.__type == 'dict' and self.__flagname:
 			self.__set_flag(prefix,key,value)
+
+		# we put here for the lastest function
+		m = self.__funcexpr.findall(self.__origkey)
+		if m and len(m):
+			if flagmod:
+				# we should put the flag mode
+				self.__varname = m[0]
+			else:
+				self.__function = m[0]
 		self.__validate()
 		return
 
@@ -430,6 +439,8 @@ class ExtKeyParse:
 				s += '<prefix:%s>'%(self.__prefix)
 			if self.__nargs is not None  :
 				s += '<nargs:%s>'%(self.__nargs)
+			if self.__varname is not None:
+				s += '<varname:%s>'%(self.__varname)
 			if self.__value is not None:
 				s += '<value:%s>'%(self.__value)
 		s += '}'
@@ -444,7 +455,8 @@ class ExtKeyParse:
 		if not self.__iscmd or self.__isflag:
 			raise Exception('(%s) not cmd to change'%(self.__origkey))
 		if self.__function is not None:
-			raise Exception('(%s) has function can not change'%(self.__origkey))
+			self.__varname = self.__function
+			self.__function = None
 		assert(self.__flagname is None)
 		assert(self.__shortflag is None)
 		assert(self.__cmdname is not None)
