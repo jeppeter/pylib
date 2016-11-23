@@ -434,7 +434,7 @@ subnargs = ['cc','dd']
   ** for example '$verbose|v<verbosemode>' : '+'
     call shell_eval_out will add 
     verbosemode=%d\n
-    in the return string see the [simple example](# simple example)
+    in the return string see the [simple example](#simple-example)
 
 * if the subcommand follows <.*> it will call function 
   **  for example 	'dep<__main__.dep_handler>' : {
