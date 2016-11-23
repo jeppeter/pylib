@@ -106,7 +106,7 @@ class ExtKeyParse:
 
 	def __validate(self):
 		if self.__isflag:
-			assert(not self.__iscmd)
+			assert(not self.__iscmd )
 			if self.__function is not None:
 				raise Exception('(%s) can not accept function'%(self.__origkey))
 			if self.__type == 'dict' and self.__flagname:
@@ -149,7 +149,7 @@ class ExtKeyParse:
 			else:
 				if self.__flagname == '$' and self.__nargs is None:
 					# we make sure any args to have
-					self.__nargs = '*'			
+					self.__nargs = '*'
 		else:
 			if self.__cmdname is None or len(self.__cmdname) == 0 :
 				raise Exception('(%s) not set cmdname'%(self.__origkey))
@@ -161,8 +161,14 @@ class ExtKeyParse:
 				raise Exception('(%s) command must be dict'%(self.__origkey))
 			self.__prefix = self.__cmdname
 			self.__type = 'command'
-		if self.__isflag and self.__varname is None and self.__flagname != '$':
-			self.__varname = self.__flagname
+		if self.__isflag and self.__varname is None and self.__flagname is not None:
+			if self.__flagname != '$':
+				self.__varname = self.optdest
+			else:
+				if len(self.__prefix) > 0:
+					self.__varname = 'subnargs'
+				else:
+					self.__varname = 'args'
 		return
 
 	def __set_flag(self,prefix,key,value):
@@ -506,7 +512,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.function is None)
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
-		self.assertEqual(flags.varname,'flag')
+		self.assertEqual(flags.varname,'type_flag')
 		return
 
 	def test_A002(self):
@@ -524,7 +530,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.cmdname is None)
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
-		self.assertEqual(flags.varname,'flag')
+		self.assertEqual(flags.varname,'type_flag')
 		return
 
 	def test_A003(self):
@@ -705,6 +711,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.flagname , '$')
 		self.assertEqual(flags.prefix ,'')
 		self.assertEqual(flags.type,'args')
+		self.assertEqual(flags.varname,'args')
 		self.assertEqual(flags.value,None)
 		self.assertEqual(flags.nargs,'+')
 		self.assertTrue(flags.cmdname is None)
@@ -731,6 +738,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.helpinfo, ' flag help ')
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
+		self.assertEqual(flags.varname,'type_app_flag')
 		return
 
 	def test_A018(self):
@@ -739,6 +747,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.prefix , 'flag')
 		self.assertEqual(flags.cmdname , 'flag')
 		self.assertEqual(flags.shortflag , None)
+		self.assertEqual(flags.varname,None)
 		self.assertEqual(flags.type ,'command')
 		self.assertEqual(flags.value,{})
 		self.assertEqual(flags.function ,'flag.main')
@@ -755,6 +764,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.value,False)
 		self.assertEqual(flags.type,'bool')
 		self.assertEqual(flags.helpinfo,' flag help ')
+		self.assertEqual(flags.varname,'good_flag')
 		self.assertEqual(flags.nargs,0)
 		self.assertEqual(flags.shortflag,None)
 		self.assertEqual(flags.cmdname,None)
@@ -778,6 +788,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.iscmd,False)
 		self.assertEqual(flags.isflag,True)
 		self.assertEqual(flags.prefix,'command')
+		self.assertEqual(flags.varname,'subnargs')
 		self.assertEqual(flags.flagname,'$')
 		self.assertEqual(flags.shortflag,None)
 		self.assertEqual(flags.value,None)
@@ -794,6 +805,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.cmdname is None)
 		self.assertTrue(flags.shortflag is None)
 		self.assertTrue(flags.flagname is None)
+		self.assertEqual(flags.varname,None)
 		self.assertTrue(flags.function is None)
 		self.assertTrue(flags.helpinfo is None)
 		self.assertTrue(flags.isflag)
@@ -816,6 +828,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.longopt,'--good-flag')
 		self.assertEqual(flags.shortopt,None)
 		self.assertEqual(flags.optdest,'good_flag')
+		self.assertEqual(flags.varname,'good_flag')
 		return
 
 	def test_A024(self):
@@ -842,6 +855,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.shortflag,None)
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.varname,'subnargs')
 		self.__opt_fail_check(flags)
 		return
 
@@ -857,6 +871,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
 		self.assertEqual(flags.optdest,'dep_verbose')
+		self.assertEqual(flags.varname,'dep_verbose')
 		self.assertEqual(flags.longopt,'--dep-verbose')
 		self.assertEqual(flags.shortopt,'-v')
 		return
@@ -873,6 +888,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
 		self.assertEqual(flags.optdest,'verbose')
+		self.assertEqual(flags.varname,'verbose')
 		self.assertEqual(flags.longopt,'--verbose')
 		self.assertEqual(flags.shortopt,'-v')
 		return
@@ -889,6 +905,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
 		self.assertEqual(flags.optdest,'rollback')
+		self.assertEqual(flags.varname,'rollback')
 		self.assertEqual(flags.longopt,'--no-rollback')
 		self.assertEqual(flags.shortopt,'-R')
 		return
@@ -905,6 +922,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
 		self.assertEqual(flags.optdest,'maxval')
+		self.assertEqual(flags.varname,'maxval')
 		self.assertEqual(flags.longopt,'--maxval')
 		self.assertEqual(flags.shortopt,'-m')
 		return
@@ -924,10 +942,55 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.cmdname,None)
 		self.assertEqual(flags.function,None)
 		self.assertEqual(flags.optdest,'maxval')
+		self.assertEqual(flags.varname,'maxval')
 		self.assertEqual(flags.longopt,'--maxval')
 		self.assertEqual(flags.shortopt,'-m')
 		return
 
+	def test_A032(self):
+		flags = ExtKeyParse('','$<numargs>','+',False)
+		self.assertEqual(flags.flagname,'$')
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.value,None)
+		self.assertEqual(flags.type,'args')
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.nargs,'+')
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.varname,'numargs')
+		self.__opt_fail_check(flags)
+		return
+
+	def test_A033(self):
+		flags = ExtKeyParse('','$','+',False)
+		self.assertEqual(flags.flagname,'$')
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.value,None)
+		self.assertEqual(flags.type,'args')
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.nargs,'+')
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.varname,'args')
+		self.__opt_fail_check(flags)
+		return
+
+	def test_A034(self):
+		flags = ExtKeyParse('prefix','$','+',False)
+		self.assertEqual(flags.flagname,'$')
+		self.assertEqual(flags.prefix,'prefix')
+		self.assertEqual(flags.value,None)
+		self.assertEqual(flags.type,'args')
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.nargs,'+')
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.varname,'subnargs')
+		self.__opt_fail_check(flags)
+		return
 
 
 def main():
