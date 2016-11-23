@@ -506,6 +506,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.function is None)
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
+		self.assertEqual(flags.varname,'flag')
 		return
 
 	def test_A002(self):
@@ -523,6 +524,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.cmdname is None)
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
+		self.assertEqual(flags.varname,'flag')
 		return
 
 	def test_A003(self):
@@ -539,6 +541,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.cmdname is None)
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
+		self.assertEqual(flags.varname,'flag')
 		return
 
 	def test_A004(self):
@@ -553,16 +556,26 @@ class UnitTestCase(unittest.TestCase):
 		self.assertEqual(flags.value,{})
 		self.assertFalse(flags.isflag)
 		self.assertTrue(flags.iscmd)
+		self.assertEqual(flags.varname,None)
 		self.__opt_fail_check(flags)
 		return
 
 	def test_A005(self):
-		ok = 0
-		try:
-			flags = ExtKeyParse('','flag<flag.main>##help for flag##','',True)
-		except:
-			ok = 1
-		self.assertTrue( ok > 0)
+		flags = ExtKeyParse('','flag<flag.main>##help for flag##','',True)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.type,'string')
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.flagname,'flag')
+		self.assertEqual(flags.helpinfo,'help for flag')
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.value,'')
+		self.assertEqual(flags.isflag,True)
+		self.assertEqual(flags.iscmd,False)
+		self.assertEqual(flags.longopt,'--flag')
+		self.assertEqual(flags.shortopt,None)
+		self.assertEqual(flags.optdest,'flag')
+		self.assertEqual(flags.varname,'flag.main')
 		return
 
 	def test_A006(self):
@@ -577,6 +590,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.iscmd)
 		self.assertEqual(flags.type,'command')
 		self.assertEqual(flags.value,{'new':False})
+		self.assertEqual(flags.varname,None)
 		self.__opt_fail_check(flags)
 		return
 
@@ -592,6 +606,7 @@ class UnitTestCase(unittest.TestCase):
 		self.assertTrue(flags.isflag)
 		self.assertFalse(flags.iscmd)
 		self.assertEqual(flags.type,'prefix')
+		self.assertEqual(flags.varname,None)
 		self.__opt_fail_check(flags)
 		return
 
@@ -632,21 +647,39 @@ class UnitTestCase(unittest.TestCase):
 		return
 
 	def test_A012(self):
-		ok =0
-		try:
-			flags = ExtKeyParse('','$flag|f<flag.main>',{},False)
-		except:
-			ok = 1
-		self.assertTrue ( ok > 0 )
+		flags = ExtKeyParse('','$flag|f<flag.main>',{},False)
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.value,None)
+		self.assertTrue(flags.cmdname is None)
+		self.assertEqual(flags.shortflag ,'f')
+		self.assertEqual(flags.flagname,'flag')
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.isflag,True)
+		self.assertEqual(flags.iscmd,False)
+		self.assertEqual(flags.type,'string')
+		self.assertEqual(flags.varname,'flag.main')
+		self.assertEqual(flags.longopt,'--flag')
+		self.assertEqual(flags.shortopt,'-f')
+		self.assertEqual(flags.optdest,'flag')
 		return
 
 	def test_A013(self):
-		ok =0
-		try:
-			flags = ExtKeyParse('','$flag|f+cc<flag.main>',None,False)
-		except:
-			ok = 1
-		self.assertTrue ( ok > 0 )
+		flags = ExtKeyParse('','$flag|f+cc<flag.main>',None,False)
+		self.assertEqual(flags.prefix,'cc')
+		self.assertEqual(flags.value,None)
+		self.assertTrue(flags.cmdname is None)
+		self.assertEqual(flags.shortflag ,'f')
+		self.assertEqual(flags.flagname,'flag')
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.helpinfo,None)
+		self.assertEqual(flags.isflag,True)
+		self.assertEqual(flags.iscmd,False)
+		self.assertEqual(flags.type,'string')
+		self.assertEqual(flags.varname,'flag.main')
+		self.assertEqual(flags.longopt,'--cc-flag')
+		self.assertEqual(flags.shortopt,'-f')
+		self.assertEqual(flags.optdest,'cc_flag')
 		return
 
 	def test_A014(self):
