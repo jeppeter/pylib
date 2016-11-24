@@ -20,6 +20,8 @@ ENV_SUB_COMMAND_JSON_SET = 50
 ENV_COMMAND_JSON_SET = 60
 DEFAULT_SET = 70
 
+extargs_shell_out_mode=0
+
 def set_attr_args(self,args,prefix):
     if not issubclass(args.__class__,argparse.Namespace):
         raise Exception('second args not valid argparse.Namespace subclass')
@@ -29,6 +31,7 @@ def set_attr_args(self,args,prefix):
     return
 
 def call_func_args(funcname,args,Context):
+    global extargs_shell_out_mode
     mname = '__main__'
     fname = funcname
     try:
@@ -49,7 +52,8 @@ def call_func_args(funcname,args,Context):
             if hasattr(val,'__call__'):
                 val(args,Context)
                 return args
-    sys.stderr.write('can not call %s\n'%(funcname))
+    if extargs_shell_out_mode == 0:
+        sys.stderr.write('can not call %s\n'%(funcname))
     return args
 
 
@@ -660,7 +664,7 @@ class ExtArgsParse(argparse.ArgumentParser):
                     if flag.flagname == '$':
                         if ismain and self.__subparser is not None:
                             continue
-                    s += 'declare -A %s\n'%(flag.varname)                    
+                    s += 'declare -A %s\n'%(flag.varname)
                     if flag.flagname == '$':
                         if  not ismain:
                             value = getattr(args,'subnargs',None)
@@ -691,17 +695,25 @@ class ExtArgsParse(argparse.ArgumentParser):
         return s
 
     def shell_eval_out(self,params=None,Context=None):
+        global extargs_shell_out_mode
+        extargs_shell_out_mode = 1
         args = self.parse_command_line(params,Context)
+        extargs_shell_out_mode = 0
         # now we should found out the params
         # now to check for the type
         # now to give the value
         s = ''
         s += self.__shell_eval_out_flagarray(args,self.__flags)
-        if self.__subparser is not None:
-            s += 'subcommand=%s\n'%(args.subcommand)
+        if self.__subparser is not None:            
             curparser = self.__find_subparser_inner(args.subcommand)
             assert(curparser is not None)
+            keycls = curparser.typeclass
+            if keycls.function is not None:
+                s += '%s=%s\n'%(keycls.function,args.subcommand)
+            else:
+                s += 'subcommand=%s\n'%(args.subcommand)
             s += self.__shell_eval_out_flagarray(args,curparser.flags,False)
+        self.__logger.info('shell_out\n%s'%(s))
         return s
 
 
@@ -1510,6 +1522,18 @@ class ExtArgsTestCase(unittest.TestCase):
             self.assertEqual(ok,False)
         return
 
+    def __check_not_list(self,s,key):
+        sarr = re.split('\n',s)
+        ok = self.__has_line(sarr,'delcare -A %s'%(key))
+        self.assertEqual(ok,False)
+        return
+
+    def __check_not_common(self,s,key):
+        sarr = re.split('\n',s)
+        ok = self.__line_prefix(sarr,'%s='%(key))
+        self.assertEqual(ok,False)
+        return
+
     def test_A022(self):
         commandline= '''
         {
@@ -1523,6 +1547,8 @@ class ExtArgsTestCase(unittest.TestCase):
         self.__check_value_common(s,'port',5000)
         self.__check_value_common(s,'verbose',4)
         self.__check_value_list(s,'args',[])
+        self.__check_not_list(s,'subnargs')
+        self.__check_not_common(s,'subcommand')
         return
 
     def test_A023(self):
@@ -1560,6 +1586,28 @@ class ExtArgsTestCase(unittest.TestCase):
         self.__check_value_common(s,'dep_http',1)
         self.__check_value_common(s,'dep_age',50)
         self.__check_value_list(s,'subnargs',['cc','dd'])
+        return
+
+    def test_A025(self):
+        commandline='''
+        {
+            "$verbose|v<verbosemode>" : "+",
+            "port|p<portnum>" : 7000,
+            "dep<CHOICECOMMAND>" : {
+                "http" : true,
+                "age"  : 50,
+                "$<depargs>" : "+"
+            }
+        }
+        '''
+        parser = ExtArgsParse()
+        parser.load_command_line_string(commandline)
+        s = parser.shell_eval_out(['-vvvv','-p','5000','dep','cc','dd'])
+        self.__check_value_common(s,'portnum',5000)
+        self.__check_value_common(s,'verbosemode',4)
+        self.__check_value_common(s,'dep_http',1)
+        self.__check_value_common(s,'dep_age',50)
+        self.__check_value_list(s,'depargs',['cc','dd'])
         return
 
 
