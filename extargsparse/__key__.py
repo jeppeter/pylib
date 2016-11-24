@@ -1007,6 +1007,24 @@ class UnitTestCase(unittest.TestCase):
 		self.__opt_fail_check(flags)
 		return
 
+	def test_A036(self):
+		flags = ExtKeyParse('','$debugflag<debugflaginner>## to specify debug flag default()##','',False)
+		self.assertEqual(flags.flagname,'debugflag')
+		self.assertEqual(flags.prefix,'')
+		self.assertEqual(flags.value,'')
+		self.assertEqual(flags.type,'string')
+		self.assertEqual(flags.helpinfo,' to specify debug flag default()')
+		self.assertEqual(flags.nargs,1)
+		self.assertEqual(flags.shortflag,None)
+		self.assertEqual(flags.cmdname,None)
+		self.assertEqual(flags.function,None)
+		self.assertEqual(flags.varname,'debugflaginner')
+		self.assertEqual(flags.optdest,'debugflag')
+		self.assertEqual(flags.longopt,'--debugflag')
+		self.assertEqual(flags.shortopt,None)
+		return
+
+
 
 
 def main():
