@@ -11,6 +11,10 @@ import importlib
 import tempfile
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import __key__ as keyparse
+if sys.version[0] == '2':
+    import StringIO
+else:
+    import io as StringIO
 
 COMMAND_SET = 10
 SUB_COMMAND_JSON_SET = 20
@@ -111,6 +115,21 @@ class FloatAction(argparse.Action):
 class ExtArgsParse(argparse.ArgumentParser):
     reserved_args = ['subcommand','subnargs','json','nargs','extargs']
     priority_args = [SUB_COMMAND_JSON_SET,COMMAND_JSON_SET,ENVIRONMENT_SET,ENV_SUB_COMMAND_JSON_SET,ENV_COMMAND_JSON_SET]
+    def error(self,message):
+        global extargs_shell_out_mode
+        if extargs_shell_out_mode == 0:
+            s = 'parse command error\n'
+            s += '    %s'%(message)
+            sys.stderr.write('%s'%(s))
+        else:
+            s = ''
+            s += 'cat >&2 <<EXTARGSEOF\n'
+            s += 'parse command error\n    %s\n'%(message)
+            s += 'EXTARGSEOF\n'
+            s += 'exit 3\n'
+            sys.stdout.write('%s'%(s))
+        sys.exit(3)
+        return
     def __get_help_info(self,keycls):
         helpinfo = ''
         if keycls.type == 'bool':
@@ -631,6 +650,22 @@ class ExtArgsParse(argparse.ArgumentParser):
             args = self.__load_jsonfile(args,'',jsonfile,None)
         return args
 
+    def __check_help_options(self,params):
+        showhelp = False
+        for s in params:
+            if s == '--':
+                break
+            elif s.startswith('--'):
+                if s == '--help':
+                    showhelp = True
+                    break
+            elif s.startswith('-'):
+                if 'h' in s:
+                    showhelp = True
+                    break
+        if not showhelp:
+            return None
+        return self.__print_out_help()
 
 
 
@@ -639,6 +674,10 @@ class ExtArgsParse(argparse.ArgumentParser):
         self.__set_command_line_self_args()
         if params is None:
             params = sys.argv[1:]
+
+        s = self.__check_help_options(params)
+        if s is not None:
+            return s
         args = self.parse_args(params)
 
         for p in self.__load_priority:
@@ -655,6 +694,24 @@ class ExtArgsParse(argparse.ArgumentParser):
             if funcname is not None:
                 return call_func_args(funcname,args,Context)
         return args
+
+    def __print_out_help(self):
+        global extargs_shell_out_mode
+        s = ''
+        sio = StringIO.StringIO()
+        self.print_help(sio)
+        if extargs_shell_out_mode == 0:
+            s += sio.getvalue()
+            sys.stdout.write(s)
+            sys.exit(0)
+        else:
+            s +=  'cat << EXTARGSEOF\n'
+            s +=  '%s\n'%(sio.getvalue())
+            s += 'EXTARGSEOF\n'
+            s += 'exit 0\n'
+        return s
+
+
 
     def __shell_eval_out_flagarray(self,args,flagarray,ismain=True):
         s = ''
@@ -699,6 +756,9 @@ class ExtArgsParse(argparse.ArgumentParser):
         extargs_shell_out_mode = 1
         args = self.parse_command_line(params,Context)
         extargs_shell_out_mode = 0
+        if isinstance(args,str):
+            # that is help information
+            return args
         # now we should found out the params
         # now to check for the type
         # now to give the value
