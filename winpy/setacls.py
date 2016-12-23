@@ -14,6 +14,7 @@ WIN_MAX_PATH=255
 def run_cmd(cmd):
 	logging.info('run %s'%(cmd))
 	nullfd = open('NUL','w')
+	#nullfd = None
 	subprocess.check_call(cmd,stdout=nullfd)
 	nullfd.close()
 	return
@@ -141,6 +142,23 @@ def set_grant(args,directory,ownname,isrecursive=False):
 		set_grant_callback(directory,args,ownname)
 	return
 
+def icacls_set_owner_callback(directory,ownname,isfile):
+	cmds = []
+	cmds.append('icacls.exe')
+	cmds.append(directory)
+	cmds.append('/setowner')
+	cmds.append('%s'%(ownname))
+	cmds.append('/Q')
+	run_cmd(cmds)
+	return False
+
+def icacls_set_owner(args,directory,ownname,isrecursive=False):
+	if isrecursive:
+		dir_walk(directory,icacls_set_owner_callback,ownname)
+	else:
+		icacls_set_owner_callback(args,directory,ownname,True)
+	return
+
 def set_log_level(args):
     loglvl= logging.ERROR
     if args.verbose >= 3:
@@ -180,7 +198,8 @@ def main():
 	set_log_level(args)
 	for d in args.args:
 		takeown(args,d,args.owner,args.recursive)
-		set_grant(args,d,args.owner,args.recursive)
+		set_grant(args,d,'EveryOne',args.recursive)
+		icacls_set_owner(args,d,args.owner,args.recursive)
 	return
 
 if __name__ == '__main__':
