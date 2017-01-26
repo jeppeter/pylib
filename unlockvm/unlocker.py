@@ -152,7 +152,7 @@ def patchkeys(f, vmx, key, osname):
         if smc_key[0] == 'SKL+':
             # Use the +LKS data routine for OSK0/1
             smc_new_memptr = smc_key[4]
-            logging.warn('+LKS Key: %s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.info('+LKS Key: %s'%(printkey(i, offset, smc_key, smc_data)))
 
         elif smc_key[0] == '0KSO':
             # Write new data routine pointer from +LKS
@@ -175,10 +175,10 @@ def patchkeys(f, vmx, key, osname):
             f.seek(offset)
             smc_key = struct.unpack(key_pack, f.read(24))
             smc_data = f.read(smc_key[1])
-            logging.warn('OSK0 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.info('OSK0 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
         elif smc_key[0] == '1KSO':
             # Write new data routine pointer from +LKS
-            logging.warn('OSK1 Key Before:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.info('OSK1 Key Before:%s'%(printkey(i, offset, smc_key, smc_data)))
             smc_old_memptr = smc_key[4]
             f.seek(offset)
             if not dryrun:
@@ -196,7 +196,7 @@ def patchkeys(f, vmx, key, osname):
             f.seek(offset)
             smc_key = struct.unpack(key_pack, f.read(24))
             smc_data = f.read(smc_key[1])
-            logging.warn('OSK1 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.info('OSK1 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
 
             # Finished so get out of loop
             break
@@ -213,7 +213,7 @@ def patchsmc(name, osname, sharedobj):
     mode = 'r+b'
     if dryrun:
         mode = 'rb'
-    logging.warn('mode %s'%(mode))
+    logging.info('mode %s'%(mode))
     with open(name, mode) as f:
 
         smc_old_memptr = 0
@@ -351,7 +351,7 @@ def patchvmkctl(name):
     logging.warn('smcPresent Patched: ' + name)
 
 def set_log_level(args):
-    loglvl= logging.WARN
+    loglvl= logging.ERROR
     logfmt = '%(message)s'
     if args.verbose >= 3:
         loglvl = logging.DEBUG
@@ -360,6 +360,7 @@ def set_log_level(args):
         loglvl = logging.INFO
         logfmt = '%(filename)s:%(funcName)s:%(lineno)d %(message)s'
     elif args.verbose >= 1 :
+        loglvl = logging.WARN
         logfmt = '%(funcName)s %(message)s'
     # we delete old handlers ,and set new handler
     logging.basicConfig(level=loglvl,format=logfmt)
