@@ -173,16 +173,21 @@ def patchkeys(f, vmx, key, osname):
 
             # Re-read and print key
             f.seek(offset)
-            smc_key = struct.unpack(key_pack, f.read(24))
-            smc_data = f.read(smc_key[1])
+            if not dryrun:
+                smc_key = struct.unpack(key_pack, f.read(24))
+                smc_data = f.read(smc_key[1])
+            else:
+                smc_key = struct.unpack(key_pack, buf)
+                smc_data = smc_new_data
             logging.info('OSK0 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
         elif smc_key[0] == '1KSO':
             # Write new data routine pointer from +LKS
             logging.info('OSK1 Key Before:%s'%(printkey(i, offset, smc_key, smc_data)))
             smc_old_memptr = smc_key[4]
             f.seek(offset)
+            buf = struct.pack(key_pack, smc_key[0], smc_key[1], smc_key[2], smc_key[3], smc_new_memptr)
             if not dryrun:
-                f.write(struct.pack(key_pack, smc_key[0], smc_key[1], smc_key[2], smc_key[3], smc_new_memptr))
+                f.write(buf)
             f.flush()
 
             # Write new data for key
@@ -194,8 +199,12 @@ def patchkeys(f, vmx, key, osname):
 
             # Re-read and print key
             f.seek(offset)
-            smc_key = struct.unpack(key_pack, f.read(24))
-            smc_data = f.read(smc_key[1])
+            if not dryrun:
+                smc_key = struct.unpack(key_pack, f.read(24))
+                smc_data = f.read(smc_key[1])
+            else:
+                smc_key = struct.unpack(key_pack, buf)
+                smc_data = smc_new_data
             logging.info('OSK1 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
 
             # Finished so get out of loop
