@@ -101,7 +101,7 @@ def patchELF(f, oldOffset, newOffset):
     e_shnum = struct.unpack('=H', f.read(2))[0]
     e_shstrndx = struct.unpack('=H', f.read(2))[0]
 
-    logging.info('%s'%('e_shoff: 0x{:x} e_shentsize: 0x{:x} e_shnum:0x{:x} e_shstrndx:0x{:x}'.format(e_shoff, e_shentsize, e_shnum, e_shstrndx)))
+    logging.warn('%s'%('e_shoff: 0x{:x} e_shentsize: 0x{:x} e_shnum:0x{:x} e_shstrndx:0x{:x}'.format(e_shoff, e_shentsize, e_shnum, e_shstrndx)))
 
     for i in range(0, e_shnum):
         f.seek(e_shoff + i * e_shentsize)
@@ -113,7 +113,7 @@ def patchELF(f, oldOffset, newOffset):
         e_sh_entsize = e_sh[9]
         if e_sh_type == E_SHT_RELA:
             e_sh_nument = e_sh_size / e_sh_entsize
-            logging.info('%s'%('RELA at 0x{:x} with {:d} entries'.format(e_sh_offset, e_sh_nument)))
+            logging.warn('%s'%('RELA at 0x{:x} with {:d} entries'.format(e_sh_offset, e_sh_nument)))
             for j in range(0, e_sh_nument):
                 f.seek(e_sh_offset + e_sh_entsize * j)
                 rela = struct.unpack('=QQq', f.read(e_sh_entsize))
@@ -126,7 +126,7 @@ def patchELF(f, oldOffset, newOffset):
                     buf = struct.pack('=QQq', r_offset, r_info, r_addend)                    
                     if not dryrun:
                         f.write(buf)
-                    logging.info('%s'%('Relocation modified at: ' + hex(e_sh_offset + e_sh_entsize * j)))
+                    logging.warn('%s'%('Relocation modified at: ' + hex(e_sh_offset + e_sh_entsize * j)))
 
 
 def patchkeys(f, vmx, key, osname):
@@ -152,11 +152,11 @@ def patchkeys(f, vmx, key, osname):
         if smc_key[0] == 'SKL+':
             # Use the +LKS data routine for OSK0/1
             smc_new_memptr = smc_key[4]
-            logging.info('+LKS Key: %s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.warn('+LKS Key: %s'%(printkey(i, offset, smc_key, smc_data)))
 
         elif smc_key[0] == '0KSO':
             # Write new data routine pointer from +LKS
-            logging.info('OSK0 Key Before: %s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.warn('OSK0 Key Before: %s'%(printkey(i, offset, smc_key, smc_data)))
             smc_old_memptr = smc_key[4]
             f.seek(offset)
             buf = struct.pack(key_pack, smc_key[0], smc_key[1], smc_key[2], smc_key[3], smc_new_memptr)
@@ -175,10 +175,10 @@ def patchkeys(f, vmx, key, osname):
             f.seek(offset)
             smc_key = struct.unpack(key_pack, f.read(24))
             smc_data = f.read(smc_key[1])
-            logging.info('OSK0 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.warn('OSK0 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
         elif smc_key[0] == '1KSO':
             # Write new data routine pointer from +LKS
-            logging.info('OSK1 Key Before:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.warn('OSK1 Key Before:%s'%(printkey(i, offset, smc_key, smc_data)))
             smc_old_memptr = smc_key[4]
             f.seek(offset)
             if not dryrun:
@@ -196,12 +196,12 @@ def patchkeys(f, vmx, key, osname):
             f.seek(offset)
             smc_key = struct.unpack(key_pack, f.read(24))
             smc_data = f.read(smc_key[1])
-            logging.info('OSK1 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
+            logging.warn('OSK1 Key After:%s'%(printkey(i, offset, smc_key, smc_data)))
 
             # Finished so get out of loop
             break
-
         else:
+            logging.debug('%s :%s'%(smc_key[0],printkey(i,offset,smc_key,smc_data)))
             pass
 
         i += 1
@@ -213,7 +213,7 @@ def patchsmc(name, osname, sharedobj):
     mode = 'r+b'
     if dryrun:
         mode = 'rb'
-    logging.info('mode %s'%(mode))
+    logging.warn('mode %s'%(mode))
     with open(name, mode) as f:
 
         smc_old_memptr = 0
@@ -222,7 +222,7 @@ def patchsmc(name, osname, sharedobj):
         # Read file into string variable
         vmx = f.read()
 
-        logging.info('File: ' + name)
+        logging.warn('File: ' + name)
 
         # Setup hex string for vSMC headers
         # These are the private and public key counts
@@ -247,39 +247,39 @@ def patchsmc(name, osname, sharedobj):
         smc_adr = vmx.find(adr_key)
 
         # Print vSMC0 tables and keys
-        logging.info('appleSMCTableV0 (smc.version = "0")')
-        logging.info('appleSMCTableV0 Address      : ' + hex(smc_header_v0_offset))
-        logging.info('appleSMCTableV0 Private Key #: 0xF2/242')
-        logging.info('appleSMCTableV0 Public Key  #: 0xF0/240')
+        logging.warn('appleSMCTableV0 (smc.version = "0")')
+        logging.warn('appleSMCTableV0 Address      : ' + hex(smc_header_v0_offset))
+        logging.warn('appleSMCTableV0 Private Key #: 0xF2/242')
+        logging.warn('appleSMCTableV0 Public Key  #: 0xF0/240')
 
         if (smc_adr - smc_key0) != 72:
-            logging.info('appleSMCTableV0 Table        : ' + hex(smc_key0))
+            logging.warn('appleSMCTableV0 Table        : ' + hex(smc_key0))
             smc_old_memptr, smc_new_memptr = patchkeys(f, vmx, smc_key0, osname)
         elif (smc_adr - smc_key1) != 72:
-            logging.info('appleSMCTableV0 Table        : ' + hex(smc_key1))
+            logging.warn('appleSMCTableV0 Table        : ' + hex(smc_key1))
             smc_old_memptr, smc_new_memptr = patchkeys(f, vmx, smc_key1, osname)
 
-        logging.info('')
+        logging.warn('')
 
         # Print vSMC1 tables and keys
-        logging.info('appleSMCTableV1 (smc.version = "1")')
-        logging.info('appleSMCTableV1 Address      : ' + hex(smc_header_v1_offset))
-        logging.info('appleSMCTableV1 Private Key #: 0x01B4/436')
-        logging.info('appleSMCTableV1 Public Key  #: 0x01B0/432')
+        logging.warn('appleSMCTableV1 (smc.version = "1")')
+        logging.warn('appleSMCTableV1 Address      : ' + hex(smc_header_v1_offset))
+        logging.warn('appleSMCTableV1 Private Key #: 0x01B4/436')
+        logging.warn('appleSMCTableV1 Public Key  #: 0x01B0/432')
 
         if (smc_adr - smc_key0) == 72:
-            logging.info('appleSMCTableV1 Table        : ' + hex(smc_key0))
+            logging.warn('appleSMCTableV1 Table        : ' + hex(smc_key0))
             smc_old_memptr, smc_new_memptr = patchkeys(f, vmx, smc_key0, osname)
         elif (smc_adr - smc_key1) == 72:
-            logging.info('appleSMCTableV1 Table        : ' + hex(smc_key1))
+            logging.warn('appleSMCTableV1 Table        : ' + hex(smc_key1))
             smc_old_memptr, smc_new_memptr = patchkeys(f, vmx, smc_key1, osname)
 
-        logging.info('')
+        logging.warn('')
 
         # Find matching RELA record in .rela.dyn in ESXi ELF files
         # This is temporary code until proper ELF parsing written
         if sharedobj:
-            logging.info('Modifying RELA records from: ' + hex(smc_old_memptr) + ' to ' + hex(smc_new_memptr))
+            logging.warn('Modifying RELA records from: ' + hex(smc_old_memptr) + ' to ' + hex(smc_new_memptr))
             patchELF(f, smc_old_memptr, smc_new_memptr)
 
         # Tidy up
@@ -293,7 +293,7 @@ def patchbase(name):
     mode = 'r+b'
     if dryrun:
         mode = 'rb'
-    logging.info('GOS Patching: ' + name)
+    logging.warn('GOS Patching: ' + name)
     f = open(name, mode)
 
     # Entry to search for in GOS table
@@ -321,21 +321,21 @@ def patchbase(name):
             f.seek(offset + 32)
             if not dryrun:
                 f.write('\xBF')
-            logging.info('GOS Patched flag @: ' + hex(offset))
+            logging.warn('GOS Patched flag @: ' + hex(offset))
         else:
-            logging.info('GOS Unknown flag @: ' + hex(offset) + '/' + hex(int(flag)))
+            logging.warn('GOS Unknown flag @: ' + hex(offset) + '/' + hex(int(flag)))
 
         offset += 33
 
     # Tidy up
     f.flush()
     f.close()
-    logging.info('GOS Patched: ' + name)
+    logging.warn('GOS Patched: ' + name)
 
 
 def patchvmkctl(name):
     # Patch file
-    logging.info('smcPresent Patching: ' + name)
+    logging.warn('smcPresent Patching: ' + name)
     f = open(name, 'r+b')
 
     # Read file into string variable
@@ -348,14 +348,16 @@ def patchvmkctl(name):
     # Tidy up
     f.flush()
     f.close()
-    logging.info('smcPresent Patched: ' + name)
+    logging.warn('smcPresent Patched: ' + name)
 
 def set_log_level(args):
-    loglvl= logging.DEBUG
+    loglvl= logging.WARN
     logfmt = '%(message)s'
     if args.verbose >= 3:
+        loglvl = logging.DEBUG
         logfmt = '%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d %(message)s'
     elif args.verbose >= 2:
+        loglvl = logging.INFO
         logfmt = '%(filename)s:%(funcName)s:%(lineno)d %(message)s'
     elif args.verbose >= 1 :
         logfmt = '%(funcName)s %(message)s'
@@ -427,7 +429,7 @@ def main():
         libvmkctl = ''
 
     else:
-        logging.info('Unknown Operating System: ' + osname)
+        logging.warn('Unknown Operating System: ' + osname)
         return
 
     # Patch the vmx executables skipping stats version for Player
@@ -443,7 +445,7 @@ def main():
     if vmwarebase != '':
         patchbase(vmwarebase)
     else:
-        logging.info('Patching vmwarebase is not required on this system')
+        logging.warn('Patching vmwarebase is not required on this system')
 
     if osname == 'vmkernel':
         patchvmkctl(libvmkctl)
