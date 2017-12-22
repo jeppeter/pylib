@@ -324,7 +324,12 @@ def sbox_handler(args,parser):
 	set_log_level(args)
 	bnum = parse_int(args.subnargs[0])
 	sboxtbl = sbox_table(bnum,0x63)
+	isboxtbl = [0 for i in range(256)]
+	for i,c in enumerate(sboxtbl):
+		isboxtbl[c] = i
 	s = format_table(sboxtbl, 'sbox')
+	sys.stdout.write('%s\n'%(s))
+	s = format_table(isboxtbl, 'isbox')
 	sys.stdout.write('%s\n'%(s))
 	invtable = get_invtable(bnum)
 	sys.exit(0)
