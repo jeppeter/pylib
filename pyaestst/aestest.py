@@ -149,12 +149,32 @@ def parse_int(r):
 def format_result(a,b,p):
 	return '[%03d,%03d][%03d]'%(a,b,p)
 
+def format_array_result(arr,p):
+	s = '['
+	i = 0
+	while i < len(arr):
+		c = parse_int(arr[i])
+		if i > 0:
+			s += ','
+		s += '%03d'%(c)
+		i = i + 1
+	s += ']'
+	s += '[%03d]'%(p)
+	return s
+
 def mul_handler(args,parser):
 	set_log_level(args)
+	if len(args.subnargs) < 2:
+		raise Exception('must at least 2 args')
 	a = parse_int(args.subnargs[0])
 	b = parse_int(args.subnargs[1])
 	p = gmul(a,b)
-	sys.stdout.write(format_result(a,b,p))
+	k = 2
+	while k < len(args.subnargs):
+		c = parse_int(args.subnargs[k])
+		p = gmul(p,c)
+		k = k + 1
+	sys.stdout.write(format_array_result(args.subnargs,p))
 	sys.stdout.write('\n')
 	sys.exit(0)
 	return
@@ -255,7 +275,7 @@ def main():
 	{
 		"verbose|v" : "+",
 		"mul<mul_handler>" : {
-			"$" : 2
+			"$" : "+"
 		},
 		"mullist<mullist_handler>" : {
 			"$" : 2
