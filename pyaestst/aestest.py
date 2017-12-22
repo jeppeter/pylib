@@ -179,24 +179,35 @@ def mul_handler(args,parser):
 	sys.exit(0)
 	return
 
-def mullist_handler(args,parser):
+def exp(bnum,num):
+	if num == 0:
+		return 1
+	rnum = bnum
+	for i in range(1,num):
+		rnum = gmul(rnum ,bnum)
+	return rnum
+
+def explist_handler(args,parser):
 	set_log_level(args)
-	a = parse_int(args.subnargs[0])
-	b = parse_int(args.subnargs[1])
-	k = 0
+	bnum = parse_int(args.subnargs[0])
+	k = 1
 	s = ''
-	for i in range(a):
-		for j in range(b):
-			p = gmul(i,j)
-			if k > 0:
-				s += ','
-			s += format_result(i,j,p)
-			k = k + 1
-			if k >= 8:
-				k = 0
-				s += '\n'
+	s += '[%02x'%(1)
+	for i in range(1,256):
+		p = exp(bnum,i)
+		if k > 0:
+			s += ','
+		else:
+			if i > 0:
+				s += ',\n'
+			s += '['
+		s += '%02x'%(p)
+		k = k + 1
+		if k >= 16:
+			s += ']'
+			k = 0
 	if k > 0:
-		s += '\n'
+		s += ']\n'
 	sys.stdout.write(s)
 	sys.exit(0)
 	return
@@ -205,25 +216,12 @@ def generate_altable(gnum):
 	atable = []
 	ltable = []
 	for i in range(256):
-		atable.append(gnum)
-		ltable.append(gnum)
-
+		atable.append(exp(gnum,i))
+		ltable.append(0)
 	cnt = 0
-	a = 1
-	while cnt < 255:
-		atable[cnt] = a
-		d = a & 0x80
-		d = get_8bit(d)
-		a <<= 1
-		a = get_8bit(a)
-		if d & 0x80:
-			a = a ^ 0x1b
-		a = a ^ atable[cnt]
-		ltable[atable[cnt]] = cnt
+	while cnt < 256:
+		ltable[atable[cnt]] =  cnt
 		cnt = cnt + 1
-	atable[255] = atable[0]
-	ltable[0] = 0
-
 	return atable, ltable
 
 def format_table(tbl,note):
@@ -269,6 +267,69 @@ def exp_handler(args,parser):
 	sys.exit(0)
 	return
 
+def inv_table(atbl,ltbl):
+	invtabl = [ 0 for i in  range(256)]
+	for i in range(1,256):
+		invtabl[i] = atbl[0xff - ltbl[i]]
+	return invtabl
+
+def get_invtable(bnum):
+	atable,ltable = generate_altable(bnum)
+	invtable = inv_table(atable,ltable)
+	return invtable
+
+def inv_handler(args,parser):
+	set_log_level(args)
+	bnum = parse_int(args.subnargs[0])
+	invtable = get_invtable(bnum)
+	s = format_table(invtable,'invtable')
+	sys.stdout.write('%s\n'%(s))
+	sys.exit(0)
+	return
+
+def set_bit_xor(origbit,s):
+	if origbit:
+		origbit = 1
+	if s :
+		origbit ^= 1
+	else:
+		origbit ^= 0
+	return origbit
+
+def sbox_table(bnum,cival):
+	invtable = get_invtable(bnum)
+	i = 0
+	sbox = []
+	while i < len(invtable):
+		k = 0
+		curval = invtable[i]
+		tval = 0
+		while k < 8:
+			kbit = 0
+			kbit = set_bit_xor(kbit,(curval & ( 1 << k)))
+			kbit = set_bit_xor(kbit,(curval & ( 1 << ((k+4)%8))))
+			kbit = set_bit_xor(kbit,(curval & (1 << ((k+5)%8))))
+			kbit = set_bit_xor(kbit,(curval & (1 << ((k+6)%8))))
+			kbit = set_bit_xor(kbit,(curval & (1 << ((k+7)%8))))
+			kbit = set_bit_xor(kbit,cival & (1 << k))
+			if kbit :
+				tval |= (1 << k)
+			k = k + 1
+		logging.info('[%s][%02x] ^ [%02x] = [%02x]'%(i,invtable[i], cival,tval))
+		sbox.append(tval)
+		i = i + 1
+	return sbox
+
+def sbox_handler(args,parser):
+	set_log_level(args)
+	bnum = parse_int(args.subnargs[0])
+	sboxtbl = sbox_table(bnum,0x63)
+	s = format_table(sboxtbl, 'sbox')
+	sys.stdout.write('%s\n'%(s))
+	invtable = get_invtable(bnum)
+	sys.exit(0)
+	return
+
 
 def main():
 	commandline='''
@@ -277,14 +338,20 @@ def main():
 		"mul<mul_handler>" : {
 			"$" : "+"
 		},
-		"mullist<mullist_handler>" : {
-			"$" : 2
+		"explist<explist_handler>" : {
+			"$" : 1
 		},
 		"altable<altable_handler>" : {
 			"$" : 1
 		},
 		"exp<exp_handler>" : {
 			"$" : 2
+		},
+		"inv<inv_handler>" : {
+			"$" : 1
+		},
+		"sbox<sbox_handler>" : {
+			"$" : 1
 		}
 	}
 	'''
