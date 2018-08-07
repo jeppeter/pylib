@@ -83,7 +83,7 @@ def btg_handler(args,parser):
 	return
 
 def buffer_to_asmcode(incode):
-	outcode = '    asm volatile('
+	outcode = '    asm volatile(\n'
 	sarr = re.split('\n', incode)
 	lcnt = 0
 	for l in sarr:
@@ -101,10 +101,7 @@ def buffer_to_asmcode(incode):
 				curs += c
 				incnt = incnt + 1
 		if incnt > 0:
-			if lcnt > 0 :
-				outcode += '        "%s\\n"\n'%(curs)
-			else:
-				outcode += '"%s\\n"\n'%(curs)
+			outcode += '"%s\\n"\n'%(curs)
 			lcnt = lcnt + 1
 	outcode += '    );\n'
 	return outcode
