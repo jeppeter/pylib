@@ -100,12 +100,13 @@ def buffer_to_asmcode(incode):
 					curs += ','
 				curs += c
 				incnt = incnt + 1
-		if lcnt > 0:
-			outcode += '        "%s\\n"\n'%(curs)
-		else:
-			outcode += '"%s\\n"\n'%(curs)
-		lcnt = lcnt + 1
-	outcode += '    );'
+		if incnt > 0:
+			if lcnt > 0 :
+				outcode += '        "%s\\n"\n'%(curs)
+			else:
+				outcode += '"%s\\n"\n'%(curs)
+			lcnt = lcnt + 1
+	outcode += '    );\n'
 	return outcode
 
 
