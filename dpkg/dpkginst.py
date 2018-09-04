@@ -298,7 +298,8 @@ inst_command_line = {
 }
 
 def main():
-	parser = extargsparse.ExtArgsParse(description='dpkg encapsulation',usage='%s [options] {commands} pkgs...'%(sys.argv[0]))	
+	options = extargsparse.ExtArgsOptions({	'description' : 'dpkg encapsulation',	'usage' : '%s [options] {commands} pkgs...'%(sys.argv[0])})
+	parser = extargsparse.ExtArgsParse(options)	
 	parser = dpkgbase.add_dpkg_args(parser)
 	parser.load_command_line(inst_command_line)
 	args = parser.parse_command_line()
