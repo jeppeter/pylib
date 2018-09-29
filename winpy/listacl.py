@@ -33,15 +33,16 @@ def list_acl(fname):
   dacl = win32security.GetNamedSecurityInfo(fname, win32security.SE_FILE_OBJECT,
       win32security.DACL_SECURITY_INFORMATION).GetSecurityDescriptorDacl()
   rets = ''
-  for i in range(dacl.GetAceCount()):
-    ace = dacl.GetAce(i)
-    (atype, aflag) = ace[0]
-    if atype in CONVENTIONAL_ACES:
-      mask , sid = ace[1:]
-    else:
-      mask, otype,itype , sid = ace[1:]
-    name, domain,ptype = win32security.LookupAccountSid(None,sid)
-    rets += '%s %s\\%s %x\n'%(CONVENTIONAL_ACES.get(atype,"OTHER"), domain, name,mask)
+  if dacl is not None:
+    for i in range(dacl.GetAceCount()):
+      ace = dacl.GetAce(i)
+      (atype, aflag) = ace[0]
+      if atype in CONVENTIONAL_ACES:
+        mask , sid = ace[1:]
+      else:
+        mask, otype,itype , sid = ace[1:]
+      name, domain,ptype = win32security.LookupAccountSid(None,sid)
+      rets += '    %s %s\\%s %x\n'%(CONVENTIONAL_ACES.get(atype,"OTHER"), domain, name,mask)
   sacl = win32security.GetNamedSecurityInfo(fname, win32security.SE_FILE_OBJECT, win32security.SACL_SECURITY_INFORMATION).GetSecurityDescriptorSacl()
   if sacl is not None:
     for i in range(sacl.GetAceCount()):
