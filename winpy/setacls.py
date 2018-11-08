@@ -168,24 +168,12 @@ def set_log_level(args):
     elif args.verbose >= 1 :
         loglvl = logging.WARN
     # we delete old handlers ,and set new handler
+    if logging.root is not None and logging.root.handlers is not None and len(logging.root.handlers) > 0:
+    	logging.root.handlers = []
     logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
     return
 
-
-def main():
-	commandline='''
-	{
-		"owner|o" : null,
-		"recursive|R" : true,
-		"verbose|v" : "+",
-		"$" : "+"
-	}
-	'''
-	options = extargsparse.ExtArgsOptions()
-	options.errorhandle = 'raise'
-	parser = extargsparse.ExtArgsParse(options)
-	parser.load_command_line_string(commandline)
-	args = parser.parse_command_line()
+def set_own(args):
 	if args.owner is None:
 		if 'USERNAME' in os.environ.keys():
 			args.owner = '%s\\%s'%(platform.node(),os.environ['USERNAME'])
@@ -195,11 +183,57 @@ def main():
 				args.owner = '%s\\%s'%(platform.node(),getpass.getuser())
 			except:
 				raise Exception('can not getpass')
+	return args
+
+def all_handler(args,parser):
 	set_log_level(args)
-	for d in args.args:
+	set_own(args)
+	for d in args.subnargs:
 		takeown(args,d,args.owner,args.recursive)
 		set_grant(args,d,'EveryOne',args.recursive)
 		icacls_set_owner(args,d,args.owner,args.recursive)
+	sys.exit(0)
+	return
+
+def setown_handler(args,parser):
+	set_log_level(args)
+	set_own(args)
+	for d in args.subnargs:
+		icacls_set_owner(args,d,args.owner,args.recursive)
+	sys.exit(0)
+	return
+
+def grant_handler(args,parser):
+	set_log_level(args)
+	set_own(args)
+	for d in args.subnargs:
+		set_grant(args,d,'EveryOne',args.recursive)
+	sys.exit(0)
+	return
+
+
+def main():
+	commandline='''
+	{
+		"owner|o" : null,
+		"recursive|R" : true,
+		"verbose|v" : "+",
+		"all<all_handler>" : {
+			"$" : "+"
+		},
+		"grant<grant_handler>" : {
+			"$" : "+"
+		},
+		"setown<setown_handler>" : {
+			"$" : "+"
+		}
+	}
+	'''
+	options = extargsparse.ExtArgsOptions()
+	options.errorhandle = 'raise'
+	parser = extargsparse.ExtArgsParse(options)
+	parser.load_command_line_string(commandline)
+	parser.parse_command_line(None,parser)
 	return
 
 if __name__ == '__main__':
