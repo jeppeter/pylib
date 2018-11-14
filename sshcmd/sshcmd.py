@@ -46,7 +46,8 @@ def cmd_handler(args,parser):
 def connect_sshcmd(args,cmd,timeout):
 	starttime =time.time()
 	endtime = starttime + timeout
-	while True:
+	curtime = time.time()
+	while curtime < endtime:
 		try:
 			key = paramiko.RSAKey.from_private_key_file(args.privatekey)
 			#client = paramiko.SSHClient(args.host,args.user,port=args.port,password=args.password,pkey=None)
@@ -72,6 +73,7 @@ def connect_sshcmd(args,cmd,timeout):
 				return exc_type
 			if exc_type != socket.timeout:
 				sys.stderr.write('exc_type [%s] exc_obj [%s]\n'%(exc_type,exc_obj))
+		curtime = time.time()
 	raise Exception('connect [%s:%d] timeout [%s]'%(args.host,args.port,timeout))
 
 
