@@ -90,7 +90,7 @@ def reboot_handler(args,parser):
 			time.sleep(1.0)
 		except:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
-			sys.stderr.write('exc_obj [%s]\n'%(exc_obj))
+			sys.stderr.write('exc_obj [%s] at [%d]\n'%(exc_obj, i))
 			sys.exit(4)
 
 
