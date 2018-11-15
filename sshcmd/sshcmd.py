@@ -82,12 +82,16 @@ def reboot_handler(args,parser):
 	times = int(args.subnargs[0])
 	timeout = int(args.subnargs[1])
 	for i in range(times):
+		if (i % 10) == 0 and i > 0:
+			sys.stdout.write('\n')
 		try:
 			retval = connect_sshcmd(args,'sudo reboot',timeout)
 			if retval is not None:
 				break
 			# wait for handling in remote
 			time.sleep(1.0)
+			sys.stdout.write('.')
+			sys.stdout.flush()
 		except:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			sys.stderr.write('exc_obj [%s] at [%d]\n'%(exc_obj, i))
