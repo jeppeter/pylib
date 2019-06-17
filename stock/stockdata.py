@@ -89,6 +89,7 @@ def parse_stockcode(args,code):
 		sarr = re.split('\*', code)
 		fromc = sarr[0]
 		toc = sarr[0]
+		logging.info('sarr %s'%(sarr))
 		while len(fromc) < 6:
 			fromc += '0'
 			toc += '9'
@@ -98,7 +99,7 @@ def parse_stockcode(args,code):
 		logging.info('fromcode %s tocode %s'%(fromcode,tocode))
 		while idx <= tocode:
 			logging.info('idx %s'%(idx))
-			retcode.append('%s'%(idx))
+			retcode.append('%06d'%(idx))
 			idx += 1
 	else:
 		retcode.append(code)
@@ -160,7 +161,9 @@ def main():
 		}
 	}
 	'''
-	commandline= commandline_fmt%(os.getcwd())
+	curpwd = os.getcwd()
+	curpwd = curpwd.replace('\\','\\\\')
+	commandline= commandline_fmt%(curpwd)
 	parser =extargsparse.ExtArgsParse()
 	parser.load_command_line_string(commandline)
 	parser.parse_command_line(None,parser)
