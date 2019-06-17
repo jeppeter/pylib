@@ -5,6 +5,7 @@ import extargsparse
 import requests
 import os
 import sys
+import re
 
 
 def set_log_level(args):
@@ -22,10 +23,18 @@ def set_log_level(args):
     return
 
 
+
+
 def get_stock_outfile(args,url):
 	try:
 		rsp = requests.get(url)
-		return rsp.content
+		outs = rsp.content
+		if sys.version[0] == '3':
+			logging.info('outs %s'%(repr(outs)))
+			outs = outs.decode('GBK')
+		if len(outs) == 0:
+			logging.error('get %s error'%(url))
+		return outs
 	except:
 		return ''
 
@@ -42,19 +51,96 @@ def write_file(s,outfile=None):
 	fout = None
 	return 
 
+def make_dir_safe(dpath):
+	if os.path.isdir(dpath):
+		return
+	os.makedirs(dpath)
+	if not os.path.isdir(dpath):
+		raise Exception('can not make [%s]'%(dpath))
+	return
 
-def lrb_handler(args,parser):
-	set_log_level(args)
-	for c in args.subnargs:
-		url = 'http://quotes.money.163.com/service/lrb_%s.html'%(c)
-		if args.byyear:
-			url += '?type=year'
-		output = get_stock_outfile(args,url)
-		logging.info('get [%s]\n%s'%(c,output))
-		write_file(output, os.path.join(args.path, 'lrb_%s.cvs'%(c)))
+def get_datasheet_single(args,stockcode,prefix):
+	retval = False
+	url = 'http://quotes.money.163.com/service/%s_%s.html'%(prefix,stockcode)
+	if args.byyear:
+		url += '?type=year'
+	output = get_stock_outfile(args,url)
+	if len(output) > 0:
+		logging.info('get %s [%s]\n%s'%(prefix,stockcode,output))	
+		write_file(output, os.path.join(args.path, '%s_%s.cvs'%(prefix,stockcode)))
+		retval = True
+	return retval
+
+def parse_stockcode(args,code):
+	retcode=[]
+
+	if '-' in code:
+		sarr = re.split('\-',code)
+		if len(sarr) > 1:
+			fromcode = int(sarr[0])
+			tocode = int(sarr[1])
+			idx = fromcode
+			while idx <= tocode:
+				retcode.append('%s'%(idx))
+				idx += 1
+		else:
+			retcode.append(code)
+	elif '*' in code:
+		sarr = re.split('\*', code)
+		fromc = sarr[0]
+		toc = sarr[0]
+		while len(fromc) < 6:
+			fromc += '0'
+			toc += '9'
+		fromcode = int(fromc)	
+		tocode = int(toc)
+		idx = fromcode
+		logging.info('fromcode %s tocode %s'%(fromcode,tocode))
+		while idx <= tocode:
+			logging.info('idx %s'%(idx))
+			retcode.append('%s'%(idx))
+			idx += 1
+	else:
+		retcode.append(code)
+	return retcode
+
+
+def get_datasheet(args,prefix):
+	if not args.complex:
+		for c in args.subnargs:
+			get_datasheet_single(args,c,prefix)
+	else:
+		cnt = 0
+		for c in args.subnargs:
+			retcode = parse_stockcode(args,c)
+			for cc in retcode:
+				retval = get_datasheet_single(args,cc,prefix)
+				if retval :
+					cnt += 1
+				else:
+					logging.error('get %s [%s] error'%(prefix,cc))
+		sys.stdout.write('write %s [%s]\n'%(prefix,cnt))
 
 	return
 
+
+def lrb_handler(args,parser):
+	set_log_level(args)
+	make_dir_safe(args.path)
+	get_datasheet(args,'lrb')
+	return
+
+def zcfzb_handler(args,parser):
+	set_log_level(args)
+	make_dir_safe(args.path)
+	get_datasheet(args,'zcfzb')
+	return
+
+def xjllb_handler(args,parser):
+	set_log_level(args)
+	make_dir_safe(args.path)
+	get_datasheet(args,'xjllb')
+	return
 
 def main():
 	commandline_fmt='''
@@ -62,7 +148,14 @@ def main():
 		"verbose|v" : "+",
 		"byyear|Y" : true,
 		"path|P" : "%s",
+		"complex|C" : false,
 		"lrb<lrb_handler>##to get profit datasheet##" : {
+			"$" : "+"
+		},
+		"zcfzb<zcfzb_handler>##to get the pocession datasheet##" : {
+			"$" : "+"
+		},
+		"xjllb<xjllb_handler>##to get cash flow datasheet##" : {
 			"$" : "+"
 		}
 	}
