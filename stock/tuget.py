@@ -62,28 +62,44 @@ def get_token(args):
 		return sarr[1]
 	raise Exception('not support token type %s'%(args.tokentype))
 
+def create_ts(args):
+	tok = get_token(args)
+	logging.info('token %s'%(tok))
+	tushare.set_token(tok)
+	return tushare.pro_api()
+
+def open_output(args):
+	outf = sys.stdout
+	if args.output is not None:
+		outf = open(args.output,'wb')
+	return outf
+def close_output(outf):
+	if outf != sys.stdout:
+		outf.close()
+	return
+
 def output_file(s,outf=sys.stdout):	
 	if 'b' in outf.mode  and sys.version[0] == '3':
 		s = s.encode('utf-8')
 	outf.write(s)
 	return
 
+def get_all_list(pro,args):
+	while True:
+		try:
+			return pro.query('stock_basic',fields='ts_code,symbol,name,list_date')
+		except:
+			time.sleep(0.3)
+	return None
+
 def getlist_handler(args,parser):
 	set_log_level(args)
-	tok = get_token(args)
-	logging.info('token %s'%(tok))
-	sys.stdout.write('version %s\n'%(tushare.__version__))
-	tushare.set_token(tok)
-	pro = tushare.pro_api()
-	data = pro.query('stock_basic',fields='ts_code,symbol,name,list_date')
-	outf = sys.stdout
-	if args.output is not None:
-		outf = open(args.output,'wb')
+	pro = create_ts(args)
+	data = get_all_list(pro,args)
+	outf = open_output(args)
 	for idx,row in data.iterrows():
 		output_file('%s %s %s\n'%(row['symbol'],row['name'], row['list_date']),outf)
-	if outf != sys.stdout:
-		outf.close()
-	outf=None
+	close_output(outf)
 	return
 
 def get_ts_code(code):
@@ -92,15 +108,18 @@ def get_ts_code(code):
 	return '%s.SZ'%(code)
 
 def get_ts_adjcode(prots,args,code):
-	return prots.query('adj_factor',ts_code=get_ts_code(code),state_date=args.startdate,end_date=args.enddate)
+	while True:
+		try:
+			return prots.query('adj_factor',ts_code=get_ts_code(code),start_date=args.startdate,end_date=args.enddate)
+		except:
+			time.sleep(0.3)
+	return None
 
 EPISILON=0.001
 
 def getadj_handler(args,parser):
 	set_log_level(args)
-	tok = get_token(args)
-	tushare.set_token(tok)
-	pro = tushare.pro_api()
+	pro = create_ts(args)
 	for c in args.subnargs:
 		df = get_ts_adjcode(pro,args,c)
 		lastf = 0.0
@@ -109,6 +128,25 @@ def getadj_handler(args,parser):
 			if abs(curf - lastf)  > EPISILON:
 				output_file('%s %s %s %s\n'%(i,row['ts_code'],row['trade_date'],curf))
 			lastf = curf
+	return
+
+def get_ts_dailay(pro,args,c):
+	while True:
+		try:
+			return pro.query('daily',ts_code=get_ts_code(c),start_date=args.startdate,end_date=args.enddate)
+		except:
+			time.sleep(0.3)
+	return None
+
+def getdaily_handler(args,parser):
+	set_log_level(args)
+	pro = create_ts(args)
+	outf = open_output(args)
+	for c in args.subnargs:
+		df = get_ts_dailay(pro,args,c)
+		for i ,row in df.iterrows():
+			output_file('%s %s %s %s %s %s\n'%(row['ts_code'], row['trade_date'],row['open'],row['high'],row['low'],row['close']),outf)
+	close_output(outf)
 	return
 
 def main():
@@ -123,6 +161,9 @@ def main():
 			"$" : 0
 		},
 		"getadj<getadj_handler>" : {
+			"$" : "+"
+		},
+		"getdaily<getdaily_handler>" : {
 			"$" : "+"
 		}
 	}
