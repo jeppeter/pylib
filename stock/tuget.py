@@ -68,6 +68,9 @@ def create_ts(args):
 	tushare.set_token(tok)
 	return tushare.pro_api()
 
+
+
+
 def open_output(args):
 	outf = sys.stdout
 	if args.output is not None:
@@ -91,6 +94,42 @@ def get_all_list(pro,args):
 		except:
 			time.sleep(0.3)
 	return None
+
+def get_ts_code_args(pro,args):
+	retcode = []
+	if args.all:
+		df = get_all_list(pro,args)
+		for idx,row in df.iterrows():
+			retcode.append(row['symbol'])
+	elif args.complex:
+		for c in args.subnargs:
+			if '-' in c:
+				sarr = re.split('-',c)
+				startv = int(sarr[0])
+				endv = int(sarr[1])
+				idx = startv
+				while idx <= endv:
+					retcode.append('%06d'%(idx))
+					idx += 1
+			elif '*' in c:
+				sarr = re.split('\*', c)
+				startc = sarr[0]
+				endc = sarr[0]
+				while len(startc) < 6:
+					startc += '0'
+					endc += '9'
+				startv = int(startc)
+				endv = int(endc)
+				idx = startv
+				while idx < endv:
+					retcode.append('%06d'%(idx))
+					idx += 1
+			else:
+				retcode.append(c)
+	else:
+		retcode.extend(args.subnargs)
+	return retcode
+
 
 def getlist_handler(args,parser):
 	set_log_level(args)
@@ -120,7 +159,7 @@ EPISILON=0.001
 def getadj_handler(args,parser):
 	set_log_level(args)
 	pro = create_ts(args)
-	for c in args.subnargs:
+	for c in get_ts_code_args(pro,args):
 		df = get_ts_adjcode(pro,args,c)
 		lastf = 0.0
 		for i, row in df.iterrows():
@@ -142,12 +181,13 @@ def getdaily_handler(args,parser):
 	set_log_level(args)
 	pro = create_ts(args)
 	outf = open_output(args)
-	for c in args.subnargs:
+	for c in get_ts_code_args(pro,args):
 		df = get_ts_dailay(pro,args,c)
 		for i ,row in df.iterrows():
 			output_file('%s %s %s %s %s %s\n'%(row['ts_code'], row['trade_date'],row['open'],row['high'],row['low'],row['close']),outf)
 	close_output(outf)
 	return
+
 
 def main():
 	commandline_fmt = '''
@@ -157,14 +197,16 @@ def main():
 		"output|o" : null,
 		"startdate|S" : "20000101",
 		"enddate|E" : "%s",
+		"complex|C" : false,
+		"all|A": false,
 		"getlist<getlist_handler>##get all list##" : {
 			"$" : 0
 		},
 		"getadj<getadj_handler>" : {
-			"$" : "+"
+			"$" : "*"
 		},
 		"getdaily<getdaily_handler>" : {
-			"$" : "+"
+			"$" : "*"
 		}
 	}
 	'''
