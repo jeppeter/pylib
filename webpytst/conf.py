@@ -85,6 +85,24 @@ class Reboot(object):
 		return '''{"msg":"即将重启主机"}'''
 
 
+def read_file(infile=None):
+	fin = sys.stdin
+	if infile is not None:
+		fin = open(infile,'r+b')
+	rets = ''
+	for l in fin:
+		s = l
+		if 'b' in fin.mode:
+			if sys.version[0] == '3':
+				s = l.decode('utf-8')
+		rets += s
+
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	return rets
+
+
 class StaticFile(object):
 	def GET(self,*args):
 		logging.info('path [%s] args[%s]'%(web.ctx.path,args))
@@ -96,10 +114,10 @@ class StaticFile(object):
 		logging.info('path %s'%(path))
 		realpath = os.path.join(os.environ['BASE_STATIC'], path)
 		logging.info('file [%s]'%(realpath))
-		with open(realpath,'r+b') as fin:
-			data = fin.read()
-			return data.decode('gbk')
-		return ''
+		if realpath.endswith('.png'):
+			with open(realpath,'r+b') as fin:
+				return fin.read()
+		return read_file(realpath)
 
 
 def main():
