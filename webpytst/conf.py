@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import json
+import re
 
 def set_log_level(args):
 	loglvl= logging.ERROR
@@ -84,13 +85,34 @@ class Reboot(object):
 		return '''{"msg":"即将重启主机"}'''
 
 
+class StaticFile(object):
+	def GET(self,*args):
+		logging.info('path [%s] args[%s]'%(web.ctx.path,args))
+		logging.info('BASE_STATIC [%s]'%(os.environ['BASE_STATIC']))
+		path = web.ctx.path
+		if path == '/' :
+			path = '/index.html'
+		path = path[1:]
+		logging.info('path %s'%(path))
+		realpath = os.path.join(os.environ['BASE_STATIC'], path)
+		logging.info('file [%s]'%(realpath))
+		with open(realpath,'r+b') as fin:
+			data = fin.read()
+			return data.decode('gbk')
+		return ''
+
+
 def main():
-	commandline='''
+	commandline_fmt='''
 	{
 		"verbose|v" : "+",
-		"port|p" : 3000
+		"port|p" : 3000,
+		"basedir|B" : "%s"
 	}
 	'''
+	curdir = os.path.abspath(os.path.dirname(__file__))
+	curdir = curdir.replace('\\','\\\\')
+	commandline=commandline_fmt%(curdir)
 	urls = ('/conf', 'Conf',
 		'/conf/0','ConfNum',
 		'/conf/1','ConfNum',
@@ -103,11 +125,15 @@ def main():
 		'/setip/static','SetIP',
 		'/reboot', 'Reboot',
 		'/ipmi/password_get','Ipmi',
-		'/ipmi/password_set','Ipmi')
+		'/ipmi/password_set','Ipmi',
+		'/','StaticFile',
+		'/index.html','StaticFile',
+		'/(js|css|img|vendor)/(.*)','StaticFile')
 	parser = extargsparse.ExtArgsParse()
 	parser.load_command_line_string(commandline)
 	args = parser.parse_command_line(None,parser)
 	os.environ['PORT'] = '%s'%(args.port)
+	os.environ['BASE_STATIC'] = args.basedir
 	sys.argv[1:] = []
 	sys.argv.append('0.0.0.0')
 	set_log_level(args)
