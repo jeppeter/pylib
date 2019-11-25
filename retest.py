@@ -304,6 +304,55 @@ def Usage(ec,fmt,parser):
 		fp.write('%s\n'%(fmt))
 	parser.print_help(fp)
 	sys.exit(ec)
+	return
+
+
+def gnu_decode_func(funcname):
+	decname = funcname
+	origname = funcname
+	znexpr = re.compile('(_ZN([0-9]+))(.*)')
+	zlexpr = re.compile('(_ZL([0-9]+))(.*)')
+	zexpr = re.compile('(_Z([0-9]+))(.*)')
+	pexpr = re.compile('(P([0-9]+))(.*)')
+	nexpr = re.compile('([0-9]+)(.*)')
+	znm = znexpr.findall(funcname)
+	zlm = zlexpr.findall(funcname)
+	zm = zexpr.findall(funcname)
+
+	if znm is not None and len(znm) > 0:
+		vlen = int(znm[0][1])
+		if vlen <= len(znm[0][2]):
+			funcname = znm[0][2]
+			decname = funcname[:vlen]
+			funcname = funcname[vlen:]
+	elif zlm is not None and len(zlm) > 0:
+		vlen = int(zlm[0][1])
+		if vlen <= len(zlm[0][2]):
+			funcname = zlm[0][2]
+			decname = funcname[:vlen]
+			funcname = funcname[vlen:]		
+	elif zm is not None and len(zm) > 0:
+		vlen = int(zm[0][1])
+		if vlen <= len(zm[0][2]):
+			funcname = zm[0][2]
+			decname = funcname[:vlen]
+			funcname = funcname[vlen:]
+	nm = nexpr.findall(funcname)
+	if nm is not None and len(nm) > 0:
+		vlen = int(nm[0][0])
+		funcname = nm[0][1]
+		if vlen <= len(funcname):
+			decname += '::'
+			decname += funcname[:vlen]
+	return decname
+
+
+def gnudec_handler(args,parser):
+	set_logging(args)
+	for c in args.subnargs:
+		sys.stdout.write('[%s] decode [%s]\n'%(c,gnu_decode_func(c)))
+	sys.exit(0)
+	return
 
 
 
@@ -352,6 +401,9 @@ command = {
 	},
 	'isearch<isearch>##re.search ignore case ##' : {
 		'$' : '+'
+	},
+	"gnufuncdec<gnudec_handler>##funcname ...  to decode gnu function decode##" : {
+		"$" : "+"
 	}
 }
 
