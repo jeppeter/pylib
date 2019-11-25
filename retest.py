@@ -11,6 +11,8 @@ def set_logging(args):
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
+	if logging.root is not None and len(logging.root.handlers) > 0:
+		logging.root.handlers = []
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
@@ -310,11 +312,11 @@ def Usage(ec,fmt,parser):
 def gnu_decode_func(funcname):
 	decname = funcname
 	origname = funcname
-	znexpr = re.compile('(_ZN([0-9]+))(.*)')
-	zlexpr = re.compile('(_ZL([0-9]+))(.*)')
-	zexpr = re.compile('(_Z([0-9]+))(.*)')
-	pexpr = re.compile('(P([0-9]+))(.*)')
-	nexpr = re.compile('([0-9]+)(.*)')
+	znexpr = re.compile('^(_ZN([0-9]+))(.*)')
+	zlexpr = re.compile('^(_ZL([0-9]+))(.*)')
+	zexpr = re.compile('^(_Z([0-9]+))(.*)')
+	pexpr = re.compile('^(P([0-9]+))(.*)')
+	nexpr = re.compile('^([0-9]+)(.*)')
 	znm = znexpr.findall(funcname)
 	zlm = zlexpr.findall(funcname)
 	zm = zexpr.findall(funcname)
@@ -330,7 +332,7 @@ def gnu_decode_func(funcname):
 		if vlen <= len(zlm[0][2]):
 			funcname = zlm[0][2]
 			decname = funcname[:vlen]
-			funcname = funcname[vlen:]		
+			funcname = funcname[vlen:]
 	elif zm is not None and len(zm) > 0:
 		vlen = int(zm[0][1])
 		if vlen <= len(zm[0][2]):
@@ -344,6 +346,7 @@ def gnu_decode_func(funcname):
 		if vlen <= len(funcname):
 			decname += '::'
 			decname += funcname[:vlen]
+	logging.info('origname [%s] decname[%s]'%(origname, decname))
 	return decname
 
 
