@@ -94,14 +94,15 @@ class Caller(object):
 		return self.__format()
 
 class Callee(object):
-	def __init__(self,func,offset,lineno):
+	def __init__(self,func,offset,lineno,s):
 		self.function = func
 		self.offset = offset
 		self.lineno = lineno
+		self.str = s
 		return
 
 	def __format(self):
-		return 'Callee<%s:0x%x:line(%d)>'%(self.function,self.offset,self.lineno)
+		return 'Callee<%s:0x%x:line(%d)>[%s]'%(self.function,self.offset,self.lineno,self.str)
 
 	def __str__(self):
 		return self.__format()
@@ -122,10 +123,16 @@ class ElfFunctions(object):
 		self.funcstartexpr = re.compile('^([0-9a-fA-F]+)\\s+<([^>]+)>:')
 		self.funcoffsetexpr = []
 		self.funccallexpr = []
-		self.bytecodeoffsetexpr = re.compile('^([0-9a-fA-F]+):')
+		self.funcoffsetstr = []
+		self.funccallstr = []
+		self.bytecodeoffsetexpr = re.compile('^[\\s]*([0-9a-fA-F]+):')
 		for f in funcs:
-			self.funcoffsetexpr.append(re.compile('\\s<(%s)\\+0[xX]([0-9a-fA-F]+)>$'%(f)))
-			self.funccallexpr.append(re.compile('\\s<(%s)>$'%(f)))
+			offsetstr = '\\s<(%s)\\+0[xX]([0-9a-fA-F]+)>$'%(f)
+			self.funcoffsetstr.append(offsetstr)
+			self.funcoffsetexpr.append(re.compile(offsetstr))
+			callstr = '\\s<(%s)>$'%(f)
+			self.funccallstr.append(callstr)
+			self.funccallexpr.append(re.compile(callstr))
 		logging.info(' ')
 		return
 
@@ -146,8 +153,6 @@ class ElfFunctions(object):
 	def parse_callmap(self,s,ctx):
 		s = s.rstrip('\r\n')
 		self.lineno += 1
-		if (self.lineno % 50000) == 0 :
-			logging.info('[%d]%s'%(self.lineno,s))
 		m = self.funcstartexpr.findall(s)
 		if m is not None:
 			if len(m) > 0 and len(m[0]) > 1:
@@ -163,15 +168,17 @@ class ElfFunctions(object):
 			f = self.funcoffsetexpr[idx]
 			fname = self.functions[idx]
 			m = f.findall(s)
-			if m is not None:
+			if m is not None and len(m) > 0 :
 				assert(self.callers[self.curfunc])
+				logging.info('[%s]match [%s] [%s]'%(self.lineno,self.funcoffsetstr[idx], s))
 				m2 = self.bytecodeoffsetexpr.findall(s)
 				if m2 is not None and len(m2) > 0:
 					fileoffset = int(m2[0],16)
 					if fname not in self.calloffsets:
 						self.calloffsets[fname] = []
-					callee =Callee(self.curfunc, fileoffset - self.callers[self.curfunc].offset,self.lineno)
+					callee =Callee(self.curfunc, fileoffset - self.callers[self.curfunc].offset,self.lineno,s)
 					self.calloffsets[fname].append(callee)
+					logging.info('[%s] append [%s]'%(fname,callee))
 					matched += 1
 			idx += 1
 		if matched > 0:
@@ -181,15 +188,17 @@ class ElfFunctions(object):
 			f = self.funccallexpr[idx]
 			fname = self.functions[idx]
 			m = f.findall(s)
-			if m is not None:
+			if m is not None and len(m) > 0:
 				assert(self.callers[self.curfunc])
+				logging.info('[%s]match [%s] [%s]'%(self.lineno,self.funccallstr[idx], s))
 				m2 = self.bytecodeoffsetexpr.findall(s)
 				if m2 is not None and len(m2) > 0:
 					fileoffset = int(m2[0],16)
 					if fname not in self.callmaps:
 						self.callmaps[fname] = []
-					callee = Callee(self.curfunc,fileoffset -self.callers[self.curfunc].offset, self.lineno)
+					callee = Callee(self.curfunc,fileoffset -self.callers[self.curfunc].offset, self.lineno,s)
 					self.callmaps[fname].append(callee)
+					logging.info('[%s] append [%s]'%(fname,callee))
 					matched += 1
 			idx += 1
 		return
@@ -213,9 +222,13 @@ def callmap_handler(args,parser):
 		sys.stdout.write('%s:[%d]\n'%(f,num))
 		if f in elffunc.callmaps:
 			idx = 0
-			for m in self.callmaps[f]:
+			for m in elffunc.callmaps[f]:
 				sys.stdout.write('    [%d]%s\n'%(idx,m))
-				idx += 1				
+				idx += 1
+			idx = 0
+			for m in elffunc.calloffsets[f]:
+				sys.stdout.write('    [%d]%s\n'%(idx,m))
+				idx += 1
 	sys.exit(0)
 	return
 
