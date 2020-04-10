@@ -6,6 +6,9 @@ def xxc(gpio,X):
 	print('X %s'%(X))
 	return X
 m = custom.Custom()
-m.setcall(30,callback=xxc,args=30)
-v = m.call()
-print('call back %s'%(v))
+#m.setcall(30,xxc,30)
+#v = m.call()
+#print('call back %s'%(v))
+m.first = 'xxx'
+m.last = 'zzz'
+print('%s'%(m.name()))

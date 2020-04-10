@@ -17,19 +17,25 @@ static void
 Custom_dealloc(CustomObject *self)
 {
     Py_XDECREF(self->first);
+    self->first = NULL;
     Py_XDECREF(self->last);
+    self->last = NULL;
     Py_XDECREF(self->callback);
+    self->callback = NULL;
     Py_XDECREF(self->args);
-    puts("deallocating weird pointer");
+    self->args = NULL;
+    printf("Py_TYPE[%p]\n",Py_TYPE(self));
+    printf("Py_TYPE->tp_free[%p] _PyObject_GC_New[%p]\n",Py_TYPE(self)->tp_free,_PyObject_GC_New);
     Py_TYPE(self)->tp_free((PyObject *) self);
+    printf("call after free\n");
 }
 
 static PyObject *
 Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     CustomObject *self;
-    //self = (CustomObject *) type->tp_alloc(type, 0);
-    self = PyObject_New(CustomObject, &CustomType);
+    self = (CustomObject *) type->tp_alloc(type, 0);
+    //self = PyObject_New(CustomObject, &CustomType);
     if (self != NULL) {
         self->first = NULL;
         self->last = NULL;
@@ -108,20 +114,22 @@ Custom_name(CustomObject *self, PyObject *ignored)
 
 static PyObject* Custom_set_callback(PyObject* self1, PyObject* args,PyObject *kwargs)
 {
-    static char *kwlist[] = {"callback", "args", NULL};
+    //static char *kwlist[] = {"callback", "args", NULL};
     int gpio=0;
     int ret;
     CustomObject* self = (CustomObject*) self1;
     PyObject* oldcallback=NULL;
     PyObject* oldarg=NULL;
     PyObject* callback=NULL,*argval = NULL;
-    ret = PyArg_ParseTupleAndKeywords(args,kwargs,"i|OO:set_callback",kwlist,&gpio,&callback,&argval);
+    ret = PyArg_ParseTuple(args,"iOO:set_callback",&gpio,&callback,&argval);
+    printf("retval [%d]\n",ret);
     if (ret == 0) {
         return NULL;
     }
     /*now to set for */
     oldcallback = self->callback;
     self->callback = callback;
+    self->gpio = gpio;
     Py_XDECREF(oldcallback);
     Py_XINCREF(self->callback);
 
@@ -129,7 +137,7 @@ static PyObject* Custom_set_callback(PyObject* self1, PyObject* args,PyObject *k
     self->args = argval;
     Py_XDECREF(oldarg);
     Py_XINCREF(self->args);
-    return NULL;
+    return Py_None;
 }
 
 static PyObject* Custom_call(PyObject* self1, PyObject* args,PyObject* kwargs)
