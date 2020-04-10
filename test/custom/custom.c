@@ -5,6 +5,9 @@ typedef struct {
     PyObject_HEAD
     PyObject *first; /* first name */
     PyObject *last;  /* last name */
+    PyObject *callback;
+    PyObject *args;
+    int gpio;
     int number;
 } CustomObject;
 
@@ -15,6 +18,8 @@ Custom_dealloc(CustomObject *self)
 {
     Py_XDECREF(self->first);
     Py_XDECREF(self->last);
+    Py_XDECREF(self->callback);
+    Py_XDECREF(self->args);
     puts("deallocating weird pointer");
     Py_TYPE(self)->tp_free((PyObject *) self);
 }
@@ -26,6 +31,12 @@ Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     //self = (CustomObject *) type->tp_alloc(type, 0);
     self = PyObject_New(CustomObject, &CustomType);
     if (self != NULL) {
+        self->first = NULL;
+        self->last = NULL;
+        self->callback = NULL;
+        self->args = NULL;
+        self->number = 0;
+
         self->first = PyUnicode_FromString("");
         if (self->first == NULL) {
             Py_DECREF(self);
@@ -95,16 +106,63 @@ Custom_name(CustomObject *self, PyObject *ignored)
 #endif
 }
 
+static PyObject* Custom_set_callback(PyObject* self1, PyObject* args,PyObject *kwargs)
+{
+    static char *kwlist[] = {"callback", "args", NULL};
+    int gpio=0;
+    int ret;
+    CustomObject* self = (CustomObject*) self1;
+    PyObject* oldcallback=NULL;
+    PyObject* oldarg=NULL;
+    PyObject* callback=NULL,*argval = NULL;
+    ret = PyArg_ParseTupleAndKeywords(args,kwargs,"i|OO:set_callback",kwlist,&gpio,&callback,&argval);
+    if (ret == 0) {
+        return NULL;
+    }
+    /*now to set for */
+    oldcallback = self->callback;
+    self->callback = callback;
+    Py_XDECREF(oldcallback);
+    Py_XINCREF(self->callback);
+
+    oldarg = self->args;
+    self->args = argval;
+    Py_XDECREF(oldarg);
+    Py_XINCREF(self->args);
+    return NULL;
+}
+
+static PyObject* Custom_call(PyObject* self1, PyObject* args,PyObject* kwargs)
+{
+    PyObject* retval = Py_None;
+    PyObject* arglist = NULL;
+    CustomObject* self = (CustomObject*) self1;
+
+    if (self->callback != NULL) {
+        arglist = Py_BuildValue("iO",self->gpio,self->args ? self->args : Py_None);
+        if (arglist == NULL) {
+            PyErr_SetString(PyErr_NoMemory(),"no memory for arglist");
+            return NULL;
+        }
+
+        retval = PyEval_CallObject(self->callback,arglist);
+        Py_XDECREF(arglist);
+    }
+    return retval;
+}
+
 static PyMethodDef Custom_methods[] = {
     {"name", (PyCFunction) Custom_name, METH_NOARGS,
      "Return the name, combining the first and last name"
     },
+    {"setcall",(PyCFunction)Custom_set_callback,METH_VARARGS | METH_KEYWORDS,"set call back functions"},
+    {"call", (PyCFunction)Custom_call, METH_NOARGS,"call callback"},
     {NULL}  /* Sentinel */
 };
 
 static PyTypeObject CustomType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "custom2.Custom",
+    .tp_name = "custom.Custom",
     .tp_doc = "Custom objects",
     .tp_basicsize = sizeof(CustomObject),
     .tp_itemsize = 0,
@@ -120,7 +178,7 @@ static PyTypeObject CustomType = {
 #if PY_MAJOR_VERSION >= 3
 static PyModuleDef custommodule = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "custom2",
+    .m_name = "custom",
     .m_doc = "Example module that creates an extension type.",
     .m_size = -1,
 };
