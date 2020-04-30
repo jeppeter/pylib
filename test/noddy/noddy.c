@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <pthread.h>
 #include "structmember.h"
 
 #define DEBUG(...)  do{fprintf(stderr,"[%s:%d]:",__FILE__,__LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n");}while(0)
@@ -137,10 +138,14 @@ static PyObject *Noddy_name(Noddy* self)
     return result;
 }
 
-static PyObject *Noddy_call(Noddy* self)
+static void* call_thread(void* arg)
 {
-    PyObject *result=Py_None;
+    PyObject* result=NULL;
+    Noddy* self = (Noddy*)arg;
     PyObject *arglist = NULL;
+    PyGILState_STATE  state;
+    state = PyGILState_Ensure();
+
 
     if (self->callfunc != Py_None && 
         self->callfunc != NULL) {
@@ -152,15 +157,40 @@ static PyObject *Noddy_call(Noddy* self)
             DEBUG(" ");
         }
         if (arglist == NULL) {
-            return NULL;
+            goto out;
         }        
         result = PyEval_CallObject(self->callfunc,arglist);
         if (PyErr_Occurred()) {
             DEBUG(" ");
         }
+        if (result != NULL) {
+            Py_INCREF(result);
+        }
     }
+out:
+    PyGILState_Release(state);
+    pthread_exit(result);
+}
 
-    return result;
+static PyObject *Noddy_call(Noddy* self)
+{
+    pthread_t thrid=0;
+    int ret;
+    PyObject* pret=NULL;
+    Py_BEGIN_ALLOW_THREADS
+    ret = pthread_create(&thrid,NULL,call_thread,self);
+    if (ret != 0) {
+        Py_BLOCK_THREADS
+        return Py_BuildValue("O",Py_None);
+    }
+    pthread_join(thrid,(void**)&pret);
+    
+    if (pret == NULL) {
+        pret = Py_BuildValue("O",Py_None);
+    }
+    Py_UNBLOCK_THREADS
+    Py_END_ALLOW_THREADS
+    return pret;
 }
 
 
