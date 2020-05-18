@@ -138,14 +138,27 @@ static PyObject *Noddy_name(Noddy* self)
     return result;
 }
 
+static PyThreadState *mainstate=NULL;
+
+
 static void* call_thread(void* arg)
 {
     PyObject* result=NULL;
     Noddy* self = (Noddy*)arg;
     PyObject *arglist = NULL;
-    PyGILState_STATE  state;
-    state = PyGILState_Ensure();
+    PyThreadState *threadstate=NULL;
+    PyInterpreterState* interstate = NULL;
+    PyEval_AcquireLock();
 
+    if (mainstate == NULL) {
+        PyEval_ReleaseLock();
+        pthread_exit((void*)2);
+    }
+
+    interstate = mainstate->interp;
+    threadstate = PyThreadState_New(interstate);
+
+    PyThreadState_Swap(threadstate);
 
     if (self->callfunc != Py_None && 
         self->callfunc != NULL) {
@@ -167,8 +180,10 @@ static void* call_thread(void* arg)
             Py_INCREF(result);
         }
     }
+    PyThreadState_Swap(mainstate);
 out:
-    PyGILState_Release(state);
+    PyEval_ReleaseLock();
+    DEBUG("result ");
     pthread_exit(result);
 }
 
@@ -176,20 +191,26 @@ static PyObject *Noddy_call(Noddy* self)
 {
     pthread_t thrid=0;
     int ret;
+    void* pgetret=NULL;
     PyObject* pret=NULL;
-    Py_BEGIN_ALLOW_THREADS
+    if (!Py_IsInitialized()) {
+        DEBUG(" ");
+        Py_Initialize();
+    }
+    PyEval_InitThreads();
+    mainstate = PyEval_SaveThread();
+
     ret = pthread_create(&thrid,NULL,call_thread,self);
     if (ret != 0) {
-        Py_BLOCK_THREADS
         return Py_BuildValue("O",Py_None);
     }
-    pthread_join(thrid,(void**)&pret);
+    DEBUG("thrid [%ld]",thrid);
+    pthread_join(thrid,(void**)&pgetret);
+    PyEval_RestoreThread(mainstate);
     
     if (pret == NULL) {
         pret = Py_BuildValue("O",Py_None);
-    }
-    Py_UNBLOCK_THREADS
-    Py_END_ALLOW_THREADS
+    }    
     return pret;
 }
 
