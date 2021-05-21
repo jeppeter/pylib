@@ -48,13 +48,26 @@ def write_file(s,outfile=None):
 	fout = None
 	return 
 
+def append_file(s,outfile=None):
+	fout = sys.stdout
+	if outfile is not None:
+		fout = open(outfile, 'a+b')
+	outs = s
+	if 'b' in fout.mode:
+		outs = s.encode('utf-8')
+	fout.write(outs)
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
+	return 
+
 
 def append_handler(args,parser):
 	set_logging(args)
 	s = ''
 	for l in args.subnargs:
 		s += '%s\n'%(l)
-	write_file(s,args.tn)
+	append_file(s,args.tn)
 	sys.exit(0)
 	return
 
