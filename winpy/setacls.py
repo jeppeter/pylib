@@ -13,11 +13,14 @@ import re
 
 WIN_MAX_PATH=255
 
-def run_cmd(cmd):
+def run_cmd(cmd,verbose=0):
 	logging.info('run %s'%(cmd))
 	nullfd = open('NUL','w')
 	#nullfd = None
-	subprocess.check_call(cmd,stdout=nullfd)
+	if verbose < 3:
+		subprocess.check_call(cmd,stdout=nullfd)
+	else:
+		subprocess.check_call(cmd)
 	nullfd.close()
 	return
 
@@ -250,6 +253,38 @@ def removedeny_handler(args,parser):
 	sys.exit(0)
 	return
 
+def set_full_grant(fname, username,verbose):
+	idx = 0
+	logging.info('set [%s] full => [%s]'%(username,fname))
+	run_cmd(['icacls.exe',fname,'/remove:d',username],verbose)
+	run_cmd(['icacls.exe',fname,'/remove:g',username],verbose)
+	run_cmd(['icacls.exe',fname,'/grant','%s:(OI)(CI)F'%(username)],verbose)
+	return
+
+
+
+def set_full_grant_dir(dname,recursive,username,verbose):
+	curd = os.path.abspath(dname)
+	files = os.listdir(curd)
+	retval = 0
+	for f in files:
+		if f != '.' and f != '..':
+			curf = os.path.join(curd,f)
+			set_full_grant(curf,username,verbose)
+			retval += 1
+			if os.path.isdir(curf) and recursive:
+				retval += set_full_grant_dir(curf,recursive,username,verbose)
+	return retval
+
+def setfullgrant_handler(args,parser):
+	set_log_level(args)
+	username = args.subnargs[0]
+	for d in args.subnargs[1:]:
+		set_full_grant_dir(d,args.recursive,username,args.verbose)
+	sys.exit(0)
+	return
+
+
 def main():
 	commandline='''
 	{
@@ -266,6 +301,9 @@ def main():
 			"$" : "+"
 		},
 		"removedeny<removedeny_handler>" : {
+			"$" : "+"
+		},
+		"setfullgrant<setfullgrant_handler>## user dirs ... to set user to dirs full##" : {
 			"$" : "+"
 		}
 	}
