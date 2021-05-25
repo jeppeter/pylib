@@ -7,6 +7,8 @@ import extargsparse
 import subprocess
 import logging
 import platform
+import cmdpack
+import re
 
 
 WIN_MAX_PATH=255
@@ -210,7 +212,43 @@ def grant_handler(args,parser):
 		set_grant(args,d,'EveryOne',args.recursive)
 	sys.exit(0)
 	return
+def remove_deny_real(d,filternames):
+	idx = 0	
+	denyexpr = re.compile('(.*):\\(DENY\\)',re.I)
+	for l in cmdpack.run_cmd_output(['icacls.exe',d]):
+		idx += 1
+		l = l.rstrip('\r\n')
+		if idx == 1 :
+			l = l.replace(d,'',1)
+		m = denyexpr.findall(l)
+		if m is not None and len(m) >0 :
+			user = m[0]
+			user = user.strip(' \t')
+			logging.info('remove DENY[%s] for [%s] '%(user,d))
+			subprocess.check_call(['icacls.exe',d,'/remove:d',user])
+	return
 
+def remove_deny(dname,recursive,filternames):
+	curd = os.path.abspath(dname)
+	files = os.listdir(curd)
+	retval = 0
+	for f in files:
+		if f != '.' and f != '..':
+			curf = os.path.join(curd,f)
+			logging.info('f[%s]'%(os.path.join(curd,f)))
+			remove_deny_real(curf,filternames)
+			retval += 1
+			if os.path.isdir(curf) and recursive:
+				retval += remove_deny(curf,recursive,filternames)				
+	return retval
+
+
+def removedeny_handler(args,parser):
+	set_log_level(args)
+	for d in args.subnargs:
+		remove_deny(d,args.recursive,[])
+	sys.exit(0)
+	return
 
 def main():
 	commandline='''
@@ -225,6 +263,9 @@ def main():
 			"$" : "+"
 		},
 		"setown<setown_handler>" : {
+			"$" : "+"
+		},
+		"removedeny<removedeny_handler>" : {
 			"$" : "+"
 		}
 	}
