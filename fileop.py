@@ -233,11 +233,16 @@ def get_path_split():
         return '\\'
     return '/'
 
-def filter_path_array(sarr):
+def filter_path_array(partpath,sarr):
     retsarr = []
     sarr = sorted(sarr)
     idx = 0
     curf = None
+    partpath = os.path.abspath(partpath)
+    if is_in_windows():
+        partpath += '\\'
+    else:
+        partpath += '/'
     while idx < len(sarr):
         if curf is None:
             curf = sarr[idx]
@@ -246,11 +251,13 @@ def filter_path_array(sarr):
         if sarr[idx].startswith(curf) and sarr[idx].startswith(curf + get_path_split()):
             idx += 1
             continue
+        curf = curf.replace(partpath,'',1)
         retsarr.append(curf)
         curf = sarr[idx]
         idx += 1
         continue
     if curf is not None:
+        curf = curf.replace(partpath,'',1)
         retsarr.append(curf)
     return retsarr
 
@@ -297,8 +304,8 @@ def format_slen_middle(s,slen):
     return rets
 
 def display_diff(srcd,dstd,srcfs,dstfs,cmpfs):
-    srcfs = filter_path_array(srcfs)
-    dstfs = filter_path_array(dstfs)
+    srcfs = filter_path_array(srcd,srcfs)
+    dstfs = filter_path_array(dstd,dstfs)
     cmpfs = sorted(cmpfs)
     s = ''
     ms = MaxSize()
@@ -342,7 +349,7 @@ def display_diff(srcd,dstd,srcfs,dstfs,cmpfs):
             if df is None:
                 selidx = 1
             elif cf is None:
-                pass
+                selidx = 2
             else:
                 if cf < df:
                     selidx = 1
@@ -364,6 +371,7 @@ def display_diff(srcd,dstd,srcfs,dstfs,cmpfs):
             else:
                 if cf < sf:
                     selidx = 1
+        logging.info('selidx [%d] sidx [%d] cidx[%d] didx [%d]'%(selidx,sidx,cidx,didx))
         if selidx == 0:
             s += '%-*s|%-*s|%*s'%(ms.slen,sf,ms.clen,' ',ms.dlen,' ')
             sidx += 1
