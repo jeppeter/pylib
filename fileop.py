@@ -79,6 +79,19 @@ def write_file(s,outfile=None):
     fout = None
     return 
 
+def write_file_bytes(sarr,outfile=None):
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'wb')
+    if 'b' not in fout.mode:
+        fout.buffer.write(sarr)
+    else:        
+        fout.write(sarr)
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    return 
+
 def display_file(f,c):
     sys.stdout.write('[%s] ----------\n'%(f))
     sys.stdout.write('%s'%(c))
@@ -394,6 +407,23 @@ def diff_handler(args,parser):
     sys.exit(0)
     return
 
+def writebyte_handler(args,parser):
+    set_logging(args)
+    srcf = None
+    dstf = None
+    if len(args.subnargs) > 0:        
+        srcf = args.subnargs[0]
+        if srcf == '-':
+            srcf = None
+    if len(args.subnargs) > 1:
+        dstf = args.subnargs[1]
+        if dstf == '-':
+            dstf = None
+    sarr = read_file_bytes(srcf)
+    write_file_bytes(sarr,dstf)
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -411,6 +441,9 @@ def main():
         },
         "diff<diff_handler>## adir bdir  ##" : {
             "$" : 2
+        },
+        "writebytes<writebyte_handler>## src dst ##" : {
+            "$" : "*"
         }
     }
     '''
