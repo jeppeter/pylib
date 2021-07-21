@@ -38,6 +38,20 @@ def read_file(infile=None):
 	fin = None
 	return rets
 
+def write_file(s,outfile=None):
+	fout = sys.stdout
+	if outfile is not None:
+		fout = open(outfile, 'w+b')
+	outs = s
+	if 'b' in fout.mode:
+		outs = s.encode('utf-8')
+	fout.write(outs)
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
+	return 
+
+
 def makedir_safe(d):
 	if os.path.isdir(d):
 		return
@@ -68,13 +82,45 @@ def xcopy_handler(args,parser):
 	sys.exit(0)
 	return
 
+def bin_to_string(args,ins):
+	rets = ''
+	retb = b''
+	sarr = re.split('\n',ins)
+	for s in sarr:
+		s = s.rstrip('\r\n')
+		s = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
+		cursarr = re.split('\\s+',s)
+		for c in cursarr:
+			if c.startswith('0x') or c.startswith('0X'):
+				retb += bytes([int(c[2:],16)])
+	if args.utf8mode:
+		rets = retb.decode('utf-8')
+	else:
+		rets = retb.decode('ascii')
+	return rets
+
+def bintostr_handler(args,parser):
+	set_logging(args)
+	for f in args.subnargs:
+		bins = read_file(f)
+		s = bin_to_string(args,bins)
+		write_file(s,args.output)
+
+	sys.exit(0)
+	return
+
 
 def main():
 	commandline='''
 	{
 		"verbose|v" : "+",
 		"input|i" : null,
+		"utf8mode|U" : false,
+		"output|o" : null,
 		"xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
+			"$" : "+"
+		},
+		"bintostr<bintostr_handler>## inputfile to dump bin to string##" : {
 			"$" : "+"
 		}
 
