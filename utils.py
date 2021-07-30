@@ -6,6 +6,7 @@ import os
 import logging
 import re
 import shutil
+import logging.handlers
 
 
 def set_logging(args):
@@ -14,11 +15,49 @@ def set_logging(args):
 		loglvl = logging.DEBUG
 	elif args.verbose >= 2:
 		loglvl = logging.INFO
-	if logging.root is not None and len(logging.root.handlers) > 0:
-		logging.root.handlers = []
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	curlog = logging.getLogger(args.lognames)
+	#sys.stderr.write('curlog [%s][%s]\n'%(args.logname,curlog))
+	curlog.setLevel(loglvl)
+	if len(curlog.handlers) > 0 :
+		curlog.handlers = []
+	formatter = logging.Formatter('%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d<%(levelname)s>\t%(message)s')
+	if not args.lognostderr:
+		logstderr = logging.StreamHandler()
+		logstderr.setLevel(loglvl)
+		logstderr.setFormatter(formatter)
+		curlog.addHandler(logstderr)
+
+	for f in args.logfiles:
+		flog = logging.FileHandler(f,mode='w',delay=False)
+		flog.setLevel(loglvl)
+		flog.setFormatter(formatter)
+		curlog.addHandler(flog)
+	for f in args.logappends:		
+		if args.logrotate:
+			flog = logging.handlers.RotatingFileHandler(f,mode='a',maxBytes=args.logmaxbytes,backupCount=args.logbackupcnt,delay=0)
+		else:
+			sys.stdout.write('appends [%s] file\n'%(f))
+			flog = logging.FileHandler(f,mode='a',delay=0)
+		flog.setLevel(loglvl)
+		flog.setFormatter(formatter)
+		curlog.addHandler(flog)
 	return
 
+def load_log_commandline(parser):
+	logcommand = '''
+	{
+		"verbose|v" : "+",
+		"logname" : "root",
+		"logfiles" : [],
+		"logappends" : [],
+		"logrotate" : true,
+		"logmaxbytes" : 10000000,
+		"logbackupcnt" : 2,
+		"lognostderr" : false
+	}
+	'''
+	parser.load_command_line_string(logcommand)
+	return parser
 
 
 def read_file(infile=None):
@@ -102,6 +141,7 @@ def bin_to_string(args,ins):
 def bintostr_handler(args,parser):
 	set_logging(args)
 	for f in args.subnargs:
+		logging.info('read [%s]'%(f))
 		bins = read_file(f)
 		s = bin_to_string(args,bins)
 		write_file(s,args.output)
@@ -110,10 +150,26 @@ def bintostr_handler(args,parser):
 	return
 
 
+def testlog_handler(args,parser):
+	set_logging(args)
+	timeval = 10
+	if len(args.subnargs) > 0:
+		timeval = int(args.subnargs[0])
+	for i in range(timeval):
+		logging.info('[%d] value'%(i))
+		logging.fatal('[%d] value'%(i))
+		logging.error('[%d] value'%(i))
+		logging.debug('[%d] value'%(i))
+		if sys.version[0] == '3':
+			logging.warning('[%d] value'%(i))
+		else:
+			logging.warn('[%d] value'%(i))
+	sys.exit(0)
+	return
+
 def main():
 	commandline='''
 	{
-		"verbose|v" : "+",
 		"input|i" : null,
 		"utf8mode|U" : false,
 		"output|o" : null,
@@ -122,12 +178,16 @@ def main():
 		},
 		"bintostr<bintostr_handler>## inputfile to dump bin to string##" : {
 			"$" : "+"
+		},
+		"testlog<testlog_handler>## time ##" : {
+			"$" : "?"
 		}
 
 	}
 	'''
 	parser = extargsparse.ExtArgsParse()
 	parser.load_command_line_string(commandline)
+	load_log_commandline(parser)
 	parser.parse_command_line(None,parser)
 	raise Exception('can not reach here')
 	return
