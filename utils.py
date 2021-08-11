@@ -7,6 +7,7 @@ import logging
 import re
 import shutil
 import logging.handlers
+import time
 
 
 def set_logging(args):
@@ -167,6 +168,22 @@ def testlog_handler(args,parser):
 	sys.exit(0)
 	return
 
+def testout_handler(args,parser):
+	set_logging(args)
+	timeval = 1.0
+	if len(args.subnargs) > 0:
+		timeval = float(args.subnargs[0])
+	for l in sys.stdin:
+		sys.stdout.write('%s'%(l))
+		sys.stderr.write('%s'%(l))
+		time.sleep(timeval)
+	sys.stdout.flush()
+	sys.stderr.flush()
+	time.sleep(timeval)
+	sys.exit(0)
+	return
+
+
 def main():
 	commandline='''
 	{
@@ -180,6 +197,9 @@ def main():
 			"$" : "+"
 		},
 		"testlog<testlog_handler>## time ##" : {
+			"$" : "?"
+		},
+		"testout<testout_handler>##timesleep to sleep for a single line from read stdin default 1.0##" : {
 			"$" : "?"
 		}
 
