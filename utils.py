@@ -128,7 +128,11 @@ def bin_to_string(args,ins):
 	sarr = re.split('\n',ins)
 	for s in sarr:
 		s = s.rstrip('\r\n')
-		s = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
+		ns = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
+		if ns == s:
+			ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
+		s = ns
+		logging.info('s [%s]'%(s))
 		cursarr = re.split('\\s+',s)
 		for c in cursarr:
 			if c.startswith('0x') or c.startswith('0X'):
