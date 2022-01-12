@@ -92,6 +92,17 @@ def write_file(s,outfile=None):
 	return 
 
 
+def get_strval(v):
+	base = 10
+	iv = v
+	if v.startswith('x') or v.startswith('X') :
+		base= 16
+		iv = v[1:]
+	elif v.startswith('0x') or v.startswith('0X'):
+		base = 16
+		iv = v[2:]
+	return int(iv,base)
+
 def makedir_safe(d):
 	if os.path.isdir(d):
 		return
@@ -187,6 +198,68 @@ def testout_handler(args,parser):
 	sys.exit(0)
 	return
 
+def utf8touni_handler(args,parser):
+	set_logging(args)
+	outb = []
+	inb = []
+	for v in args.subnargs:
+		inb.append(get_strval(v))
+	idx = 0
+	while idx < len(inb):
+		if inb[idx] <= 0x7f:
+			outb.append(inb[idx])
+			idx += 1
+		elif ((inb[idx] & 0xe0) == 0xc0)  :
+			if (idx + 1) >= len(inb):
+				raise Exception('%d out'%(idx))
+			if inb[idx+1] & 0xc0 != 0x80:
+				raise Exception('%d not valid 0b10'%(idx))
+			cv1 = inb[idx] & 0x1f
+			cv2 = inb[idx+1] & 0x3f
+			tv = (cv1 << 6) | cv2
+			outb.append((tv >> 8) & 0xff)
+			outb.append((tv & 0xff))
+			idx += 2
+		elif ((inb[idx] & 0xf0) == 0xe0):
+			if (idx + 2)  >= len(inb):
+				raise Exception('%d out'%(idx))
+			if inb[idx+1] & 0xc0 != 0x80 or inb[idx+2] & 0xc0 != 0x80:
+				raise Exception('%d not valid 0b10'%(idx))
+			cv1 = inb[idx] & 0xf
+			cv2 = inb[idx+1] & 0x3f
+			cv3 = inb[idx+2] & 0x3f
+			tv = (cv1 << 12) | (cv2 << 6)  | cv3 
+			outb.append((tv >> 8) & 0xff)
+			outb.append((tv & 0xff))
+			idx += 3
+		elif ((inb[idx] & 0xf1) == 0xf0):
+			if (idx + 3) >= len(inb):
+				raise Exception('%d out'%(idx))
+			if inb[idx+1] & 0xc0 != 0x80 or inb[idx+2] & 0xc0 != 0x80 or inb[idx+3] & 0xc0 != 0x80:
+				raise Exception('%d not valid 0b10'%(idx))
+			cv1 = inb[idx] & 0xf
+			cv2 = inb[idx+1] & 0x3f
+			cv3 = inb[idx+2] & 0x3f
+			cv4 = inb[idx+3] & 0x3f
+			tv = (cv1 << 18) | (cv2 << 12)  | (cv3  << 6) | cv4
+			outb.append((tv >> 8) & 0xff)
+			outb.append((tv & 0xff))
+			idx += 4
+		else:
+			raise Exception('%d not valid'%(idx))
+	idx = 0
+	sys.stdout.write('trans out:')
+	while idx < len(outb):
+		if (idx % 16) == 0:
+			sys.stdout.write('\n')
+		if (idx % 16) != 0:
+			sys.stdout.write(' ')
+		sys.stdout.write('0x%x'%(outb[idx]))
+		idx += 1
+	sys.stdout.write('\n')
+	sys.exit(0)
+	return
+
 
 def main():
 	commandline='''
@@ -205,6 +278,9 @@ def main():
 		},
 		"testout<testout_handler>##timesleep to sleep for a single line from read stdin default 1.0##" : {
 			"$" : "?"
+		},
+		"utf8touni<utf8touni_handler>## bytes... to change utf8 coding to unicode ##" : {
+			"$" : "+"
 		}
 
 	}
