@@ -260,15 +260,23 @@ def utf8touni_handler(args,parser):
 	sys.exit(0)
 	return
 
+
+def parse_int(v):
+	c = v
+	base = 10
+	if c.startswith('0x') or c.startswith('0X') :
+		base = 16
+		c = c[2:]
+	elif c.startswith('x') or c.startswith('X'):
+		base = 16
+		c = c[1:]
+	return int(c,base)
+
+
 def getval_handler(args,parser):
 	set_logging(args)
 	for s in args.subnargs:
-		base = 10
-		c = s
-		if c.startswith('0x') or c.startswith('0X') :
-			base = 16
-			c = c[2:]
-		val = int(c,base)
+		val = parse_int(s)
 		exp = (val >> 11) & 0x1f
 		base = (val & 0x3ff)
 		sys.stdout.write('%s base[0x%x] exp[0x%x] [%d]\n'%(s,base,exp, (base << exp)))
@@ -290,17 +298,26 @@ def peccheck_handler(args,parser):
 	set_logging(args)
 	data = []
 	for s in args.subnargs:
-		c = s 
-		base = 10
-		if c.startswith('0x') or c.startswith('0X'):
-			base = 16
-			c = c[2:]
-		elif c.startswith('x') or c.startswith('X'):
-			base = 16
-			c = c[1:]
-		data.append(int(c,base))
+		data.append(parse_int(s))
 	crc = pec_check(data)
 	sys.stdout.write('%s crc 0x%x\n'%(data,crc))
+	sys.exit(0)
+	return
+
+def walt_handler(args,parser):
+	set_logging(args)
+	for s in args.subnargs:
+		val = parse_int(s)
+		highval = (val >> 11) & 0x1f
+		exp = highval & 0xf
+		leftshift = ((( highval >> 4 ) & 0x1) == 0x0)
+		logging.info('highval 0x%x exp 0x%x'%(highval,exp))
+		base = (val & 0x3ff)
+		if leftshift :
+			walt = base * exp
+		else:
+			walt = int(base / exp)
+		sys.stdout.write('%s walt [%d] [0x%x:0x%x] leftshift [%s]\n'%(s,walt,highval, base,leftshift))
 	sys.exit(0)
 	return
 
@@ -330,6 +347,9 @@ def main():
 			"$" : "+"
 		},
 		"peccheck<peccheck_handler>## byte ... to check##" : {
+			"$" : "+"
+		},
+		"walt<walt_handler>## value ... to handle ##" : {
 			"$" : "+"
 		}
 	}
