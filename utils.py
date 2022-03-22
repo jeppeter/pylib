@@ -260,6 +260,50 @@ def utf8touni_handler(args,parser):
 	sys.exit(0)
 	return
 
+def getval_handler(args,parser):
+	set_logging(args)
+	for s in args.subnargs:
+		base = 10
+		c = s
+		if c.startswith('0x') or c.startswith('0X') :
+			base = 16
+			c = c[2:]
+		val = int(c,base)
+		exp = (val >> 11) & 0x1f
+		base = (val & 0x3ff)
+		sys.stdout.write('%s base[0x%x] exp[0x%x] [%d]\n'%(s,base,exp, (base << exp)))
+	sys.exit(0)
+	return
+
+def pec_check(data,initval = 0):
+	retcrc = initval
+	for b in data:
+		for _ in range(0,8):
+			if (retcrc >> 7) ^ (b & 0x1):
+				retcrc = ((retcrc << 1) ^0x07) & 0xff
+			else:
+				retcrc = (retcrc << 1) & 0xff
+			b = b >> 1
+	return retcrc
+
+def peccheck_handler(args,parser):
+	set_logging(args)
+	data = []
+	for s in args.subnargs:
+		c = s 
+		base = 10
+		if c.startswith('0x') or c.startswith('0X'):
+			base = 16
+			c = c[2:]
+		elif c.startswith('x') or c.startswith('X'):
+			base = 16
+			c = c[1:]
+		data.append(int(c,base))
+	crc = pec_check(data)
+	sys.stdout.write('%s crc 0x%x\n'%(data,crc))
+	sys.exit(0)
+	return
+
 
 def main():
 	commandline='''
@@ -281,8 +325,13 @@ def main():
 		},
 		"utf8touni<utf8touni_handler>## bytes... to change utf8 coding to unicode ##" : {
 			"$" : "+"
+		},
+		"getval<getval_handler>##value ... to change value##" : {
+			"$" : "+"
+		},
+		"peccheck<peccheck_handler>## byte ... to check##" : {
+			"$" : "+"
 		}
-
 	}
 	'''
 	parser = extargsparse.ExtArgsParse()
