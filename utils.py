@@ -308,11 +308,11 @@ def walt_handler(args,parser):
 	set_logging(args)
 	for s in args.subnargs:
 		val = parse_int(s)
-		highval = (val >> 11) & 0x1f
+		highval = (val >> 11) & ((1 << 5) -1)
 		exp = highval & 0xf
 		leftshift = ((( highval >> 4 ) & 0x1) == 0x0)
 		logging.info('highval 0x%x exp 0x%x'%(highval,exp))
-		base = (val & 0x3ff)
+		base = (val & ((1 << 11) - 1))
 		if leftshift :
 			walt = base * exp
 		else:
