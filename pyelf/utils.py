@@ -89,7 +89,7 @@ class ElfSearchObj(object):
 		self.__fname = fname
 		return
 
-	def search_vaddr(self,offset):
+	def search_symbol_vaddr(self,offset):
 		return ''
 
 
@@ -116,10 +116,11 @@ def backtraceparse_handler(args,parser):
 						cm = purehexre.findall(m[0][2])
 						if len(cm) > 0:
 							offset = int(cm[0],16)
-							if m[0][1] not in elfdicts.keys():
-								elfdicts[m[0][1]] = ElfSearchObj(m[0][1])
-							funcsym = elfdicts[m[0][1]].search_vaddr(offset)
-							logging.info('[%d]%s search [0x%x]'%(lidx,m[0][1],offset))
+							fname = m[0][1]
+							if fname not in elfdicts.keys():
+								elfdicts[fname] = ElfSearchObj(fname)
+							funcsym = elfdicts[fname].search_symbol_vaddr(offset)
+							logging.info('[%d]%s search [0x%x]'%(lidx,fname,offset))
 							rets += '%s %s\n'%(l,funcsym)
 						else:
 							rets += '%s %s\n'%(l,m[0][2])
