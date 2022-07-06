@@ -147,7 +147,7 @@ def main():
 		"verbose|v" : "+",
 		"input|i" : null,
 		"output|o" : null,
-		"backtraceparse<backtraceparse_handler>##to parse backtrace functions##" : {
+		"backtracedump<backtraceparse_handler>##to parse backtrace functions##" : {
 			"$" : 0
 		}
 	}
