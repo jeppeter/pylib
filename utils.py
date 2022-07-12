@@ -322,6 +322,40 @@ def walt_handler(args,parser):
 	return
 
 
+def bin_to_rustvec(args,ins):
+	rets = 'vec!['
+	retb = b''
+	sarr = re.split('\n',ins)
+	tidx = 0
+	for s in sarr:
+		s = s.rstrip('\r\n')
+		ns = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
+		if ns == s:
+			ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
+		s = ns
+		logging.info('s [%s]'%(s))
+		cursarr = re.split('\\s+',s)
+		for c in cursarr:
+			if c.startswith('0x') or c.startswith('0X'):
+				if tidx > 0 :
+					rets += ','
+				rets += '%s'%(c)
+				tidx += 1
+				if (tidx % 16) == 0 :
+					rets += '\n'
+	rets += ']'
+	return rets
+
+def bintorustvec_handler(args,parser):
+	set_logging(args)
+	logging.info('read [%s]'%(args.input))
+	bins = read_file(args.input)
+	s = bin_to_rustvec(args,bins)
+	write_file(s,args.output)
+	sys.exit(0)
+	return
+
+
 def main():
 	commandline='''
 	{
@@ -351,6 +385,9 @@ def main():
 		},
 		"walt<walt_handler>## value ... to handle ##" : {
 			"$" : "+"
+		},
+		"bintorustvec<bintorustvec_handler>##to change buffer out to rust vec##" : {
+			"$" : 0
 		}
 	}
 	'''
