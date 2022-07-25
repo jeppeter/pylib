@@ -78,6 +78,8 @@ def read_file(infile=None):
 	fin = None
 	return rets
 
+
+
 def write_file(s,outfile=None):
 	fout = sys.stdout
 	if outfile is not None:
@@ -91,6 +93,18 @@ def write_file(s,outfile=None):
 	fout = None
 	return 
 
+def write_file_bytes(sarr,outfile=None):
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'wb')
+    if 'b' not in fout.mode:
+        fout.buffer.write(sarr)
+    else:        
+        fout.write(sarr)
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    return 
 
 def get_strval(v):
 	base = 10
@@ -133,8 +147,7 @@ def xcopy_handler(args,parser):
 	sys.exit(0)
 	return
 
-def bin_to_string(args,ins):
-	rets = ''
+def bin_to_bytes(ins):
 	retb = b''
 	sarr = re.split('\n',ins)
 	for s in sarr:
@@ -143,11 +156,23 @@ def bin_to_string(args,ins):
 		if ns == s:
 			ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
 		s = ns
+		if len(s) > (16 * 5)+1:
+			s = s[:(16*5)+1]
 		logging.info('s [%s]'%(s))
 		cursarr = re.split('\\s+',s)
-		for c in cursarr:
+		idx = 0 
+		while idx < (len(cursarr) - 1):
+			c = cursarr[idx]
+			logging.info('c [%s]'%(c))
 			if c.startswith('0x') or c.startswith('0X'):
 				retb += bytes([int(c[2:],16)])
+			idx += 1
+	return retb
+
+
+def bin_to_string(args,ins):
+	rets = ''
+	retb = bin_to_bytes(ins)
 	if args.utf8mode:
 		rets = retb.decode('utf-8')
 	else:
@@ -356,6 +381,17 @@ def bintorustvec_handler(args,parser):
 	return
 
 
+def bintofile_handler(args,parser):
+	set_logging(args)
+	logging.info('read [%s]'%(args.input))
+	bins = read_file(args.input)
+	retb = bin_to_bytes(bins)
+	write_file_bytes(retb,args.output)
+	sys.exit(0)
+	return
+	
+
+
 def main():
 	commandline='''
 	{
@@ -387,6 +423,9 @@ def main():
 			"$" : "+"
 		},
 		"bintorustvec<bintorustvec_handler>##to change buffer out to rust vec##" : {
+			"$" : 0
+		},
+		"bintofile<bintofile_handler>##to change buffer read bin from input speciefied by output##" : {
 			"$" : 0
 		}
 	}
