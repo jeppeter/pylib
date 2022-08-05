@@ -170,6 +170,32 @@ def bin_to_bytes(ins):
 			idx += 1
 	return retb
 
+def bin_to_hex(ins):
+	rets = ''
+	sarr = re.split('\n',ins)
+	for s in sarr:
+		s = s.rstrip('\r\n')
+		s = s.strip(' \t')
+		ns = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
+		if ns == s:
+			ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
+		s = ns
+		if len(s) > (16 * 5)+1:
+			s = s[:(16*5)+1]
+		logging.info('s [%s]'%(s))
+		cursarr = re.split('\\s+',s)
+		idx = 0 
+		while idx < (len(cursarr) - 1):
+			c = cursarr[idx]
+			logging.info('c [%s]'%(c))
+			rb = 0
+			if c.startswith('0x') or c.startswith('0X'):
+				rb = int(c[2:],16)
+			rets += '%02x'%(rb)
+			idx += 1
+	return rets
+
+
 def binhex_to_bytes(ins):
 	retb = b''
 	sarr = re.split('\n',ins)
@@ -423,6 +449,15 @@ def binhextofile_handler(args,parser):
 	sys.exit(0)
 	return
 
+def bintohex_handler(args,parser):
+	set_logging(args)
+	logging.info('read [%s]'%(args.input))
+	bins = read_file(args.input)
+	retb = bin_to_hex(bins)
+	write_file(retb,args.output)
+	sys.exit(0)
+	return
+
 
 def main():
 	commandline='''
@@ -461,6 +496,9 @@ def main():
 			"$" : 0
 		},
 		"binhextofile<binhextofile_handler>##to change buffer read bin from input to output##" : {
+			"$" : 0
+		},
+		"bintohex<bintohex_handler>##to change input buffer to hex string to output##" : {
 			"$" : 0
 		}
 	}
