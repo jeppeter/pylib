@@ -4,6 +4,7 @@ import logging
 import extargsparse
 import re
 import sys
+import os
 
 from elftools.elf.elffile import ELFFile
 
@@ -189,10 +190,16 @@ def backtraceparse_handler(args,parser):
 							offset = int(cm[0],16)
 							fname = m[0][1]
 							if fname not in elfdicts.keys():
-								elfdicts[fname] = ElfSearchObj(fname)
-							funcsym = elfdicts[fname].search_symbol_vaddr(offset)
-							logging.info('[%d]%s search [0x%x] [%s]'%(lidx,fname,offset, funcsym))
-							rets += '%s %s\n'%(l,funcsym)
+								if os.path.exists(fname):
+									elfdicts[fname] = ElfSearchObj(fname)
+								else:
+									logging.error('[%s] not exist'%(fname))
+							if fname in elfdicts.keys():
+								funcsym = elfdicts[fname].search_symbol_vaddr(offset)
+								logging.info('[%d]%s search [0x%x] [%s]'%(lidx,fname,offset, funcsym))
+								rets += '%s %s\n'%(l,funcsym)
+							else:
+								rets += '%s\n'%(l)
 						else:
 							rets += '%s %s\n'%(l,m[0][2])
 					else:
