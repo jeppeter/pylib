@@ -79,6 +79,24 @@ def read_file(infile=None):
 	return rets
 
 
+def read_file_bytes(infile=None):
+    fin = sys.stdin
+    if infile is not None:
+        fin = open(infile,'rb')
+    retb = b''
+    while True:
+        if fin != sys.stdin:
+            curb = fin.read(1024 * 1024)
+        else:
+            curb = fin.buffer.read()
+        if curb is None or len(curb) == 0:
+            break
+        retb += curb
+    if fin != sys.stdin:
+        fin.close()
+    fin = None
+    return retb
+
 
 def write_file(s,outfile=None):
 	fout = sys.stdout
@@ -458,6 +476,16 @@ def bintohex_handler(args,parser):
 	sys.exit(0)
 	return
 
+def filetohex_handler(args,parser):
+	set_logging(args)
+	logging.info('read [%s]'%(args.input))
+	bins = read_file_bytes(args.input)
+	s = ''
+	for v in bins:
+		s += '%02x'%(v)
+	write_file(s,args.output)
+	sys.exit(0)
+	return
 
 def main():
 	commandline='''
@@ -499,6 +527,9 @@ def main():
 			"$" : 0
 		},
 		"bintohex<bintohex_handler>##to change input buffer to hex string to output##" : {
+			"$" : 0
+		},
+		"filetohex<filetohex_handler>##to change file byte into hexstr##" : {
 			"$" : 0
 		}
 	}
