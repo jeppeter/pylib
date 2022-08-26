@@ -7,6 +7,7 @@ import os
 import logging
 import hashlib
 import platform
+import struct
 
 
 def is_in_windows():
@@ -168,6 +169,23 @@ def write_handler(args,parser):
         write_file(s)
     sys.exit(0)
     return
+
+def convert_bytes_to_ints(inb):
+    retint = []
+    idx = 0
+    while idx < len(inb):
+        retint.append(inb[idx])
+        idx += 1
+    return retint
+
+def convert_ints_to_bytes(inints):
+    retb = b''
+    idx = 0
+    while idx < len(inints):
+        retb += struct.pack('B',inints[idx])
+        idx += 1
+    return retb
+
 
 def diff_dir(srcd,dstd):
     srcfs = []
@@ -424,6 +442,43 @@ def writebyte_handler(args,parser):
     sys.exit(0)
     return
 
+
+def padzero_handler(args,parser):
+    set_logging(args)
+    align = 16
+    if len(args.subnargs) > 0:
+        align = int(args.subnargs[0])
+    inbuf = read_file_bytes(args.input)
+    outbuf = convert_bytes_to_ints(inbuf)
+    while (len(outbuf) % align) != 0:
+        outbuf.append(0)
+    outbuf = convert_ints_to_bytes(outbuf)
+    write_file_bytes(outbuf,args.output)
+    sys.exit(0)
+    return
+
+def padpkcs_handler(args,parser):
+    set_logging(args)
+    align = 16
+    if len(args.subnargs) > 0:
+        align = int(args.subnargs[0])
+    inbuf = read_file_bytes(args.input)
+    outbuf = convert_bytes_to_ints(inbuf)
+    padnum = align
+    padlen = align
+    if (len(inbuf) % align)  != 0:
+        padnum = align - (len(inbuf) % align)
+        padlen = padnum
+    idx = 0
+    while idx < padlen:
+        outbuf.append(padnum)
+        idx += 1
+    outbuf = convert_ints_to_bytes(outbuf)
+    write_file_bytes(outbuf,args.output)
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -444,6 +499,12 @@ def main():
         },
         "writebytes<writebyte_handler>## src dst ##" : {
             "$" : "*"
+        },
+        "padzero<padzero_handler>##[align] to padd for align##" : {
+            "$" : "?"
+        },
+        "padpkcs<padpkcs_handler>##[align] to padd for align##" : {
+            "$" : "?"
         }
     }
     '''
