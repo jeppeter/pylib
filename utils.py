@@ -8,6 +8,9 @@ import re
 import shutil
 import logging.handlers
 import time
+import struct
+import inspect
+import json
 
 
 def set_logging(args):
@@ -487,6 +490,204 @@ def filetohex_handler(args,parser):
 	sys.exit(0)
 	return
 
+class Utf8Encode(object):
+    def __dict_utf8(self,val):
+        newdict =dict()
+        for k in val.keys():
+            newk = self.__encode_utf8(k)
+            newv = self.__encode_utf8(val[k])
+            newdict[newk] = newv
+        return newdict
+
+    def __list_utf8(self,val):
+        newlist = []
+        for k in val:
+            newk = self.__encode_utf8(k)
+            newlist.append(newk)
+        return newlist
+
+    def __encode_utf8(self,val):
+        retval = val
+
+        if sys.version[0]=='2' and isinstance(val,unicode):
+            retval = val.encode('utf8')
+        elif isinstance(val,dict):
+            retval = self.__dict_utf8(val)
+        elif isinstance(val,list):
+            retval = self.__list_utf8(val)
+        return retval
+
+    def __init__(self,val):
+        self.__val = self.__encode_utf8(val)
+        return
+
+    def __str__(self):
+        return self.__val
+
+    def __repr__(self):
+        return self.__val
+    def get_val(self):
+        return self.__val
+
+def get_buffer_value(c):
+    if sys.version[0] == '3':
+        return c
+    return struct.unpack('B', c)[0]
+
+
+def dump_buffer(buf,fmt='',stkidx=1):
+    i = 0
+    lasti = 0
+    s = ''
+    _,fn,ln,_,_,_ = inspect.stack()[stkidx]
+    s += '[%s:%d] '%(fn,ln)
+    s += fmt
+
+    while buf is not None and i < len(buf):
+        if (i % 16) == 0 :
+            if i > 0:
+                s += ' ' * 4
+                while lasti != i:
+                    iv = get_buffer_value(buf[lasti])
+                    if iv >= ord(' ') and iv <= ord('~'):
+                        s += '%c'%(buf[lasti])
+                    else:
+                        s += '.'
+                    lasti += 1
+                s += '\n'
+            elif len(fmt) > 0:
+                s += '\n'
+            s += '0x%08x:'%(i)
+        iv = get_buffer_value(buf[i])
+        s += ' 0x%02x'%(iv)
+        i += 1
+
+    if i != lasti:
+        while (i % 16) != 0:
+            s += ' ' * 5
+            i += 1
+        s += ' ' * 4
+        while lasti != len(buf):
+            iv = get_buffer_value(buf[lasti])
+            if iv >= ord(' ') and iv <= ord('~'):
+                s += '%c'%(buf[lasti])
+            else:
+                s += '.'
+            lasti += 1
+    return s
+
+class JSONPack(object):
+    def __init__(self,jdict=None):
+        if jdict is not None:
+            if isinstance(jdict, dict):
+                self.__jdict = jdict
+            elif isinstance(jdict, str):
+                try:
+                    self.__jdict = json.loads(jdict)
+                    self.__jdict = Utf8Encode(self.__jdict).get_val()
+                except:
+                    raise Exception(dbgexp.I2CPROTO_EXCEPTION,'unparsable str [%s]'%(jdict))
+            else:
+                self.__jdict = dict()
+        else:
+            self.__jdict = dict()
+        return
+
+    def pack(self):
+        retb = b'JSON'
+        s = json.dumps(self.__jdict)
+        if sys.version[0] == '3':
+            sb = s.encode('utf-8')
+        else:
+            sb = bytes(s)
+        size = len(sb) + 8
+        retb += struct.pack('>I',size)
+        retb += sb
+        return retb
+
+    def __str__(self):
+        retb = self.pack()
+        return dump_buffer(retb,'',2)
+
+    def __repr__(self):
+        retb = self.pack()
+        return dump_buffer(retb,'',2)
+
+    def __setattr__(self,k,v):
+        if not k.startswith('_'):
+            self.__jdict[k] = v
+            return
+        self.__dict__[k] = v
+        return
+    def __getattr__(self,k):
+        if not k.startswith('_'):
+            if k in self.__jdict.keys():
+                return self.__jdict[k]
+            return None
+        return self.__dict__[k]
+
+JSONUNPACK_STKIDX = 3
+
+class JSONUnpack(object):
+    def __parse_retb(self,retb):
+        self.__djson = dict()
+        if len(retb) < 8:
+            raise Exception(dump_buffer(retb,'len[%d] < 8'%(len(retb)),JSONUNPACK_STKIDX))
+        if retb[:4] != b'JSON':
+            raise Exception(dump_buffer(retb,'not start with JSON',JSONUNPACK_STKIDX))
+        size = struct.unpack('>I',retb[4:8])[0]
+        if size != len(retb):
+            raise Exception(dump_buffer(retb,'size [%d] != len[%d]'%(size,len(retb)),JSONUNPACK_STKIDX))
+        sb = retb[8:]
+        try:
+            if sys.version[0] == '3':
+                js = sb.decode('utf-8')
+            else:
+                js = str(sb)
+            self.__djson = json.loads(js)
+            self.__djson = Utf8Encode(self.__djson).get_val()
+        except:
+            raise Exception(dump_buffer(sb,'not valid string',JSONUNPACK_STKIDX))
+        self.__retb = retb
+        return
+
+    def __init__(self,retb):
+        self.__parse_retb(retb)
+        return
+
+    def __getattr__(self,key):
+        if not key.startswith('_'):
+            if key not in self.__djson.keys():
+                raise Exception(dump_buffer(self.__retb,'not valid key [%s]'%(key),(JSONUNPACK_STKIDX-1)))
+            return self.__djson[key]
+        return self.__dict__[key]
+
+    def pack(self):
+        return self.__retb
+
+    def keys(self):
+        return self.__djson.keys()
+
+    def __str__(self):
+        return dump_buffer(self.__retb,'',2)
+
+    def __repr__(self):
+        return dump_buffer(self.__retb,'',2)
+
+def jsonget_handler(args,parser):
+	set_logging(args)
+	s = read_file(args.subnargs[0])
+	cfg = json.loads(s)
+	jpack = JSONPack()
+	for k in cfg.keys():
+		jpack.__setattr__(k,cfg[k])
+	retb = jpack.pack()
+	junpack = JSONUnpack(retb)
+	for k in args.subnargs[1:]:
+		sys.stdout.write('%s=[%s]\n'%(k,junpack.__getattr__(k)))
+	sys.exit(0)
+	return
+
 def main():
 	commandline='''
 	{
@@ -531,6 +732,9 @@ def main():
 		},
 		"filetohex<filetohex_handler>##to change file byte into hexstr##" : {
 			"$" : 0
+		},
+		"jsonget<jsonget_handler>##jsonfile keywords ... to get keyword##" : {
+			"$" : "+"
 		}
 	}
 	'''
