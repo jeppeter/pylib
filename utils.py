@@ -688,6 +688,23 @@ def jsonget_handler(args,parser):
 	sys.exit(0)
 	return
 
+def hextostr_handler(args,parser):
+	set_logging(args)
+	ins = read_file(args.input)
+	sarr = re.split('\n',ins)
+	outs = '0x'
+	for l in sarr:
+		l = l.rstrip('\r')
+		l = l.strip(' \t')
+		carr = re.split('\\s+',l)
+		if len(carr) > 0 :
+			barr = re.split(':',carr[0])
+			for k in barr:
+				outs += '%s'%(k)
+	write_file(outs,args.output)
+	sys.exit(0)
+	return
+
 def main():
 	commandline='''
 	{
@@ -735,6 +752,9 @@ def main():
 		},
 		"jsonget<jsonget_handler>##jsonfile keywords ... to get keyword##" : {
 			"$" : "+"
+		},
+		"hextostr<hextostr_handler>###to change bignum to hex#" : {
+			"$" : 0
 		}
 	}
 	'''
