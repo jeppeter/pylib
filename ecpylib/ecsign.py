@@ -23,6 +23,19 @@ def ecp256sign_handler(args,parser):
 	sys.exit(0)
 	return
 
+def ecp256vfy_handler(args,parser):
+	loglib.set_logging(args)
+	keyb = fileop.read_file_bytes(args.subnargs[0])
+	conb = fileop.read_file_bytes(args.subnargs[1])
+	signb = fileop.read_file_bytes(args.subnargs[2])
+	sk = ecdsa.SigningKey.generate(curve=ecdsa.NIST256p)
+	pk = sk.get_verifying_key()
+	retb = pk.verify(conb,signb)
+	sys.stdout.write('retb %s\n'%(retb))
+	sys.exit(0)
+	return
+
+
 
 def main():
 	commandline='''
@@ -31,6 +44,9 @@ def main():
 		"output|o" : null,
 		"ecp256sign<ecp256sign_handler>##key.bin content.bin to sign in ecdsa##" : {
 			"$" : 2
+		},
+		"ecp256vfy<ecp256vfy_handler>##key.bin content.bin sign.bin to verify ecdsa##" : {
+			"$" : 3
 		}
 	}
 	'''
