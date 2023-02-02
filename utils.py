@@ -712,7 +712,7 @@ def egcd(a, b):
     else:
         g, y, x = egcd(b % a, a)
         logging.info('g = [%d] y [%d] x [%d]'%(g,y,x))
-        logging.info('b %d a %d b %% a = %d'%(b,a,b%a))
+        logging.info('ret (%d,%d,%d)'%(g , x - (b // a) * y , y))
         return (g, x - (b // a) * y, y)
 
 def modinv(a, m):
