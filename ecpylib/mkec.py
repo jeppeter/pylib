@@ -6,45 +6,44 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)),'..'))
-sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','python-ecdsa','src')))
+sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','ecdsa-python')))
 import fileop
 import loglib
-import ecdsa
-
-
+import ellipticcurve
 
 def ecp256sign_handler(args,parser):
 	loglib.set_logging(args)
-	keyb = fileop.read_file_bytes(args.subnargs[0])
+	keys = fileop.read_file(args.subnargs[0])
 	conb = fileop.read_file_bytes(args.subnargs[1])
-	sk = ecdsa.SigningKey.from_string(keyb,curve=ecdsa.NIST256p)
-	sig = sk.sign(conb)
-	rets = fileop.format_bytes(sig,'signature')
+	sk = ellipticcurve.ecdsa.Ecdsa.fromString(keys)
+	sig = ellipticcurve.ecdsa.Ecdsa.sign(conb,sk)
+	rets = 'signature\n'
+	rets += sig.toBase64()
 	fileop.write_file(rets,None)
-	fileop.write_file_bytes(sig,args.output)
 	sys.exit(0)
 	return
 
 def ecp256vfy_handler(args,parser):
 	loglib.set_logging(args)
-	keyb = fileop.read_file_bytes(args.subnargs[0])
-	conb = fileop.read_file_bytes(args.subnargs[1])
-	signb = fileop.read_file_bytes(args.subnargs[2])
-	pk = ecdsa.VerifyingKey.from_string(keyb,curve=ecdsa.NIST256p)
-	retb = pk.verify(signb,conb)
+	conb = fileop.read_file_bytes(args.subnargs[0])
+	signb = fileop.read_file_bytes(args.subnargs[1])
+	pk = ecdsa.VerifyingKey()
+	pk.curve = ecdsa.NIST256p.curve
+	pk.
+	retb = pk.verify(conb,signb)
 	sys.stdout.write('retb %s\n'%(retb))
 	sys.exit(0)
 	return
 
 def ecp256gen_handler(args,parser):
 	loglib.set_logging(args)
-	sk = ecdsa.SigningKey.generate(ecdsa.NIST256p)
-	pk = sk.get_verifying_key()
-	rb  = sk.to_string()
-	rets = fileop.format_bytes(rb,'privatekey')
+	sk = ellipticcurve.privateKey.PrivateKey()
+	pk = sk.publicKey()
+	rets = 'privateKey\n'
+	rets += sk.toString()	
 	fileop.write_file(rets,None)
-	rb =  pk.to_string()
-	rets = fileop.format_bytes(rb,'publickey')
+	rets = 'publicKey\n'
+	rets += pk.toString()
 	fileop.write_file(rets,None)
 	sys.exit(0)
 	return
@@ -59,8 +58,8 @@ def main():
 		"ecp256sign<ecp256sign_handler>##key.bin content.bin to sign in ecdsa##" : {
 			"$" : 2
 		},
-		"ecp256vfy<ecp256vfy_handler>##key.bin content.bin sign.bin to verify ecdsa##" : {
-			"$" : 3
+		"ecp256vfy<ecp256vfy_handler>##content.bin sign.bin to verify ecdsa##" : {
+			"$" : 2
 		},
 		"ecp256gen<ecp256gen_handler>##to generate gen##" : {
 			"$" : 0
