@@ -730,7 +730,60 @@ def modinv_handler(args,parser):
     bnum = parse_int(args.subnargs[1])
     cnum = modinv(anum,bnum)
     sys.stdout.write('anum %s bnum %s a^-1 = %d [0x%x]\n'%(anum,bnum,cnum,cnum))
+    sys.exit(0)
+    return
 
+def _get_primes(maxnum,primes=[]):
+    retval = primes
+    if maxnum <= 1:
+        return retval
+    if len(retval) < 1:
+        retval.append(2)
+    if maxnum <= 2:
+        return retval
+
+    curval = retval[-1] + 1
+    while curval <= maxnum:
+        isprime = True
+        for k in retval:
+            if (curval % k) == 0:
+                isprime = False
+                break
+        if isprime:
+            retval.append(curval)
+        curval += 1
+    return retval
+
+def format_primes(primes,num=5,note=''):
+    rets = '%s'%(note)
+    idx = 0
+    maxlen = 0
+    while idx < len(primes):
+        s = '%d'%(primes[idx])
+        if len(s) >= maxlen:
+            maxlen = len(s) + 1
+        idx += 1
+
+    idx = 0
+    while idx < len(primes):
+        if (idx % num) == 0:
+            rets += '\n'
+            rets += '    '
+        rets += '%-*d'%(maxlen,primes[idx])
+        idx += 1
+    rets += '\n'
+    return rets
+
+
+
+
+
+def primelist_handler(args,parser):
+    set_logging(args)
+    maxnum = parse_int(args.subnargs[0])
+    primes = _get_primes(maxnum)
+    rets = format_primes(primes,5,'primes')
+    sys.stdout.write('%s'%(rets))
     sys.exit(0)
     return
 
@@ -787,6 +840,9 @@ def main():
         },
         "modinv<modinv_handler>##anum bnum to get modinversion##" : {
             "$" : 2
+        },
+        "primelist<primelist_handler>##maxnum to list##" : {
+            "$" : 1
         }
     }
     '''
