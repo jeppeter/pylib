@@ -787,6 +787,61 @@ def primelist_handler(args,parser):
     sys.exit(0)
     return
 
+def ec_y_map(primenum):
+    ymap = dict()
+    for k in range(primenum):
+        ci  = (k **2) % primenum
+        if ci not in ymap.keys():
+            ymap[ci] = [k]
+        else:
+            ymap[ci].append(k)            
+    return ymap
+
+def ec_x_map(primenum,a,b):
+    xmap = dict()
+    for k in range(primenum):
+        ci = (k ** 3 + a * k + b) % primenum
+        if ci not in xmap.keys():
+            xmap[ci] = [k]
+        else:
+            xmap[ci].append(k)
+    return xmap
+
+
+def ecfind_handler(args,parser):
+    set_logging(args)
+    prime = parse_int(args.subnargs[0])
+    ymap = ec_y_map(prime)
+    xmap = dict()
+    for k in range(prime):
+        for i in range(prime):
+            xmap[(k,i)] = ec_x_map(prime,k,i)
+
+    for k in range(prime):
+        if k in ymap.keys():
+            sys.stdout.write('ymap[%d] %s\n'%(k,ymap[k]))
+        else:
+            sys.stdout.write('%d not in ymap\n'%(k))
+
+    for c in range(prime):
+        for k in range(prime):
+            for i in range(prime):
+                curxmap = xmap[(k,i)]
+                for kk in curxmap.keys():
+                    sys.stdout.write('%d match in [%d,%d] %s\n'%(kk,k,i, curxmap[kk]))
+
+    for k in range(prime):
+        for i in range(prime):
+            curxmap = xmap[(k,i)]
+            for kk in curxmap.keys():
+                if kk in ymap.keys():
+                    sys.stdout.write('[(%d,%d)] [%d] %s  ymap %s\n'%(k,i,kk, curxmap[kk],ymap[kk]))
+                    pass
+    sys.exit(0)
+    return
+
+
+
 def main():
     commandline='''
     {
@@ -842,6 +897,9 @@ def main():
             "$" : 2
         },
         "primelist<primelist_handler>##maxnum to list##" : {
+            "$" : 1
+        },
+        "ecfind<ecfind_handler>##pnum prime number to get##" : {
             "$" : 1
         }
     }
