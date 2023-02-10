@@ -840,6 +840,40 @@ def ecfind_handler(args,parser):
     sys.exit(0)
     return
 
+def egcd(a,b):
+    u = a
+    v = b
+    x1 = 1
+    y1 = 0
+    x2 = 0
+    y2 = 1
+    while u != 0:
+        q = v // u
+        r = v - q * u
+        x = x2 - q * x1
+        y = y2 - q * y1
+        v = u
+        u = r
+        x2 = x1
+        x1 = x
+        y2 = y1
+        y1 = y
+        logging.info('u %d v %d x1 %d x2 %d y1 %d y2 %d'%(u,v,x1,x2,y1,y2))
+    d = v
+    x = x2
+    y = y2
+    return d,x,y
+
+
+def egcd_handler(args,parser):
+    set_logging(args)
+    a = parse_int(args.subnargs[0])
+    b = parse_int(args.subnargs[1])
+    d,x,y = egcd(a,b)
+    sys.stdout.write('d %d x %d y %d\n'%(d,x,y))
+    sys.exit(0)
+    return
+
 
 
 def main():
@@ -901,6 +935,9 @@ def main():
         },
         "ecfind<ecfind_handler>##pnum prime number to get##" : {
             "$" : 1
+        },
+        "egcd<egcd_handler>##a b a < b to Extend Euclidean algorithm##" : {
+            "$" : 2
         }
     }
     '''
