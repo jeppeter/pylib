@@ -874,6 +874,50 @@ def egcd_handler(args,parser):
     sys.exit(0)
     return
 
+def montgomery_value(a,p):
+    n = 1
+    np = p
+    while np != 0:
+        n += 1
+        np >>= 1
+    u = a
+    v = p
+    x1 = 1
+    x2 = 0
+    k = 0
+    while v > 0:
+        if (v % 2) == 0:
+            v = v / 2
+            x1 = 2 * x1
+        elif (u % 2) == 0:
+            u = u / 2
+            x2 = 2* x2
+        elif (v >= u):
+            v = (v - u) / 2
+            x2 = x2 + x1
+            x1 = 2 * x1
+        else:
+            u = (u - v) / 2
+            x1 = x2 + x1
+            x2 = 2 * x2
+        k = k + 1
+    if u != 1:
+        raise Exception('not invertible %d %d'%(a,p))
+    if x1 > p:
+        x1 = x1 - p
+    return x1,k
+
+
+def mont_handler(args,parser):
+    set_logging(args)
+    a = parse_int(args.subnargs[0])
+    p = parse_int(args.subnargs[1])
+    if (p % 2) == 0:
+        raise Exception('p must odd')
+    x,k = montgomery_value(a,p)
+    sys.stdout.write('montgomery value for (%d,%d) = (%d,%d)\n'%(a,p,x,k))
+    sys.exit(0)
+    return
 
 
 def main():
@@ -937,6 +981,9 @@ def main():
             "$" : 1
         },
         "egcd<egcd_handler>##a b a < b to Extend Euclidean algorithm##" : {
+            "$" : 2
+        },
+        "mont<mont_handler>##a p to make montgomery algorithm in Guide to Elliptic Curve Cryptography (2004) - Hankerson, Menezes, Vanstone Page 63##" : {
             "$" : 2
         }
     }
