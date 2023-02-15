@@ -941,6 +941,28 @@ def nafk_handler(args,parser):
     sys.exit(0)
     return
 
+def get_nafw(knum,w):
+    modw = 2 ** w
+    vals = []
+    while knum >= 1:
+        if (knum % 2) != 0:
+            ki = knum % modw
+            knum = knum - ki
+            vals.append(ki)
+        else:
+            vals.append(0)
+        knum = knum // 2
+    return vals
+
+def nafw_handler(args,parser):
+    set_logging(args)
+    knum = parse_int(args.subnargs[0])
+    w = parse_int(args.subnargs[1])
+    vals = get_nafw(knum,w)
+    sys.stdout.write('%s w %s => %s\n'%(knum,w,vals))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1010,6 +1032,9 @@ def main():
         },
         "nafk<nafk_handler>##knum ... to debug naf in Guide to Elliptic Curve Cryptography Page 119##" : {
             "$" : "+"
+        },
+        "nafw<nafw_handler>##knum w to debug nafw in Guide to Elliptic Curve Cryptography Page 121##" : {
+            "$" : 2
         }
     }
     '''
