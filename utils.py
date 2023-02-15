@@ -919,6 +919,28 @@ def mont_handler(args,parser):
     sys.exit(0)
     return
 
+def get_naf(knum):
+    vals = []
+    while knum >= 1:
+        if (knum % 2) == 1:
+            ki = 2 - (knum % 4)
+            vals.append(ki)
+            knum = knum - ki
+        else:
+            vals.append(0)
+        knum = knum // 2
+    return vals
+
+
+def nafk_handler(args,parser):
+    set_logging(args)
+    for k in args.subnargs:
+        knum = parse_int(k)
+        val = get_naf(knum)
+        sys.stdout.write('%s => %s\n'%(k,val))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -985,6 +1007,9 @@ def main():
         },
         "mont<mont_handler>##a p to make montgomery algorithm in Guide to Elliptic Curve Cryptography (2004) - Hankerson, Menezes, Vanstone Page 63##" : {
             "$" : 2
+        },
+        "nafk<nafk_handler>##knum ... to debug naf in Guide to Elliptic Curve Cryptography Page 119##" : {
+            "$" : "+"
         }
     }
     '''
