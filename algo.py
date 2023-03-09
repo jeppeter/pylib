@@ -91,11 +91,47 @@ def ackman_handler(args,parser):
     sys.exit(0)
     return
 
+def invmod(x,n):
+    """
+    Extended Euclidean Algorithm. It's the 'division' in elliptic curves
+    :param x: Divisor
+    :param n: Mod for division
+    :return: Value representing the division
+    """
+    if x == 0:
+        return 0
+    lm = 1
+    hm = 0
+    low = x % n
+    high = n
+    logging.info('lm %d hm %d low %d hight %d'%(lm,hm,low,high))
+    while low > 1:
+        r = high // low
+        nm = hm - lm * r
+        nw = high - low * r
+        high = low
+        hm = lm
+        low = nw
+        lm = nm
+        logging.info('lm %d hm %d low %d hight %d'%(lm,hm,low,high))
+    return lm % n
+
+def invmod_handler(args,parser):
+    set_logging(args)
+    divisor = parse_int(args.subnargs[0])
+    mod = parse_int(args.subnargs[1])
+    sys.stdout.write('invmod(%d,%d) = %d\n'%(divisor,mod,invmod(divisor,mod)))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
     {
         "ackman<ackman_handler>##i j to calculate ackman##" :  {
+            "$" : 2
+        },
+        "invmod<invmod_handler>##divisor mod to calculate inversion modular##" : {
             "$" : 2
         }
     }
