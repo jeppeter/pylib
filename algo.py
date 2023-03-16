@@ -13,6 +13,10 @@ import inspect
 import json
 
 
+sys.path.insert(0,os.path.join(os.path.abspath(os.path.dirname(__file__)),'..','python-ecdsa','src'))
+import ecdsa
+
+
 def set_logging(args):
     loglvl= logging.ERROR
     if args.verbose >= 3:
@@ -124,6 +128,17 @@ def invmod_handler(args,parser):
     sys.exit(0)
     return
 
+def multecc_handler(args,parser):
+    set_logging(args)
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    multval = parse_int(args.subnargs[1])
+    retcurve = curve.generator * multval
+    sys.stdout.write('curve\n%s\n'%(curve.generator))
+    sys.stdout.write('value\n0x%x\n'%(multval))
+    sys.stdout.write('retcurve\n%s\n'%(retcurve))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -132,6 +147,9 @@ def main():
             "$" : 2
         },
         "invmod<invmod_handler>##divisor mod to calculate inversion modular##" : {
+            "$" : 2
+        },
+        "multecc<multecc_handler>##name multval to calculate values##" : {
             "$" : 2
         }
     }
