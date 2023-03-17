@@ -139,6 +139,24 @@ def multecc_handler(args,parser):
     sys.exit(0)
     return
 
+def addecc_handler(args,parser):
+    set_logging(args)
+    if len(args.subnargs) < 2:
+        raise Exception('need at least eccname multval')
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    multval = parse_int(args.subnargs[1])
+    retcurve = curve.generator * multval
+    for i in args.subnargs[2:]:
+        curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+        multval = parse_int(i)
+        curval = curve.generator * multval
+        retcurve = retcurve + curval
+    sys.stdout.write('curve\n%s\n'%(curve.generator))
+    sys.stdout.write('result\n%s\n'%(retcurve))
+    sys.exit(0)
+    return
+
+
 
 def main():
     commandline='''
@@ -151,6 +169,9 @@ def main():
         },
         "multecc<multecc_handler>##name multval to calculate values##" : {
             "$" : 2
+        },
+        "addecc<addecc_handler>##name multval ... to calculate values##" : {
+            "$" : "+"
         }
     }
     '''
