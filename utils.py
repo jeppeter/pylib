@@ -963,6 +963,47 @@ def nafw_handler(args,parser):
     sys.exit(0)
     return
 
+def filter_rust(ins):
+    sarr = re.split('\n',ins)
+    rets = ''
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        carr = re.split('\\s+',l,2)
+        if len(carr) > 2:
+            curs = carr[2]
+            curs = curs.strip(' \t')
+            rets += '%s\n'%(curs)
+    return rets
+
+def filter_python(ins):
+    sarr = re.split('\n',ins)
+    rets = ''
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        carr = re.split(r'\s+',l,2)
+        if len(carr) > 2:
+            curs = carr[2]
+            curs = curs.strip(' \t')
+            rets += '%s\n'%(curs)
+    return rets
+
+
+def filterlog_handler(args,parser):
+    set_logging(args)
+    types = 'python'
+    if len(args.subnargs) > 0:
+        types = args.subnargs[0]
+    ins = read_file(args.input)
+    if types == 'rust':
+        outs = filter_rust(ins)
+    elif types == 'python':
+        outs = filter_python(ins)
+    else:
+        raise Exception('not supported [%s]'%(types))
+    write_file(outs,args.output)
+    sys.exit(0)
+
+
 
 def main():
     commandline='''
@@ -1035,6 +1076,9 @@ def main():
         },
         "nafw<nafw_handler>##knum w to debug nafw in Guide to Elliptic Curve Cryptography Page 121##" : {
             "$" : 2
+        },
+        "filterlog<filterlog_handler>##[rust|python] to filter file for rust or python log##" : {
+            "$" : "?"
         }
     }
     '''
