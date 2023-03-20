@@ -14,7 +14,9 @@ import json
 
 
 sys.path.insert(0,os.path.join(os.path.abspath(os.path.dirname(__file__)),'..','python-ecdsa','src'))
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import ecdsa
+import fileop
 
 
 def set_logging(args):
@@ -156,11 +158,42 @@ def addecc_handler(args,parser):
     sys.exit(0)
     return
 
+def signbaseecc_handler(args,parser):
+    set_logging(args)
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    secnum = parse_int(args.subnargs[1])
+    hashnumber = parse_int(args.subnargs[2])
+    randkey = parse_int(args.subnargs[3])
+    ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    sig = ecdsakey.privkey.sign(hashnumber,randkey)
+    code = ecdsa.util.sigencode_der(sig.r,sig.s,None)
+    if args.output is None:
+        sys.stdout.write('%s\n'%(fileop.format_bytes(code,'signing code')))
+    else:
+        fileop.write_file_bytes(code,args.output)
+    sys.exit(0)
+    return
+
+def verifybaseecc_handler(args,parser):
+    set_logging(args)
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    secnum = parse_int(args.subnargs[1])
+    hashnumber = parse_int(args.subnargs[2])
+    sigcode = fileop.read_file_bytes(args.input)
+    r,s = ecdsa.util.sigdecode_der(sigcode,None)
+    ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    sigv = ecdsa.ecdsa.Signature(r,s)
+    valid = ecdsakey.verifying_key.pubkey.verifies(hashnumber,sigv)
+    sys.stdout.write('verify %s\n'%(valid))
+    sys.exit(0)
+    return
 
 
 def main():
     commandline='''
     {
+        "input|i" : null,
+        "output|o" : null,
         "ackman<ackman_handler>##i j to calculate ackman##" :  {
             "$" : 2
         },
@@ -172,6 +205,12 @@ def main():
         },
         "addecc<addecc_handler>##name multval ... to calculate values##" : {
             "$" : "+"
+        },
+        "signbaseecc<signbaseecc_handler>##name secnum hashnumber randkey to sign to output##" : {
+            "$" : 4
+        },
+        "verifybaseecc<verifybaseecc_handler>##name secnum hashnumber to verify##" : {
+            "$" : 3
         }
     }
     '''
