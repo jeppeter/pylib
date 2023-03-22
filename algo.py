@@ -152,7 +152,7 @@ def addecc_handler(args,parser):
         curve = ecdsa.curves.curve_by_name(args.subnargs[0])
         multval = parse_int(i)
         curval = curve.generator * multval
-        retcurve = retcurve + curval
+        retcurve = retcurve + curval        
     sys.stdout.write('curve\n%s\n'%(curve.generator))
     sys.stdout.write('result\n%s\n'%(retcurve))
     sys.exit(0)
@@ -166,6 +166,8 @@ def signbaseecc_handler(args,parser):
     randkey = parse_int(args.subnargs[3])
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     sig = ecdsakey.privkey.sign(hashnumber,randkey)
+    pubk = ecdsakey.verifying_key.to_der()
+    sys.stdout.write('%s\n'%(fileop.format_bytes(pubk,'publickey')))
     code = ecdsa.util.sigencode_der(sig.r,sig.s,None)
     if args.output is None:
         sys.stdout.write('%s\n'%(fileop.format_bytes(code,'signing code')))
