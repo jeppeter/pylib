@@ -168,6 +168,8 @@ def signbaseecc_handler(args,parser):
     sig = ecdsakey.privkey.sign(hashnumber,randkey)
     pubk = ecdsakey.verifying_key.to_der()
     sys.stdout.write('%s\n'%(fileop.format_bytes(pubk,'publickey')))
+    cpubk = ecdsakey.verifying_key.to_der('uncompressed',curve_parameters_encoding='explicit')
+    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey')))
     code = ecdsa.util.sigencode_der(sig.r,sig.s,None)
     if args.output is None:
         sys.stdout.write('%s\n'%(fileop.format_bytes(code,'signing code')))
