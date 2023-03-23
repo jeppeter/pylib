@@ -193,6 +193,36 @@ def verifybaseecc_handler(args,parser):
     return
 
 
+def modsquareroot_handler(args,parser):
+    set_logging(args)
+    a = parse_int(args.subnargs[0])
+    prime = parse_int(args.subnargs[1])
+    val = ecdsa.numbertheory.square_root_mod_prime(a,prime)
+    sys.stdout.write('a [0x%x] prime [0x%x] ret [0x%x]\n'%(a,prime,val))
+    sys.exit(0)
+    return
+
+def impecpubkey_handler(args,parser):
+    set_logging(args)
+    fname = args.subnargs[0]
+    cpubk = fileop.read_file_bytes(fname)
+    ecpubkey = ecdsa.VerifyingKey.from_der(cpubk)
+    sys.exit(0)
+    return
+
+def expecpubkey_handler(args,parser):
+    set_logging(args)
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    secnum = parse_int(args.subnargs[1])
+    ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    #cpubk = ecdsakey.verifying_key.to_der('compressed',curve_parameters_encoding='explicit')
+    cpubk = ecdsakey.verifying_key.to_der('compressed')
+    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey')))
+    fileop.write_file_bytes(cpubk,args.subnargs[2])
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -215,6 +245,15 @@ def main():
         },
         "verifybaseecc<verifybaseecc_handler>##name secnum hashnumber to verify##" : {
             "$" : 3
+        },
+        "modsquareroot<modsquareroot_handler>##a prime to mod prime##" : {
+            "$" : 2
+        },
+        "expecpubkey<expecpubkey_handler>##name secname outfile to export ec pubkey##" : {
+            "$" : 3
+        },
+        "impecpubkey<impecpubkey_handler>##keybin to import ecpubkey##" : {
+            "$" : 1
         }
     }
     '''
