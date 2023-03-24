@@ -237,9 +237,9 @@ def encecc_handler(args,parser):
     maxnumber = basenumber + (1 << 32)
     curnumber = basenumber
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    p = curve.generator.p()
-    a = curve.generator.a()
-    b = curve.generator.b()
+    p = curve.generator.curve().p()
+    a = curve.generator.curve().a()
+    b = curve.generator.curve().b()
     while curnumber < maxnumber:
         try:
             x = curnumber
@@ -253,7 +253,20 @@ def encecc_handler(args,parser):
         raise Exception('0x%x exceeded'%(basenumber))
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     pubkey = ecdsakey.verifying_key.pubkey;
-    M = ecdsa.elliptic.PointJacobi(curve,curnumber,y)
+
+    M = ecdsa.ellipticcurve.PointJacobi(curve.generator.curve(),curnumber,y,1,curve.generator.order())
+    r = randnumber * curve.generator
+    s = M + randnumber * pubkey.point
+    sys.stdout.write('x 0x%x y 0x%x\n'%(curnumber,y))
+    sys.stdout.write('M %s\n'%(M))
+    sys.stdout.write('r %s\n'%(r))
+    sys.stdout.write('s %s\n'%(s))
+
+    retn = - secnum * r
+    ret = s + retn
+    afret = ret.to_affine()
+    sys.stdout.write('ret %s\n'%(ret))
+    sys.stdout.write('afret %s\n'%(afret))
     sys.exit(0)
     return
 
