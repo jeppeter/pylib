@@ -227,6 +227,36 @@ def expecpubkey_handler(args,parser):
     sys.exit(0)
     return
 
+def encecc_handler(args,parser):
+    set_logging(args)
+    ecname = args.subnargs[0]
+    secnum = parse_int(args.subnargs[1])
+    encnumber = parse_int(args.subnargs[2])
+    randnumber = parse_int(args.subnargs[3])
+    basenumber = encnumber << 32
+    maxnumber = basenumber + (1 << 32)
+    curnumber = basenumber
+    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
+    p = curve.generator.p()
+    a = curve.generator.a()
+    b = curve.generator.b()
+    while curnumber < maxnumber:
+        try:
+            x = curnumber
+            alpha = (pow(x, 3, p) + (p * x) + b) % p
+            y = ecdsa.numbertheory.square_root_mod_prime(alpha,p)
+            break
+        except:
+            pass
+        curnumber += 1
+    if curnumber >= maxnumber:
+        raise Exception('0x%x exceeded'%(basenumber))
+    ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    pubkey = ecdsakey.verifying_key.pubkey;
+    M = ecdsa.elliptic.PointJacobi(curve,curnumber,y)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -259,6 +289,9 @@ def main():
         },
         "impecpubkey<impecpubkey_handler>##keybin to import ecpubkey##" : {
             "$" : 1
+        },
+        "encecc<encecc_handler>##ecname secnum encnumber randnumer##" : {
+            "$" : 4
         }
     }
     '''
