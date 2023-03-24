@@ -166,14 +166,6 @@ def signbaseecc_handler(args,parser):
     randkey = parse_int(args.subnargs[3])
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     sig = ecdsakey.privkey.sign(hashnumber,randkey)
-    pubk = ecdsakey.verifying_key.to_der('uncompressed')
-    sys.stdout.write('%s\n'%(fileop.format_bytes(pubk,'publickey')))
-    pubk = ecdsakey.verifying_key.to_der('compressed')
-    sys.stdout.write('%s\n'%(fileop.format_bytes(pubk,'publickey compressed')))
-    cpubk = ecdsakey.verifying_key.to_der('uncompressed',curve_parameters_encoding='explicit')
-    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey explicit')))
-    cpubk = ecdsakey.verifying_key.to_der('compressed',curve_parameters_encoding='explicit')
-    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey explicit compressed')))
     code = ecdsa.util.sigencode_der(sig.r,sig.s,None)
     if args.output is None:
         sys.stdout.write('%s\n'%(fileop.format_bytes(code,'signing code')))
@@ -184,14 +176,15 @@ def signbaseecc_handler(args,parser):
 
 def verifybaseecc_handler(args,parser):
     set_logging(args)
-    curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    secnum = parse_int(args.subnargs[1])
-    hashnumber = parse_int(args.subnargs[2])
+    hashnumber = parse_int(args.subnargs[0])
+    derpubk = fileop.read_file_bytes(args.subnargs[1])
     sigcode = fileop.read_file_bytes(args.input)
     r,s = ecdsa.util.sigdecode_der(sigcode,None)
-    ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    ecpubkey = ecdsa.VerifyingKey.from_der(derpubk)
+    #ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     sigv = ecdsa.ecdsa.Signature(r,s)
-    valid = ecdsakey.verifying_key.pubkey.verifies(hashnumber,sigv)
+    valid = ecpubkey.pubkey.verifies(hashnumber,sigv)
+    #valid = ecdsakey.verifying_key.pubkey.verifies(hashnumber,sigv)
     sys.stdout.write('verify %s\n'%(valid))
     sys.exit(0)
     return
@@ -216,13 +209,21 @@ def impecpubkey_handler(args,parser):
 
 def expecpubkey_handler(args,parser):
     set_logging(args)
+    if len(args.subnargs) < 2:
+        raise Exception('need ecname secnum')
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
     secnum = parse_int(args.subnargs[1])
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    types = 'uncompressed'
+    exps = None
+    if len(args.subnargs) > 2:
+        types = args.subnargs[2]
+    if len(args.subnargs) > 3:
+        exps = args.subnargs[3]
     #cpubk = ecdsakey.verifying_key.to_der('compressed',curve_parameters_encoding='explicit')
-    cpubk = ecdsakey.verifying_key.to_der('compressed')
-    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey')))
-    fileop.write_file_bytes(cpubk,args.subnargs[2])
+    cpubk = ecdsakey.verifying_key.to_der(types,exps)
+    sys.stdout.write('%s\n'%(fileop.format_bytes(cpubk,'publickey %s %s'%(types,exps))))
+    fileop.write_file_bytes(cpubk,args.output)
     sys.exit(0)
     return
 
@@ -247,14 +248,14 @@ def main():
         "signbaseecc<signbaseecc_handler>##name secnum hashnumber randkey to sign to output##" : {
             "$" : 4
         },
-        "verifybaseecc<verifybaseecc_handler>##name secnum hashnumber to verify##" : {
-            "$" : 3
+        "verifybaseecc<verifybaseecc_handler>##hashnumber ecpubbin to verify##" : {
+            "$" : 2
         },
         "modsquareroot<modsquareroot_handler>##a prime to mod prime##" : {
             "$" : 2
         },
-        "expecpubkey<expecpubkey_handler>##name secname outfile to export ec pubkey##" : {
-            "$" : 3
+        "expecpubkey<expecpubkey_handler>##name secname [types] [exptypes]  to export ec pubkey##" : {
+            "$" : "+"
         },
         "impecpubkey<impecpubkey_handler>##keybin to import ecpubkey##" : {
             "$" : 1
