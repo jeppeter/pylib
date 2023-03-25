@@ -243,7 +243,7 @@ def encecc_handler(args,parser):
     while curnumber < maxnumber:
         try:
             x = curnumber
-            alpha = (pow(x, 3, p) + (p * x) + b) % p
+            alpha = (pow(x, 3, p) + (a * x) + b) % p
             y = ecdsa.numbertheory.square_root_mod_prime(alpha,p)
             break
         except:
@@ -256,17 +256,37 @@ def encecc_handler(args,parser):
 
     M = ecdsa.ellipticcurve.PointJacobi(curve.generator.curve(),curnumber,y,1,curve.generator.order())
     r = randnumber * curve.generator
-    s = M + randnumber * pubkey.point
+    cs =  randnumber * pubkey.point
+    rs = r.to_affine()
+    css = cs.to_affine()
+    rx = rs.x()
+    csx = css.x()
+    sx = csx + curnumber
+    s = cs + M
     sys.stdout.write('x 0x%x y 0x%x\n'%(curnumber,y))
     sys.stdout.write('M %s\n'%(M))
     sys.stdout.write('r %s\n'%(r))
     sys.stdout.write('s %s\n'%(s))
+    sys.stdout.write('rs %s\n'%(rs))
+    sys.stdout.write('css %s\n'%(css))
 
-    retn = - secnum * r
-    ret = s + retn
-    afret = ret.to_affine()
-    sys.stdout.write('ret %s\n'%(ret))
-    sys.stdout.write('afret %s\n'%(afret))
+    sys.stdout.write('rx 0x%x 0x%x ry 0x%x csx 0x%x mx 0x%x\n'%(rx,rs.x(),rs.y(),csx,sx))
+
+    #alpha = (pow(rx, 3, p) + (a * rx)  + b) % p
+    alpha = (rx ** 3 + a * rx + b) %p
+    ry = ecdsa.numbertheory.square_root_mod_prime(alpha,p)
+    cc = ry + rs.y()
+    sys.stdout.write('ry 0x%x + 0x%x ?= p 0x%x 0x%x\n'%(ry,rs.y(),p,cc))
+    nrp = ecdsa.ellipticcurve.Point(curve.generator.curve(),rx,ry,curve.order)
+    nrj = ecdsa.ellipticcurve.PointJacobi.from_affine(nrp,False)
+    orr = secnum * nrj
+    opt = orr.to_affine()
+    nv = sx - opt.x()
+    sys.stdout.write('orr %s nv 0x%x\n'%(orr,nv))
+    sys.stdout.write('rx 0x%x mx 0x%x nv 0x%x curnumber 0x%x'%(rx,sx,nv,curnumber))
+
+
+
     sys.exit(0)
     return
 
