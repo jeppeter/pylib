@@ -299,7 +299,7 @@ def expecprivkey_handler(args,parser):
     exps = None
     if len(args.subnargs) > 1:
         secnum = parse_int(args.subnargs[1])
-        privkey = ecdsa.SigningKey.from_secret_exponent(curve,secnum)
+        privkey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     else:
         privkey = ecdsa.SigningKey.generate(curve)
 
