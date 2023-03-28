@@ -290,12 +290,50 @@ def encecc_handler(args,parser):
     sys.exit(0)
     return
 
+def expecprivkey_handler(args,parser):
+    set_logging(args)
+    ecname = args.subnargs[0]
+    curve = ecdsa.curves.curve_by_name(ecname)
+    types = 'uncompressed'
+    asn1s = 'ssleay'
+    exps = None
+    if len(args.subnargs) > 1:
+        secnum = parse_int(args.subnargs[1])
+        privkey = ecdsa.SigningKey.from_secret_exponent(curve,secnum)
+    else:
+        privkey = ecdsa.SigningKey.generate(curve)
+
+    pubkey = privkey.verifying_key
+    if len(args.subnargs) > 2:
+        types = args.subnargs[2]
+    if len(args.subnargs) > 3:
+        asn1s = args.subnargs[3]
+    if len(args.subnargs) > 4:
+        exps = args.subnargs[4]
+    privbin = privkey.to_der(types,asn1s,exps)
+    if args.ecprivkey is not None:
+        fileop.write_file_bytes(privbin,args.ecprivkey)
+    else:
+        sys.stdout.write('%s\n'%(fileop.format_bytes(privbin,'private key %s %s %s'%(types,asn1s,exps))))
+
+    pubbin = pubkey.to_der(types,exps)
+    if args.ecpubkey is not None:
+        fileop.write_file_bytes(pubbin,args.ecpubkey)
+    else:
+        sys.stdout.write('%s\n'%(fileop.format_bytes(pubbin,'public key %s %s'%(types,exps))))
+
+
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
     {
         "input|i" : null,
         "output|o" : null,
+        "ecprivkey" : null,
+        "ecpubkey" : null,
         "ackman<ackman_handler>##i j to calculate ackman##" :  {
             "$" : 2
         },
@@ -325,6 +363,9 @@ def main():
         },
         "encecc<encecc_handler>##ecname secnum encnumber randnumer##" : {
             "$" : 4
+        },
+        "expecprivkey<expecprivkey_handler>##ecname [secnum] [types] [ssleay] [exps]##" : {
+            "$" : "+"
         }
     }
     '''
