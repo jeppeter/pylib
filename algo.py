@@ -240,21 +240,10 @@ def encecc_handler(args,parser):
     p = curve.generator.curve().p()
     a = curve.generator.curve().a()
     b = curve.generator.curve().b()
-    while curnumber < maxnumber:
-        try:
-            x = curnumber
-            alpha = (pow(x, 3, p) + (a * x) + b) % p
-            y = ecdsa.numbertheory.square_root_mod_prime(alpha,p)
-            break
-        except:
-            pass
-        curnumber += 1
-    if curnumber >= maxnumber:
-        raise Exception('0x%x exceeded'%(basenumber))
+    curnumber = encnumber
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     pubkey = ecdsakey.verifying_key.pubkey;
 
-    M = ecdsa.ellipticcurve.PointJacobi(curve.generator.curve(),curnumber,y,1,curve.generator.order())
     r = randnumber * curve.generator
     cs =  randnumber * pubkey.point
     rs = r.to_affine()
@@ -262,11 +251,12 @@ def encecc_handler(args,parser):
     rx = rs.x()
     csx = css.x()
     sx = csx + curnumber
-    s = cs + M
-    sys.stdout.write('x 0x%x y 0x%x\n'%(curnumber,y))
-    sys.stdout.write('M %s\n'%(M))
+    #s = cs + M
+    #sys.stdout.write('x 0x%x y 0x%x\n'%(curnumber,y))
+    sys.stdout.write('x 0x%x\n'%(curnumber))
+    #sys.stdout.write('M %s\n'%(M))
     sys.stdout.write('r %s\n'%(r))
-    sys.stdout.write('s %s\n'%(s))
+    #sys.stdout.write('s %s\n'%(s))
     sys.stdout.write('rs %s\n'%(rs))
     sys.stdout.write('css %s\n'%(css))
 
