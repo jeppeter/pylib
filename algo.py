@@ -316,6 +316,23 @@ def expecprivkey_handler(args,parser):
     sys.exit(0)
     return
 
+def ecdhgen_handler(args,parser):
+    set_logging(args)
+    ecname = args.subnargs[0]
+    sec1 = parse_int(args.subnargs[1])
+    sec2 = parse_int(args.subnargs[2])
+    curve = ecdsa.curves.curve_by_name(ecname)
+    priv1 = ecdsa.SigningKey.from_secret_exponent(sec1,curve)
+    priv2 = ecdsa.SigningKey.from_secret_exponent(sec2,curve)
+    ecdhv1 = ecdsa.ECDH(curve,priv1,priv2.verifying_key)
+    ecdhv2 = ecdsa.ECDH(curve,priv2,priv1.verifying_key)
+    kv1 = ecdhv1.generate_sharedsecret()
+    kv2 = ecdhv2.generate_sharedsecret()
+    sys.stdout.write('kv1 0x%x\n'%(kv1))
+    sys.stdout.write('kv2 0x%x\n'%(kv2))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -356,6 +373,9 @@ def main():
         },
         "expecprivkey<expecprivkey_handler>##ecname [secnum] [types] [ssleay] [exps]##" : {
             "$" : "+"
+        },
+        "ecdhgen<ecdhgen_handler>##ecname secnum1 secnum2 to generate dh##" : {
+            "$" : 3
         }
     }
     '''
