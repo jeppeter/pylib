@@ -334,6 +334,46 @@ def ecdhgen_handler(args,parser):
     return
 
 
+def signdigestecc_handler(args,parser):
+    set_logging(args)
+    ecname = args.subnargs[0]
+    secnum = parse_int(args.subnargs[1])
+    binfile = fileop.read_file_bytes(args.subnargs[2])
+    curve = ecdsa.curves.curve_by_name(ecname)
+    privkey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
+    sigv = privkey.sign(binfile)
+    #sigder = sigv.to_der()
+    r,s = ecdsa.util.sigdecode_string(sigv,curve.generator.order())
+    sig = ecdsa.ecdsa.Signature(r,s)
+    sigder = ecdsa.util.sigencode_der(sig.r,sig.s,None)
+    if args.output is not None:
+        fileop.write_file_bytes(sigder,args.output)
+    else:
+        sys.stdout.write('%s\n'%(fileop.format_bytes(sigder,'signing code')))
+    if args.ecprivkey is not None:
+        privder = privkey.to_der()
+        fileop.write_file_bytes(privder, args.ecprivkey)
+    if args.ecpubkey is not None:
+        pubder = privkey.verifying_key.to_der()
+        fileop.write_file_bytes(pubder,args.ecpubkey)
+    sys.exit(0)
+    return
+
+
+def verifydigestecc_handler(args,parser):
+    set_logging(args)
+    if args.ecpubkey is None:
+        raise Exception('no ecpubkey set')
+    pubbin = fileop.read_file_bytes(args.ecpubkey)
+    pubkey = ecdsa.VerifyingKey.from_der(pubbin)
+    binfile = fileop.read_file_bytes(args.subnargs[0])
+    sigbin = fileop.read_file_bytes(args.subnargs[1])
+    sigv = ecdsa.utils.sigdecode_der(sigbin,pubkey.curve.order())
+    retval = pubkey.verify(sigbin,binfile)
+    sys.stdout.write('verfiy %s\n'%(retval))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -376,6 +416,12 @@ def main():
         },
         "ecdhgen<ecdhgen_handler>##ecname secnum1 secnum2 to generate dh##" : {
             "$" : 3
+        },
+        "signdigestecc<signdigestecc_handler>##ecnamae secnum binfile to sign digest##" : {
+            "$" : 3
+        },
+        "verifydigestecc<verifydigestecc_handler>##binfile signbin to verify signature##" : {
+            "$" : 2
         }
     }
     '''
