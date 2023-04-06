@@ -368,8 +368,9 @@ def verifydigestecc_handler(args,parser):
     pubkey = ecdsa.VerifyingKey.from_der(pubbin)
     binfile = fileop.read_file_bytes(args.subnargs[0])
     sigbin = fileop.read_file_bytes(args.subnargs[1])
-    sigv = ecdsa.utils.sigdecode_der(sigbin,pubkey.curve.order())
-    retval = pubkey.verify(sigbin,binfile)
+    r,s = ecdsa.util.sigdecode_der(sigbin,pubkey.curve.order)
+    sigv = ecdsa.util.sigencode_string(r,s,pubkey.curve.order)
+    retval = pubkey.verify(sigv,binfile)
     sys.stdout.write('verfiy %s\n'%(retval))
     sys.exit(0)
     return
