@@ -19,66 +19,6 @@ import ecdsa
 import fileop
 
 
-def set_logging(args):
-    loglvl= logging.ERROR
-    if args.verbose >= 3:
-        loglvl = logging.DEBUG
-    elif args.verbose >= 2:
-        loglvl = logging.INFO
-    curlog = logging.getLogger(args.lognames)
-    #sys.stderr.write('curlog [%s][%s]\n'%(args.logname,curlog))
-    curlog.setLevel(loglvl)
-    if len(curlog.handlers) > 0 :
-        curlog.handlers = []
-    formatter = logging.Formatter('%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d<%(levelname)s>\t%(message)s')
-    if not args.lognostderr:
-        logstderr = logging.StreamHandler()
-        logstderr.setLevel(loglvl)
-        logstderr.setFormatter(formatter)
-        curlog.addHandler(logstderr)
-
-    for f in args.logfiles:
-        flog = logging.FileHandler(f,mode='w',delay=False)
-        flog.setLevel(loglvl)
-        flog.setFormatter(formatter)
-        curlog.addHandler(flog)
-    for f in args.logappends:       
-        if args.logrotate:
-            flog = logging.handlers.RotatingFileHandler(f,mode='a',maxBytes=args.logmaxbytes,backupCount=args.logbackupcnt,delay=0)
-        else:
-            sys.stdout.write('appends [%s] file\n'%(f))
-            flog = logging.FileHandler(f,mode='a',delay=0)
-        flog.setLevel(loglvl)
-        flog.setFormatter(formatter)
-        curlog.addHandler(flog)
-    return
-
-def load_log_commandline(parser):
-    logcommand = '''
-    {
-        "verbose|v" : "+",
-        "logname" : "root",
-        "logfiles" : [],
-        "logappends" : [],
-        "logrotate" : true,
-        "logmaxbytes" : 10000000,
-        "logbackupcnt" : 2,
-        "lognostderr" : false
-    }
-    '''
-    parser.load_command_line_string(logcommand)
-    return parser
-
-def parse_int(v):
-    c = v
-    base = 10
-    if c.startswith('0x') or c.startswith('0X') :
-        base = 16
-        c = c[2:]
-    elif c.startswith('x') or c.startswith('X'):
-        base = 16
-        c = c[1:]
-    return int(c,base)
 
 
 def ackman(i,j):
@@ -90,9 +30,9 @@ def ackman(i,j):
     return ackman(i-1,ackman(i,j-1))
 
 def ackman_handler(args,parser):
-    set_logging(args)
-    i = parse_int(args.subnargs[0])
-    j = parse_int(args.subnargs[1])
+    fileop.set_logging(args)
+    i = fileop.parse_int(args.subnargs[0])
+    j = fileop.parse_int(args.subnargs[1])
     sys.stdout.write('ackman (%d , %d) = %d\n'%(i,j,ackman(i,j)))
     sys.exit(0)
     return
@@ -123,17 +63,17 @@ def invmod(x,n):
     return lm % n
 
 def invmod_handler(args,parser):
-    set_logging(args)
-    divisor = parse_int(args.subnargs[0])
-    mod = parse_int(args.subnargs[1])
+    fileop.set_logging(args)
+    divisor = fileop.parse_int(args.subnargs[0])
+    mod = fileop.parse_int(args.subnargs[1])
     sys.stdout.write('invmod(%d,%d) = %d\n'%(divisor,mod,invmod(divisor,mod)))
     sys.exit(0)
     return
 
 def multecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    multval = parse_int(args.subnargs[1])
+    multval = fileop.parse_int(args.subnargs[1])
     retcurve = curve.generator * multval
     sys.stdout.write('curve\n%s\n'%(curve.generator))
     sys.stdout.write('value\n0x%x\n'%(multval))
@@ -142,15 +82,15 @@ def multecc_handler(args,parser):
     return
 
 def addecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     if len(args.subnargs) < 2:
         raise Exception('need at least eccname multval')
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    multval = parse_int(args.subnargs[1])
+    multval = fileop.parse_int(args.subnargs[1])
     retcurve = curve.generator * multval
     for i in args.subnargs[2:]:
         curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-        multval = parse_int(i)
+        multval = fileop.parse_int(i)
         curval = curve.generator * multval
         retcurve = retcurve + curval        
     sys.stdout.write('curve\n%s\n'%(curve.generator))
@@ -159,11 +99,11 @@ def addecc_handler(args,parser):
     return
 
 def signbaseecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    secnum = parse_int(args.subnargs[1])
-    hashnumber = parse_int(args.subnargs[2])
-    randkey = parse_int(args.subnargs[3])
+    secnum = fileop.parse_int(args.subnargs[1])
+    hashnumber = fileop.parse_int(args.subnargs[2])
+    randkey = fileop.parse_int(args.subnargs[3])
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     sig = ecdsakey.privkey.sign(hashnumber,randkey)
     code = ecdsa.util.sigencode_der(sig.r,sig.s,None)
@@ -175,8 +115,8 @@ def signbaseecc_handler(args,parser):
     return
 
 def verifybaseecc_handler(args,parser):
-    set_logging(args)
-    hashnumber = parse_int(args.subnargs[0])
+    fileop.set_logging(args)
+    hashnumber = fileop.parse_int(args.subnargs[0])
     derpubk = fileop.read_file_bytes(args.subnargs[1])
     sigcode = fileop.read_file_bytes(args.input)
     r,s = ecdsa.util.sigdecode_der(sigcode,None)
@@ -191,16 +131,16 @@ def verifybaseecc_handler(args,parser):
 
 
 def modsquareroot_handler(args,parser):
-    set_logging(args)
-    a = parse_int(args.subnargs[0])
-    prime = parse_int(args.subnargs[1])
+    fileop.set_logging(args)
+    a = fileop.parse_int(args.subnargs[0])
+    prime = fileop.parse_int(args.subnargs[1])
     val = ecdsa.numbertheory.square_root_mod_prime(a,prime)
     sys.stdout.write('a [0x%x] prime [0x%x] ret [0x%x]\n'%(a,prime,val))
     sys.exit(0)
     return
 
 def impecpubkey_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     fname = args.subnargs[0]
     cpubk = fileop.read_file_bytes(fname)
     ecpubkey = ecdsa.VerifyingKey.from_der(cpubk)
@@ -208,11 +148,11 @@ def impecpubkey_handler(args,parser):
     return
 
 def expecpubkey_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     if len(args.subnargs) < 2:
         raise Exception('need ecname secnum')
     curve = ecdsa.curves.curve_by_name(args.subnargs[0])
-    secnum = parse_int(args.subnargs[1])
+    secnum = fileop.parse_int(args.subnargs[1])
     ecdsakey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     types = 'uncompressed'
     exps = None
@@ -228,11 +168,11 @@ def expecpubkey_handler(args,parser):
     return
 
 def encecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     ecname = args.subnargs[0]
-    secnum = parse_int(args.subnargs[1])
-    encnumber = parse_int(args.subnargs[2])
-    randnumber = parse_int(args.subnargs[3])
+    secnum = fileop.parse_int(args.subnargs[1])
+    encnumber = fileop.parse_int(args.subnargs[2])
+    randnumber = fileop.parse_int(args.subnargs[3])
     basenumber = encnumber << 32
     maxnumber = basenumber + (1 << 32)
     curnumber = basenumber
@@ -281,14 +221,14 @@ def encecc_handler(args,parser):
     return
 
 def expecprivkey_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     ecname = args.subnargs[0]
     curve = ecdsa.curves.curve_by_name(ecname)
     types = 'uncompressed'
     asn1s = 'ssleay'
     exps = None
     if len(args.subnargs) > 1:
-        secnum = parse_int(args.subnargs[1])
+        secnum = fileop.parse_int(args.subnargs[1])
         privkey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
     else:
         privkey = ecdsa.SigningKey.generate(curve)
@@ -317,10 +257,10 @@ def expecprivkey_handler(args,parser):
     return
 
 def ecdhgen_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     ecname = args.subnargs[0]
-    sec1 = parse_int(args.subnargs[1])
-    sec2 = parse_int(args.subnargs[2])
+    sec1 = fileop.parse_int(args.subnargs[1])
+    sec2 = fileop.parse_int(args.subnargs[2])
     curve = ecdsa.curves.curve_by_name(ecname)
     priv1 = ecdsa.SigningKey.from_secret_exponent(sec1,curve)
     priv2 = ecdsa.SigningKey.from_secret_exponent(sec2,curve)
@@ -335,9 +275,9 @@ def ecdhgen_handler(args,parser):
 
 
 def signdigestecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     ecname = args.subnargs[0]
-    secnum = parse_int(args.subnargs[1])
+    secnum = fileop.parse_int(args.subnargs[1])
     binfile = fileop.read_file_bytes(args.subnargs[2])
     curve = ecdsa.curves.curve_by_name(ecname)
     privkey = ecdsa.SigningKey.from_secret_exponent(secnum,curve)
@@ -361,7 +301,7 @@ def signdigestecc_handler(args,parser):
 
 
 def verifydigestecc_handler(args,parser):
-    set_logging(args)
+    fileop.set_logging(args)
     if args.ecpubkey is None:
         raise Exception('no ecpubkey set')
     pubbin = fileop.read_file_bytes(args.ecpubkey)
@@ -428,7 +368,7 @@ def main():
     '''
     parser = extargsparse.ExtArgsParse()
     parser.load_command_line_string(commandline)
-    load_log_commandline(parser)
+    fileop.load_log_commandline(parser)
     parser.parse_command_line(None,parser)
     raise Exception('can not reach here')
     return
