@@ -16,29 +16,66 @@ def set_logging(args):
 	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
 	return
 
+def read_file(infile=None):
+    fin = sys.stdin
+    if infile is not None:
+        fin = open(infile,'r+b')
+    rets = ''
+    for l in fin:
+        s = l
+        if 'b' in fin.mode:
+            if sys.version[0] == '3':
+                s = l.decode('utf-8')
+        rets += s
+
+    if fin != sys.stdin:
+        fin.close()
+    fin = None
+    return rets
+
+
+
 def match(args,ctx):
 	set_logging(args)
 	restr = args.subnargs[0]
-	instr = args.subnargs[1]
-	expr = re.compile(restr)	
-	if expr.match(instr):
-		print ('(%s) match (%s)'%(instr,restr))
+	if len(args.subnargs) > 1:
+		sarr = args.subnargs[1:]
 	else:
-		print ('(%s) not match (%s)'%(instr,restr))
+		s = read_file(args.infile)
+		carr = re.split('\n',s)
+		sarr = []
+		for l in carr:
+			l = l.rstrip('\r')
+			sarr.append(l)
+	expr = re.compile(restr)
+	for instr in sarr:
+		if expr.match(instr):
+			print ('(%s) match (%s)'%(instr,restr))
+		else:
+			print ('(%s) not match (%s)'%(instr,restr))
 	sys.exit(0)
 	return
 
 def findall(args,ctx):
 	set_logging(args)
 	restr = args.subnargs[0]
-	instr = args.subnargs[1]
-	expr = re.compile(restr)
-	m =  expr.findall(instr)
-	if m :
-		s = '(%s) match (%s)\n'%(instr,restr)
-		for i in range(len(m)):
-			s += '\t[%d] %s\n'%(i,m[i])
-		print ('%s'%(s))
+	if len(args.subnargs) > 1:
+		sarr = args.subnargs[1:]
+	else:
+		s = read_file(args.infile)
+		carr = re.split('\n',s)
+		sarr = []
+		for l in carr:
+			l = l.rstrip('\r')
+			sarr.append(l)
+	for instr in sarr:
+		expr = re.compile(restr)
+		m =  expr.findall(instr)
+		if m :
+			s = '(%s) match (%s)\n'%(instr,restr)
+			for i in range(len(m)):
+				s += '\t[%d] %s\n'%(i,m[i])
+			print ('%s'%(s))
 	else:
 		print ('(%s) no more for (%s)'%(instr,restr))
 	sys.exit(0)
@@ -110,28 +147,49 @@ def filter(args,ctx):
 def imatch(args,ctx):
 	set_logging(args)
 	restr = args.subnargs[0]
-	instr = args.subnargs[1]
-	expr = re.compile(restr,re.I)
-	if expr.match(instr):
-		print ('(%s) ignore match (%s)'%(instr,restr))
+	if len(args.subnargs) > 1:
+		sarr = args.subnargs[1:]
 	else:
-		print ('(%s) not ignore match (%s)'%(instr,restr))
+		s = read_file(args.infile)
+		carr = re.split('\n',s)
+		sarr = []
+		for l in carr:
+			l = l.rstrip('\r')
+			sarr.append(l)
+
+	expr = re.compile(restr,re.I)
+	for instr in sarr:
+		if expr.match(instr):
+			print ('(%s) ignore match (%s)'%(instr,restr))
+		else:
+			print ('(%s) not ignore match (%s)'%(instr,restr))
 	sys.exit(0)
 	return
 
 def ifindall(args,ctx):
 	set_logging(args)
 	restr = args.subnargs[0]
-	instr = args.subnargs[1]
-	expr = re.compile(restr,re.I)
-	m =  expr.findall(instr)
-	if m :
-		s = '(%s) match (%s)\n'%(instr,restr)
-		for i in range(len(m)):
-			s += '\t[%d] (%s)\n'%(i,m[i])			
-		print ('%s'%(s))
+	if len(args.subnargs) > 1:
+		sarr = args.subnargs[1:]
 	else:
-		print ('(%s) no more for (%s)'%(instr,restr))
+		s = read_file(args.infile)
+		carr = re.split('\n',s)
+		sarr = []
+		for l in carr:
+			l = l.rstrip('\r')
+			sarr.append(l)
+	logging.info('restr [%s]'%(restr))
+	expr = re.compile(restr,re.I)
+	for instr in sarr:
+		logging.info('instr [%s]'%(instr))
+		m =  expr.findall(instr)
+		if m :
+			s = '(%s) match (%s)\n'%(instr,restr)
+			for i in range(len(m)):
+				s += '\t[%d] (%s)\n'%(i,m[i])			
+			print ('%s'%(s))
+		else:
+			print ('(%s) no more for (%s)'%(instr,restr))
 	sys.exit(0)
 	return
 
@@ -364,19 +422,19 @@ command = {
 	'infile|i' : None,
 	'outfile|o' : None,
 	'match<match>##call re.match func##' : {
-		'$' : 2
+		'$' : "+"
 	},
 	'imatch<imatch>##call re.match with re.I##' : {
-		'$' : 2
+		'$' : "+"
 	},
 	'findall<findall>##re.findall##' : {
-		'$' : 2
+		'$' : "+"
 	},
 	'ifindall<ifindall>##re.findall with re.I##' : {
-		'$' : 2
+		'$' : "+"
 	},
 	'sub<sub>##re.sub##' : {
-		'$' : '+'
+		'$' : 3
 	},
 	'split<split>##re.split##' : {
 		'$' : 2
