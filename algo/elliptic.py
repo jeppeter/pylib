@@ -14,6 +14,8 @@ for mathematical background.
 '''
 import collections, random, binascii
 import hashlib, hmac
+import logging
+import time
 
 from Crypto.Cipher import DES3, XOR, AES
 from Crypto.Util.strxor import strxor
@@ -61,6 +63,8 @@ class Point(collections.namedtuple("EC_Point", "x y curve")):
     def check(self): #sanity check that current point is on its own curve
         lhs = self.y**2
         rhs = self.x**3 + self.curve.a * self.x + self.curve.b
+        logging.info('lhs 0x%x rhs 0x%x p 0x%x'%(lhs,rhs,self.curve.p))
+        time.sleep(0.1)
         return lhs % self.curve.p == rhs % self.curve.p
 
     def compress(self):
@@ -157,6 +161,8 @@ class BinaryPoint(Point):
     def check(self):
         lhs = self.y*self.y + self.x*self.y
         rhs = self.x*self.x*self.x + self.curve.a * self.x*self.x + self.curve.b
+        logging.info('lhs 0x%x rhs 0x%x f %s'%(lhs,rhs,self.curve.f))
+        time.sleep(0.1)
         return lhs % self.curve.f == rhs % self.curve.f
 
 Curve = collections.namedtuple("EllipticCurve", "a b p")
@@ -175,7 +181,7 @@ class BinaryFieldCurve(_BinaryFieldCurve):
 #over the field of polynomials whose coefficients are {0,1}, aka GF(2)
 
 class Encryptor(object):
-    def __init__(self, curve, G, n, h):
+    def __init__(self, curve, G, n, h,name):
         self.curve = curve #the particular elliptic curve
         self.G = G #a Generator EC_Point on the curve
         self.n = n #the order of the curve generator G; that is n*G % p = G
@@ -188,20 +194,21 @@ class Encryptor(object):
         else:
             curve_size = len("{0:x}".format(curve.f))
         self.curve_size = (curve_size + curve_size%2)/2
+        self.name = name
 
     @classmethod
-    def make_curve(self, curve, G_x, G_y, n, h=None):
+    def make_curve(self, curve, G_x, G_y, n, h=None,name=''):
         G = Point(G_x, G_y, curve)
         if not G.check():
             raise ValueError("Invalid: generator point not on curve")
-        return Encryptor(curve, G, n, h)
+        return Encryptor(curve, G, n, h,name)
 
     @classmethod
-    def make_binary_curve(self, curve, G_x, G_y, n, h=None):
+    def make_binary_curve(self, curve, G_x, G_y, n, h=None,name=''):
         G = BinaryPoint(G_x, G_y, curve)
         if not G.check():
             raise ValueError("Invalid: generator point not on curve")
-        return Encryptor(curve, G, n, h)
+        return Encryptor(curve, G, n, h,name)
 
     def gen_keypair(self, private=None):
         if private is None:
@@ -391,6 +398,7 @@ def _sqrt_mod(a, p):
                 m = m + pow(2, i)
         return (pow(a, (t+1)/2) * pow(dt, m/2)) % p
 
+#class _BinaryFieldInt(int):
 class _BinaryFieldInt(long):
     def __add__(self, o): return _BinaryFieldInt(self ^ o)
     __radd__ = __add__
@@ -401,7 +409,7 @@ class _BinaryFieldInt(long):
         shift = 0
         while o != 0:
             if o & 1:
-                acc ^= self << shift
+                acc ^= int(self << shift)
             shift += 1
             o >>= 1
         return _BinaryFieldInt(acc)
@@ -420,11 +428,11 @@ def _bf_div(a, b):
     #TODO: optimize by using hex instead of binary
     rlen = len("{0:b}".format(r)) #NOTE: math.log() doesn't work on bignums
     blen = len("{0:b}".format(b))
-    sweeper = 1 << (rlen-1)
+    sweeper = int(1 << (rlen-1))
     while rlen >= blen:
         shift = rlen - blen
-        q |= 1 << shift
-        r ^= b << shift
+        q |= int(1 << shift)
+        r ^= int(b << shift)
         if r == 0: break #great, evenly divisible
         while r and not sweeper & r:
             sweeper >>= 1
@@ -447,6 +455,21 @@ def _quadr_solve(beta, f):
     raise ValueError("no solution exists for z**2 + z = beta")
     return None
 
+def set_logging():
+    loglvl= logging.DEBUG
+    curlog = logging.getLogger()
+    #sys.stderr.write('curlog [%s][%s]\n'%(args.logname,curlog))
+    curlog.setLevel(loglvl)
+    if len(curlog.handlers) > 0 :
+        curlog.handlers = []
+    formatter = logging.Formatter('%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d<%(levelname)s>\t%(message)s')
+    logstderr = logging.StreamHandler()
+    logstderr.setLevel(loglvl)
+    logstderr.setFormatter(formatter)
+    curlog.addHandler(logstderr)
+    return
+
+set_logging()
 
 #which specific fields?
 #Standard curves recommended by NIST
@@ -457,7 +480,7 @@ P192 = Encryptor.make_curve(
           p = 6277101735386680763835789423207666416083908700390324961279),
     G_x = 0x188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012,
     G_y = 0x07192b95ffc8da78631011ed6b24cdd573f977a11e794811,
-    n = 6277101735386680763835789423176059013767194773182842284081)
+    n = 6277101735386680763835789423176059013767194773182842284081,name='P192')
 
 P224 = Encryptor.make_curve(
     Curve(a = -3,
@@ -465,7 +488,7 @@ P224 = Encryptor.make_curve(
           p = 26959946667150639794667015087019630673557916260026308143510066298881),
     G_x = 0xb70e0cbd6bb4bf7f321390b94a03c1d356c21122343280d6115c1d21,
     G_y = 0xbd376388b5f723fb4c22dfe6cd4375a05a07476444d5819985007e34,
-    n = 26959946667150639794667015087019625940457807714424391721682722368061)
+    n = 26959946667150639794667015087019625940457807714424391721682722368061,name='P224')
 
 P256 = Encryptor.make_curve(
     Curve(a = -3,
@@ -473,7 +496,7 @@ P256 = Encryptor.make_curve(
           p = 115792089210356248762697446949407573530086143415290314195533631308867097853951),
     G_x = 0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
     G_y = 0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5,
-    n = 115792089210356248762697446949407573529996955224135760342422259061068512044369)
+    n = 115792089210356248762697446949407573529996955224135760342422259061068512044369,name='P256')
 
 P384 = Encryptor.make_curve(
     Curve(a = -3,
@@ -486,7 +509,7 @@ P384 = Encryptor.make_curve(
     G_y = int("3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147c"\
               "e9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f", 16),
     n = int("394020061963944792122790401001436138050797392704654466679469052796"\
-            "27659399113263569398956308152294913554433653942643"))
+            "27659399113263569398956308152294913554433653942643"),name='P384')
 
 P521 = Encryptor.make_curve(
     Curve(a = -3,
@@ -504,14 +527,14 @@ P521 = Encryptor.make_curve(
               "3fad0761353c7086a272c24088be94769fd16650", 16),
     n = int("686479766013060971498190079908139321726943530014330540939446345918"\
         "5543183397655394245057746333217197532963996371363321113864768612440380"\
-        "340372808892707005449"))
+        "340372808892707005449"),name='P521')
 
 K163 = Encryptor.make_binary_curve(
     BinaryFieldCurve(a = 1, b = 1, f = [163, 7, 6, 3]),
     G_x = 0x02FE13C0537BBC11ACAA07D793DE4E6D5E5C94EEE8,
     G_y = 0x0289070FB05D38FF58321F2E800536D538CCDAA3D9,
     n = 0x04000000000000000000020108A2E0CC0D99F8A5EF,
-    h = 2)
+    h = 2,name='K163')
 
 B163 = Encryptor.make_binary_curve(
     BinaryFieldCurve(
@@ -520,11 +543,12 @@ B163 = Encryptor.make_binary_curve(
         f = [163, 7, 6, 3]),
     G_x = 0x3f0eba16286a2d57ea0991168d4994637e8343e36,
     G_y = 0x0d51fbc6c71a0094fa2cdd545b11c5c0c797324f1,
-    n = 5846006549323611672814742442876390689256843201587)
+    n = 5846006549323611672814742442876390689256843201587,name='B163')
 
 #standard curves from Secure Encryption Standard
 #http://www.secg.org/collateral/sec2_final.pdf
-SECP112_PRIME = (2**128 - 3)/76439
+#SECP112_PRIME = int((2**128 - 3)/76439)
+SECP112_PRIME = 0xdb7c2abf62e35e668076bead208b
 
 SECP112r1 = Encryptor.make_curve(
     Curve(a = 0xDB7C2ABF62E35E668076BEAD2088,
@@ -533,7 +557,7 @@ SECP112r1 = Encryptor.make_curve(
     G_x = 0x09487239995A5EE76B55F9C2F098,
     G_y = 0xA89CE5AF8724C0A23E0E0FF77500,
     n = 0xDB7C2ABF62E35E7628DFAC6561C5,
-    h = 1)
+    h = 1,name='SECP112r1')
 
 SECP112r2 = Encryptor.make_curve(
     Curve(a = 0x6127C24C05F38A0AAAF65C0EF02C,
@@ -542,7 +566,7 @@ SECP112r2 = Encryptor.make_curve(
     G_x = 0x4BA30AB5E892B4E1649DD0928643,
     G_y = 0xADCD46F5882E3747DEF36E956E97,
     n = 0x36DF0AAFD8B8D7597CA10520D04B,
-    h = 4)
+    h = 4,name='SECP112r2')
 
 SECP128_PRIME = 2**128 - 2**97 - 1
 
@@ -553,7 +577,7 @@ SECP128r1 = Encryptor.make_curve(
     G_x = 0x161FF7528B899B2D0C28607CA52C5B86,
     G_y = 0xCF5AC8395BAFEB13C02DA292DDED7A83,
     n = 0xFFFFFFFE0000000075A30D1B9038A115,
-    h = 1)
+    h = 1,name='SECP128r1')
 
 SECP128r2 = Encryptor.make_curve(
     Curve(a = 0xD6031998D1B3BBFEBF59CC9BBFF9AEE1,
@@ -562,7 +586,7 @@ SECP128r2 = Encryptor.make_curve(
     G_x = 0x7B6AA5D85E572983E6FB32A7CDEBC140,
     G_y = 0x27B6916A894D3AEE7106FE805FC34B44,
     n = 0x3FFFFFFF7FFFFFFFBE0024720613B5A3,
-    h = 4)
+    h = 4,name='SECP128r2')
 
 SECP160k1 = Encryptor.make_curve(
     Curve(a = 0,
@@ -571,7 +595,7 @@ SECP160k1 = Encryptor.make_curve(
     G_x = 0x3B4C382CE37AA192A4019E763036F4F5DD4D7EBB,
     G_y = 0x938CF935318FDCED6BC28286531733C3F03C4FEE,
     n = 0x100000000000000000001B8FA16DFAB9ACA16B6B3,
-    h = 1)
+    h = 1,name='SECP160k1')
 
 SECP160r1 = Encryptor.make_curve(
     Curve(a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFC,
@@ -580,7 +604,7 @@ SECP160r1 = Encryptor.make_curve(
     G_x = 0x4A96B5688EF573284664698968C38BB913CBFC82,
     G_y = 0x23A628553168947D59DCC912042351377AC5FB32,
     n = 0x100000000000000000001F4C8F927AED3CA752257,
-    h = 1)
+    h = 1,name='SECP160r1')
 
 SECP160r2 = Encryptor.make_curve(
     Curve(a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFAC70,
@@ -589,7 +613,7 @@ SECP160r2 = Encryptor.make_curve(
     G_x = 0x52DCB034293A117E1F4FF11B30F7199D3144CE6D,
     G_y = 0xFEAFFEF2E331F296E071FA0DF9982CFEA7D43F2E,
     n = 0x0100000000000000000000351EE786A818F3A1A16B,
-    h = 1)
+    h = 1,name='SECP160r2')
 
 SECP192k1 = Encryptor.make_curve(
     Curve(a = 0,
@@ -598,7 +622,7 @@ SECP192k1 = Encryptor.make_curve(
     G_x = 0xDB4FF10EC057E9AE26B07D0280B7F4341DA5D1B1EAE06C7D,
     G_y = 0x9B2F2F6D9C5628A7844163D015BE86344082AA88D95E2F9D,
     n = 0xFFFFFFFFFFFFFFFFFFFFFFFE26F2FC170F69466A74DEFD8D,
-    h = 1)
+    h = 1,name='SECP192k1')
 
 SECT163k1 = K163
 
@@ -610,7 +634,7 @@ SECT163r1 = Encryptor.make_binary_curve(
     G_x = 0x0369979697AB43897789566789567F787A7876A654,
     G_y = 0x00435EDB42EFAFB2989D51FEFCE3C80988F41FF883,
     n = 0x03FFFFFFFFFFFFFFFFFFFF48AAB689C29CA710279B, 
-    h = 2)
+    h = 2,name='SECT163r1')
 
 SECT163r2 = Encryptor.make_binary_curve(
     BinaryFieldCurve(
@@ -620,14 +644,14 @@ SECT163r2 = Encryptor.make_binary_curve(
     G_x = 0x03F0EBA16286A2D57EA0991168D4994637E8343E36,
     G_y = 0x00D51FBC6C71A0094FA2CDD545B11C5C0C797324F1,
     n = 0x040000000000000000000292FE77E70C12A4234C33, 
-    h = 2)
+    h = 2,name='SECT163r2')
 
 SECT233k1 = Encryptor.make_binary_curve(
     BinaryFieldCurve(a = 0, b = 1, f = [233, 74]),
     G_x = 0x017232BA853A7E731AF129F22FF4149563A419C26BF50A4C9D6EEFAD6126,
     G_y = 0x01DB537DECE819B7F70F555A67C427A8CD9BF18AEB9B56E0C11056FAE6A3,
     n = 0x8000000000000000000000000000069D5BB915BCD46EFB1AD5F173ABDF, 
-    h = 4)
+    h = 4,name='SECT233k1')
 
 SECT233r1 = Encryptor.make_binary_curve(
     BinaryFieldCurve(
@@ -637,21 +661,22 @@ SECT233r1 = Encryptor.make_binary_curve(
     G_x = 0x00FAC9DFCBAC8313BB2139F1BB755FEF65BC391F8B36F8F8EB7371FD558B,
     G_y = 0x01006A08A41903350678E58528BEBF8A0BEFF867A7CA36716F7E01F81052,
     n = 0x01000000000000000000000000000013E974E72F8A6922031D2603CFE0D7, 
-    h = 2)
+    h = 2,name='SECT233r1')
 
 SECT239k1 = Encryptor.make_binary_curve(
     BinaryFieldCurve(a = 0, b = 1, f = [239, 158]),
     G_x = 0x29A0B6A887A983E9730988A68727A8B2D126C44CC2CC7B2A6555193035DC,
     G_y = 0x76310804F12E549BDB011C103089E73510ACB275FC312A5DC6B76553F0CA,
     n = 0x2000000000000000000000000000005A79FEC67CB6E91F1C1DA800E478A5, 
-    h = 4)
+    h = 4,name='SECT239k1')
 
 SECT283k1 = Encryptor.make_binary_curve(
     BinaryFieldCurve(a = 0, b = 1, f = [283, 12, 7, 5]),
+    #BinaryFieldCurve(a = 0, b = 1, f = 15541351137805832567355695254588151253139254712417116170014499277911234281641667989665),
     G_x = 0x0503213F78CA44883F1A3B8162F188E553CD265F23C1567A16876913B0C2AC2458492836,
     G_y = 0x01CCDA380F1C9E318D90F95D07E5426FE87E45C0E8184698E45962364E34116177DD2259,
     n = 0x01FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE9AE2ED07577265DFF7F94451E061E163C61, 
-    h = 4)
+    h = 4,name='SECT283k1')
 
 #curves extracted from libcrvs.a
 EC163a02 = SECT163k1
@@ -680,7 +705,10 @@ Encryptor.make_binary_curve(
     h = )
 '''
 
+
+
 def test():
+    logging.info('will test')
     ecaes_test()
     certicom_mult_test()
     decrypt_test()
@@ -690,7 +718,7 @@ def test():
         cipher, plain = encryptor.encrypt(public)
         assert plain == encryptor.decrypt(private, cipher)
     for encryptor in ALL_STD_CIPHERS:
-        print "testing cipher"
+        print("testing cipher")
         test_cipher(encryptor)
 
 def ecaes_test():
@@ -728,6 +756,6 @@ def decrypt_test():
     'C0BE57A45AA5150A8C684B930C5C7FF93058CD220E8C923392A1AD303E0262B3C01BB9C3D126D978AF7EB74E766CC1ADC2B900D'+\
     '499ABD1A9A2D27B70DDC89EC51B9EFCD639C4566D43'
     encryptor = ECAES(EC163a02, public_key, private_key, cipher=XOR)
-    print binascii.hexlify(encryptor.decrypt(binascii.unhexlify(encrypted)))
+    print(binascii.hexlify(encryptor.decrypt(binascii.unhexlify(encrypted))))
 
 test()
