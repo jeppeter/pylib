@@ -212,6 +212,34 @@ class BinaryFieldCurve(_BinaryFieldCurve):
 #representing the equation y*y + y*x = x*x*x + a*x*x + b
 #over the field of polynomials whose coefficients are {0,1}, aka GF(2)
 
+def bit_length(k):
+    return len("{0:b}".format(k))
+
+def invmod(x,n):
+    """
+    Extended Euclidean Algorithm. It's the 'division' in elliptic curves
+    :param x: Divisor
+    :param n: Mod for division
+    :return: Value representing the division
+    """
+    if x == 0:
+        return 0
+    lm = 1
+    hm = 0
+    low = x % n
+    high = n
+    logging.info('lm %d hm %d low %d hight %d'%(lm,hm,low,high))
+    while low > 1:
+        r = high // low
+        nm = hm - lm * r
+        nw = high - low * r
+        high = low
+        hm = lm
+        low = nw
+        lm = nm
+        logging.info('lm %d hm %d low %d hight %d'%(lm,hm,low,high))
+    return lm % n
+
 class Encryptor(object):
     def __init__(self, curve, G, n, h,name):
         self.curve = curve #the particular elliptic curve
@@ -264,12 +292,33 @@ class Encryptor(object):
     def sign(self,private,hashnum,randkey):
         n = self.n
         k = randkey % n
-        return
+        ks = k + n
+        kt = ks + n
+        if bit_length(ks) == bit_length(n):
+            p1 = kt *self.G
+        else:
+            p1 = ks *self.G
+        r = p1.x % n
+        s = (invmod(k,n) * (hashnum + (private * r)) % n)
+        if s == 0:
+            raise Exception('s is zero')
+        return r,s
 
-    def verify(self,private,hashnum,randkey):
+    def verify(self,pubkey,hashnum,r,s):
+        G = self.G
         n = self.n
-        k = randkey % n
-        return
+        if r < 1 or r > (n - 1):
+            return False
+        if s < 1 or s > (n -1):
+            return False
+        c = invmod(s,n)
+        u1 = (hashnum * c) % n
+        u2 = (r * c) % n
+        xy = u1 * self.G + u2 * pubkey
+        v = xy.x % n
+        if v == r:
+            return True
+        return False
 
 MODE_CERTICOM98 = "certicom98"
 MODE_STANDARD = "standard"
