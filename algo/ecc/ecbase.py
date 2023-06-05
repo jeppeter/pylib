@@ -180,9 +180,7 @@ class BinaryField(object):
 			jdx = 0
 			curval = mull[idx]
 			while jdx < len(self.r):
-				logging.info('[%d] * [%d]'%(curval, self.r[jdx]))
 				mull[idx+jdx] -= (curval * self.r[jdx])
-				logging.info('[%d + %d] = [%d]'%(idx,jdx,mull[idx + jdx]))
 				jdx += 1
 			idx += 1
 

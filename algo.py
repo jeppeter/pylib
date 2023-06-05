@@ -315,6 +315,37 @@ def verifydigestecc_handler(args,parser):
     sys.exit(0)
     return
 
+def gcd_inner(bnum,anum):
+    u = anum
+    v = bnum
+    x1 = 1
+    y1 = 0
+    x2 = 0
+    y2 = 1
+    while u != 0:
+        logging.info('u %d v %d'%(u,v))
+        q = int(v/u)
+        r = v - q * u
+        x = x2 - q * x1
+        y = y2 - q * y1
+        v = u
+        u = r
+        x2 = x1
+        x1 = x
+        y2 = y1
+        y1 = y
+    cnum = v
+    return cnum
+
+def gcd_handler(args,parser):
+    fileop.set_logging(args)
+    anum = fileop.parse_int(args.subnargs[0])
+    bnum = fileop.parse_int(args.subnargs[1])
+    cnum = gcd_inner(anum,bnum)
+    sys.stdout.write('gcd(%d,%d) = %d\n'%(anum,bnum,cnum))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -362,6 +393,9 @@ def main():
             "$" : 3
         },
         "verifydigestecc<verifydigestecc_handler>##binfile signbin to verify signature##" : {
+            "$" : 2
+        },
+        "gcd<gcd_handler>##anum bnum for gcd(anum,bnum)##" : {
             "$" : 2
         }
     }
