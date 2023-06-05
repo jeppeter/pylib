@@ -11,6 +11,7 @@ Y_PARAM = 'y'
 P_PARAM = 'p'
 M_PARAM = 'm'
 L_PARAM = 'l'
+R_PARAM = 'r'
 
 class ECBase(object):
 	def __init__(self,jsons=''):
@@ -62,11 +63,17 @@ class BinaryField(object):
 	def unpack(self,jsons):
 		rdict = json.loads(jsons)
 		if P_PARAM not in rdict.keys() or M_PARAM not in rdict.keys() \
-			or L_PARAM not in rdict.keys():
-			raise Exception('no [%s] or [%s] or [%s] in keys'%(P_PARAM,M_PARAM,L_PARAM))
+			or L_PARAM not in rdict.keys() or R_PARAM not in rdict.keys():
+			raise Exception('no [%s] or [%s] or [%s] or [%s] in keys'%(P_PARAM,M_PARAM,L_PARAM, R_PARAM))
 		self.p = rdict[P_PARAM]
 		self.m = rdict[M_PARAM]
 		self.l = rdict[L_PARAM]
+		self.r = rdict[R_PARAM]
+
+		if len(self.r) != (self.m + 1):
+			raise Exception('r len[%d] < m [%d]'%(len(self.r),self.m))
+		if self.r[0] != 1:
+			raise Exception('r not start with 1')
 		return
 
 	def pack(self):
@@ -74,6 +81,7 @@ class BinaryField(object):
 		rdict[P_PARAM] =self.p
 		rdict[L_PARAM] = self.l
 		rdict[M_PARAM] = self.m
+		rdict[R_PARAM] = self.r
 		return json.dumps(rdict,indent=4)
 
 	def __add__(self,other):
@@ -101,6 +109,7 @@ class BinaryField(object):
 		rdict[P_PARAM] = self.p
 		rdict[M_PARAM] = self.m
 		rdict[L_PARAM] = ol
+		rdict[R_PARAM] = self.r
 		s = json.dumps(rdict)
 		return BinaryField(s)
 
@@ -131,7 +140,65 @@ class BinaryField(object):
 		rdict[P_PARAM] = self.p
 		rdict[M_PARAM] = self.m
 		rdict[L_PARAM] = ol
+		rdict[R_PARAM] = self.r
 		s = json.dumps(rdict)
 		return BinaryField(s)
+
+	def __mul__(self,other):
+		if self.p != other.p or self.m != other.m:
+			raise Exception('p [%d] != [%d] or m [%d] != [%d]'%(self.p,other.p,self.m,other.m))
+		if self.r != other.r:
+			raise Exception('p %s != other %s'%(self.r,other.r))
+
+		# now to calculate the 
+		mull = []
+		idx = 0
+		while idx < (2 * self.m - 1):
+			mull.append(0)
+			idx += 1
+
+		idx = 0
+		while idx < len(self.l):
+			jdx = 0
+			while jdx < len(other.l):
+				curval = self.l[idx] * other.l[jdx]
+				cidx = idx + jdx
+				mull[cidx] += curval
+				mull[cidx] %= self.p
+				logging.info('[%d]=[%d](+%d)'%(cidx,mull[cidx],curval))
+				jdx += 1
+			idx += 1
+
+		idx = 0
+		while idx < len(mull):
+			logging.info('[%d]=[%d]'%(idx,mull[idx]))
+			idx += 1
+
+		# now to give the 
+		idx = 0
+		while idx <= (len(mull) - len(self.r)):
+			jdx = 0
+			curval = mull[idx]
+			while jdx < len(self.r):
+				logging.info('[%d] * [%d]'%(curval, self.r[jdx]))
+				mull[idx+jdx] -= (curval * self.r[jdx])
+				logging.info('[%d + %d] = [%d]'%(idx,jdx,mull[idx + jdx]))
+				jdx += 1
+			idx += 1
+
+		while idx < len(mull):
+			mull[idx] %= self.p
+			if mull[idx] < 0:
+				mull[idx] += self.p
+			idx += 1
+
+		rdict = dict()
+		rdict[L_PARAM] = mull[-(self.m):]
+		rdict[R_PARAM] = self.r
+		rdict[M_PARAM] = self.m
+		rdict[P_PARAM] = self.p
+		s = json.dumps(rdict)
+		return BinaryField(s)
+
 
 

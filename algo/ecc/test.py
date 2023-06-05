@@ -97,6 +97,17 @@ def binsub_handler(args,parser):
 	sys.exit(0)
 	return
 
+def binmul_handler(args,parser):
+	set_logging(args)
+	ajson = read_file(args.subnargs[0])
+	bjson = read_file(args.subnargs[1])
+	abin = ecbase.BinaryField(ajson)
+	bbin = ecbase.BinaryField(bjson)
+	cbin = abin * bbin
+	sys.stdout.write('%s\n'%(repr(cbin)))
+	sys.exit(0)
+	return
+
 def main():
     commandline='''
     {
@@ -105,7 +116,11 @@ def main():
     	},
     	"binsub<binsub_handler>##ajson bjson to sub value##" : {
     		"$" : 2
+    	},
+    	"binmul<binmul_handler>##ajson bjson to multiple value##" : {
+    		"$" : 2
     	}
+
 
     }
     '''
