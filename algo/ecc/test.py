@@ -99,12 +99,28 @@ def binsub_handler(args,parser):
 
 def binmul_handler(args,parser):
 	set_logging(args)
+	if len(args.subnargs) < 2:
+		raise Exception('need at least ajson bjson')
 	ajson = read_file(args.subnargs[0])
 	bjson = read_file(args.subnargs[1])
 	abin = ecbase.BinaryField(ajson)
 	bbin = ecbase.BinaryField(bjson)
 	cbin = abin * bbin
+	for c in args.subnargs[2:]:
+		cjson = read_file(c)
+		vbin = ecbase.BinaryField(cjson)
+		cbin = cbin * vbin
+		logging.info('%s'%(repr(cbin)))
 	sys.stdout.write('%s\n'%(repr(cbin)))
+	sys.exit(0)
+	return
+
+def bininv_handler(args,parser):
+	set_logging(args)
+	ajson = read_file(args.subnargs[0])
+	abin = ecbase.BinaryField(ajson)
+	retv = abin.inv()
+	sys.stdout.write('%s\n'%(repr(retv)))
 	sys.exit(0)
 	return
 
@@ -118,7 +134,10 @@ def main():
     		"$" : 2
     	},
     	"binmul<binmul_handler>##ajson bjson to multiple value##" : {
-    		"$" : 2
+    		"$" : "+"
+    	},
+    	"bininv<bininv_handler>##json to multiple value##" : {
+    		"$" : 1
     	}
 
 

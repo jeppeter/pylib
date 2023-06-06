@@ -13,6 +13,13 @@ M_PARAM = 'm'
 L_PARAM = 'l'
 R_PARAM = 'r'
 
+def bit_length(val):
+	retcnt = 0
+	while val != 0:
+		val >>= 1
+		retcnt += 1
+	return retcnt
+
 class ECBase(object):
 	def __init__(self,jsons=''):
 		self.unpack()
@@ -150,10 +157,11 @@ class BinaryField(object):
 		if self.r != other.r:
 			raise Exception('p %s != other %s'%(self.r,other.r))
 
-		# now to calculate the 
+		# now to calculate the number 
 		mull = []
 		idx = 0
 		while idx < (2 * self.m - 1):
+			# to make the calculate number
 			mull.append(0)
 			idx += 1
 
@@ -165,13 +173,13 @@ class BinaryField(object):
 				cidx = idx + jdx
 				mull[cidx] += curval
 				mull[cidx] %= self.p
-				logging.info('[%d]=[%d](+%d)'%(cidx,mull[cidx],curval))
+				#logging.info('[%d]=[%d](+%d)'%(cidx,mull[cidx],curval))
 				jdx += 1
 			idx += 1
 
 		idx = 0
 		while idx < len(mull):
-			logging.info('[%d]=[%d]'%(idx,mull[idx]))
+			#logging.info('[%d]=[%d]'%(idx,mull[idx]))
 			idx += 1
 
 		# now to give the 
@@ -197,6 +205,34 @@ class BinaryField(object):
 		rdict[P_PARAM] = self.p
 		s = json.dumps(rdict)
 		return BinaryField(s)
+
+	def inv(self):
+		expcnt = (1 << self.m) - 2
+		explist = []
+		curv = BinaryField(self.pack())
+		explist.append(curv)
+		idx = 2
+		logging.info('expcnt %d'%(expcnt))
+		while idx < expcnt:
+			curv = curv * curv
+			logging.info('[%d]\n%s'%(idx,curv))
+			explist.append(curv)
+			idx <<= 1
+
+		retv = None
+		idx = 0
+		while idx < len(explist):
+			if ((expcnt >> idx) & 0x1) != 0:
+				logging.info('idx [%d] [%d]\n%s'%(idx,(1 << idx),repr(explist[idx])))
+				if retv is None:
+					retv = explist[idx]
+				else:
+					retv = retv * explist[idx]
+				logging.info('retv\n%s'%(repr(retv)))
+			idx += 1
+		return retv
+
+
 
 
 
