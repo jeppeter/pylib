@@ -20,6 +20,78 @@ def bit_length(val):
 		retcnt += 1
 	return retcnt
 
+class _FieldArray(object):
+	def _degree(self):
+		self._shrink()
+		return len(self.val)
+
+	def _shrink(self):
+		setv = self.val
+		idx = 0
+		while idx < len(setv):
+			if (setv[idx]  % self.p) != 0:
+				break
+			idx += 1
+
+		if idx == 0:
+			return
+		self.val = setv[idx:]
+		return
+
+	def _update(self):
+		self.degree = self._degree()
+		return
+
+	def __init__(self,arr=[],p=251):
+		self.val = arr
+		self.p = p
+		self._update()
+		return
+
+	def _check_other(self,other):
+		if not issubclass(other,_FieldArray):
+			raise Exception('not accept _FieldArray type')
+
+		if self.p != other.p:
+			raise Exception('p %d != other.p %d'%(self.p,other.p))
+		return
+
+	def __floordiv__(self,other) -> _FieldArray:
+		self._check_other(other)
+		
+		if self.degree < other.degree:
+			return _FieldArray([0])
+		q_degree = self.degree - other.degree
+		q = []
+		idx = 0
+		while idx < (q_degree + 1):
+			q.append(0)
+			idx += 1
+		aa = self.val[0:q_degree + 1].copy()
+		for i in range(q_degree + 1):
+			if aa[i] > 0:
+				q[i] = (aa[i] * (pow(other.val[0],self.p - 2, self.p))) % self.p
+				N = min(other.degree,q_degree + 1 - i)
+				for j in range(1,N):
+					aa[i+j] = (aa[i + j] - (q[i] * b[j]) % self.p ) % self.p
+		return _FieldArray(q,self.p)
+
+	def __mul__(self,other):
+		self._check_other(other)
+		return
+
+	def __eq__(self,other):
+		if isinstance(other,int):
+			if other == 0:
+				return self.degree == 0
+			else:
+				return self.degree == 1 and self.val[0] == other
+		other._shrink()
+		self._shrink()
+		return self.degree == other.degree and self.val == other.val
+
+
+
 class ECBase(object):
 	def __init__(self,jsons=''):
 		self.unpack()
@@ -207,7 +279,7 @@ class BinaryField(object):
 		return BinaryField(s)
 
 	def inv(self):
-		expcnt = (1 << self.m) - 2
+		expcnt =  self.p - 2
 		explist = []
 		curv = BinaryField(self.pack())
 		explist.append(curv)
@@ -231,7 +303,6 @@ class BinaryField(object):
 				logging.info('retv\n%s'%(repr(retv)))
 			idx += 1
 		return retv
-
 
 
 
