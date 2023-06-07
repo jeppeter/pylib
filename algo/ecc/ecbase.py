@@ -78,7 +78,33 @@ class _FieldArray(object):
 
 	def __mul__(self,other):
 		self._check_other(other)
-		return
+		if self.degree == 0 and other.degree == 0:
+			return _FieldArray([0],self.p)
+		retv = []
+		idx = 0
+		while len(retv) < (self.degree + other.degree - 1):
+			retv.append(0)
+
+		for idx in range(0,self.degree):
+			for jdx in range(0,other.degree):
+				retv[idx+jdx] += self.val[idx] * otehr.val[jdx]
+				retv[idx+jdx] %= self.p
+		return _FieldArray(retv,self.p)
+
+	def __sub__(self,other):
+		self._check_other(other)
+		retv = []
+		nsize = max(self.degree,other.degree)
+		while len(retv) < nsize:
+			retv.append(0)
+		retv[- self.degree:] = self.val
+		idx = nsize - other.degree
+		jdx = 0
+		while idx < nsize:
+			retv[idx] = (retv[idx] - other.val[jdx]) % self.p
+			idx += 1
+			jdx += 1
+		return _FieldArray(retv,self.p)
 
 	def __eq__(self,other):
 		if isinstance(other,int):
@@ -89,8 +115,6 @@ class _FieldArray(object):
 		other._shrink()
 		self._shrink()
 		return self.degree == other.degree and self.val == other.val
-
-
 
 class ECBase(object):
 	def __init__(self,jsons=''):
