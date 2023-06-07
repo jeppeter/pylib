@@ -124,6 +124,20 @@ def bininv_handler(args,parser):
 	sys.exit(0)
 	return
 
+def bindiv_handler(args,parser):
+    set_logging(args)
+    if len(args.subnargs) < 2:
+        raise Exception('need at least ajson bjson')
+    ajson = read_file(args.subnargs[0])
+    bjson = read_file(args.subnargs[1])
+    abin = ecbase.BinaryField(ajson)
+    bbin = ecbase.BinaryField(bjson)
+    cbin = abin / bbin
+    sys.stdout.write('%s\n'%(repr(cbin)))
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -138,8 +152,10 @@ def main():
     	},
     	"bininv<bininv_handler>##json to multiple value##" : {
     		"$" : 1
-    	}
-
+    	},
+        "bindiv<bindiv_handler>##ajson bjson to a / b##" : {
+            "$" : 2
+        }
 
     }
     '''

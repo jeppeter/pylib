@@ -36,6 +36,8 @@ class _FieldArray(object):
 		if idx == 0:
 			return
 		self.val = setv[idx:]
+		if len(self.val) == 0:
+			self.val = [0]
 		return
 
 	def _update(self):
@@ -49,14 +51,14 @@ class _FieldArray(object):
 		return
 
 	def _check_other(self,other):
-		if not issubclass(other,_FieldArray):
+		if not issubclass(other.__class__,_FieldArray):
 			raise Exception('not accept _FieldArray type')
 
 		if self.p != other.p:
 			raise Exception('p %d != other.p %d'%(self.p,other.p))
 		return
 
-	def __floordiv__(self,other) -> _FieldArray:
+	def __floordiv__(self,other):
 		self._check_other(other)
 		
 		if self.degree < other.degree:
@@ -70,11 +72,29 @@ class _FieldArray(object):
 		aa = self.val[0:q_degree + 1].copy()
 		for i in range(q_degree + 1):
 			if aa[i] > 0:
+				#logging.info('i %d aa %s other.val %s q %s'%(i, aa, other.val, q))
 				q[i] = (aa[i] * (pow(other.val[0],self.p - 2, self.p))) % self.p
 				N = min(other.degree,q_degree + 1 - i)
 				for j in range(1,N):
-					aa[i+j] = (aa[i + j] - (q[i] * b[j]) % self.p ) % self.p
+					aa[i+j] = (aa[i + j] - (q[i] * other.val[j]) % self.p ) % self.p
 		return _FieldArray(q,self.p)
+
+	def __add__(self,other):
+		self._check_other(other)
+		retv = []
+		nsize = max(self.degree,other.degree)
+		while len(retv) < nsize:
+			retv.append(0)
+		retv[- self.degree:] = self.val
+		idx = nsize - other.degree
+		jdx = 0
+		while idx < nsize:
+			retv[idx] = (retv[idx] + other.val[jdx]) % self.p
+			idx += 1
+			jdx += 1
+		return _FieldArray(retv,self.p)
+
+
 
 	def __mul__(self,other):
 		self._check_other(other)
@@ -87,34 +107,63 @@ class _FieldArray(object):
 
 		for idx in range(0,self.degree):
 			for jdx in range(0,other.degree):
-				retv[idx+jdx] += self.val[idx] * otehr.val[jdx]
+				retv[idx+jdx] += self.val[idx] * other.val[jdx]
 				retv[idx+jdx] %= self.p
 		return _FieldArray(retv,self.p)
 
 	def __sub__(self,other):
 		self._check_other(other)
-		retv = []
+		nretv = []
 		nsize = max(self.degree,other.degree)
-		while len(retv) < nsize:
-			retv.append(0)
-		retv[- self.degree:] = self.val
+		while len(nretv) < nsize:
+			nretv.append(0)
+		idx = nsize - self.degree
+		jdx = 0
+		while idx < nsize:
+			nretv[idx] = self.val[jdx]
+			idx += 1
+			jdx += 1
 		idx = nsize - other.degree
 		jdx = 0
 		while idx < nsize:
-			retv[idx] = (retv[idx] - other.val[jdx]) % self.p
+			#logging.info('idx [%d] retv %s jdx [%d] other.val %s'%(idx,nretv,jdx,other.val))
+			nretv[idx] = (nretv[idx] - other.val[jdx]) % self.p
 			idx += 1
 			jdx += 1
-		return _FieldArray(retv,self.p)
+		return _FieldArray(nretv,self.p)
 
 	def __eq__(self,other):
 		if isinstance(other,int):
-			if other == 0:
-				return self.degree == 0
-			else:
-				return self.degree == 1 and self.val[0] == other
+			return self.degree == 1 and self.val[0] == other
 		other._shrink()
 		self._shrink()
 		return self.degree == other.degree and self.val == other.val
+
+	def __str__(self):
+		return self.format()
+
+	def __repr__(self):
+		return self.format()
+
+	def format(self):
+		s = ''
+		idx = 0
+		self._shrink()
+		jdx = self.degree-1
+		while idx < self.degree:
+			if self.val[idx] != 0 or jdx == 0:
+				if len(s) > 0:
+					s += ' + '
+				if jdx > 0:
+					if self.val[idx] != 1:
+						s += '%dx^%d'%(self.val[idx],jdx)
+					else:
+						s += 'x^%d'%(jdx)
+				else:
+					s += '%d'%(self.val[idx])
+			idx += 1
+			jdx -= 1
+		return s
 
 class ECBase(object):
 	def __init__(self,jsons=''):
@@ -187,9 +236,15 @@ class BinaryField(object):
 		rdict[R_PARAM] = self.r
 		return json.dumps(rdict,indent=4)
 
-	def __add__(self,other):
+	def _check_other(self,other):
 		if self.p != other.p or self.m != other.m:
 			raise Exception('p [%d] != [%d] or m [%d] != [%d]'%(self.p,other.p,self.m,other.m))
+		if self.r != other.r:
+			raise Exception('p %s != other %s'%(self.r,other.r))
+		return
+
+	def __add__(self,other):
+		self._check_other(other)
 		l = []
 		idx = 0
 		while idx < self.m:
@@ -217,8 +272,7 @@ class BinaryField(object):
 		return BinaryField(s)
 
 	def __sub__(self,other):
-		if self.p != other.p or self.m != other.m:
-			raise Exception('p [%d] != [%d] or m [%d] != [%d]'%(self.p,other.p,self.m,other.m))
+		self._check_other(other)
 		l = []
 		idx = 0
 		while idx < self.m:
@@ -248,11 +302,7 @@ class BinaryField(object):
 		return BinaryField(s)
 
 	def __mul__(self,other):
-		if self.p != other.p or self.m != other.m:
-			raise Exception('p [%d] != [%d] or m [%d] != [%d]'%(self.p,other.p,self.m,other.m))
-		if self.r != other.r:
-			raise Exception('p %s != other %s'%(self.r,other.r))
-
+		self._check_other(other)
 		# now to calculate the number 
 		mull = []
 		idx = 0
@@ -303,31 +353,29 @@ class BinaryField(object):
 		return BinaryField(s)
 
 	def inv(self):
-		expcnt =  self.p - 2
-		explist = []
-		curv = BinaryField(self.pack())
-		explist.append(curv)
-		idx = 2
-		logging.info('expcnt %d'%(expcnt))
-		while idx < expcnt:
-			curv = curv * curv
-			logging.info('[%d]\n%s'%(idx,curv))
-			explist.append(curv)
-			idx <<= 1
-
-		retv = None
-		idx = 0
-		while idx < len(explist):
-			if ((expcnt >> idx) & 0x1) != 0:
-				logging.info('idx [%d] [%d]\n%s'%(idx,(1 << idx),repr(explist[idx])))
-				if retv is None:
-					retv = explist[idx]
-				else:
-					retv = retv * explist[idx]
-				logging.info('retv\n%s'%(repr(retv)))
-			idx += 1
+		r2 = _FieldArray(self.l,self.p)
+		r1 = _FieldArray(self.r, self.p)
+		one = _FieldArray([1],self.p)
+		zero = _FieldArray([0],self.p)
+		s2 , s1 = one,zero
+		t2 , t1 = zero, one
+		while r1 != 0:
+			q = r2 // r1
+			#logging.info('q %s r2 %s r1 %s'%(repr(q),repr(r2),repr(r1)))
+			r2, r1 = r1 , r2 - q * r1
+			s2 , s1 = s1 , s2 - q * s1
+			t2 , t1 = t1 , t2 - q * t1
+			#logging.info('r2 %s r1 %s s2 %s s1 %s t2 %s t1 %s'%(r2,r1,s2,s1,t2,t1))
+		retv = BinaryField(self.pack())
+		retv.l = s2.val
 		return retv
 
+	def __floordiv__(self,other):
+		mval = other.inv()
+		return self * mval
 
+	def __truediv__(self,other):
+		mval = other.inv()
+		return self * mval
 
 
