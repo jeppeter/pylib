@@ -426,6 +426,107 @@ def bininv_handler(args,parser):
     sys.exit(0)
     return
 
+def bit_length(val):
+    retcnt = 0
+    while val != 0:
+        val >>= 1
+        retcnt += 1
+    return retcnt
+
+def polmulmod(a,b,f,blen):
+    ca = a
+    cb = b
+    c = 0
+    if (ca & 1) != 0:
+        c = b
+    ca = ca >> 1
+    logging.info('ca 0x%x c 0x%x'%(ca,c))
+    for i in range(blen):
+        cb = cb << 1
+        cb = cb % f
+        if (ca & 1) != 0:
+            logging.info('cb 0x%x'%(cb))
+            c = c + cb
+        ca = ca >> 1
+        logging.info('ca 0x%x cb 0x%x c 0x%x'%(ca,cb,c))
+    return c
+
+
+
+def polmulmod_handler(args,parser):
+    fileop.set_logging(args)
+    a = fileop.parse_int(args.subnargs[0])
+    b = fileop.parse_int(args.subnargs[1])
+    f = fileop.parse_int(args.subnargs[2])
+    blen = fileop.parse_int(args.subnargs[3])
+    c = polmulmod(a,b,f,blen)
+    sys.stdout.write('polmulmod (0x%x,0x%x,0x%x,%d) = 0x%x\n'%(a,b,f,blen,c))
+    sys.exit(0)
+    return
+
+def is_residu_sqrt(a,p):
+    if a % p == 0:
+        return True
+    return pow(a, (p - 1) // 2 , p) == 1
+
+
+def tonelli_shanks(a,p):
+    if a % p == 0:
+        return 0
+    if not is_residu_sqrt(a,p):
+        return None
+
+    if (p % 4) == 3:
+        logging.info('p ')
+        return pow(a,(p + 1) // 4 ,p)
+
+    Q = p - 1
+    S = 0
+    while Q % 2 == 0:
+        Q = Q >> 1
+        S += 1
+
+    logging.info('Q %d S %d'%(Q,S))
+    z = 2
+    while is_residu_sqrt(z,p):
+        z += 1
+
+    logging.info('z %d'%(z))
+
+    M = S
+    c = pow(z,Q,p)
+    t = pow(a,Q,p)
+    R = pow(a,(Q + 1) >> 1,p)
+    logging.info('M %d c %d t %d R %d'%(M,c,t,R))
+    while t != 1:
+        i = 0
+        tempt = t
+        while tempt != 1:
+            i += 1
+            tempt = (tempt * tempt) % p
+            logging.info('tempt %d'%(tempt))
+        pow2 = 2 ** (M - i - 1)
+        logging.info('i %d pow2 %d'%(i,pow2))
+        b = pow(c ,pow2,p)
+        M = i
+        c = (b * b) % p
+        t = (t * b * b) % p
+        R = (R * b) % p
+        logging.info('b %d M %d c %d t %d R %d'%(b,M,c,t,R))
+    return R
+
+def modsqrt_handler(args,parser):
+    fileop.set_logging(args)
+    a = fileop.parse_int(args.subnargs[0])
+    p = fileop.parse_int(args.subnargs[1])
+    c = tonelli_shanks(a,p)
+    if c is None:
+        sys.stdout.write('tonelli_shanks(%d,%d) none\n'%(a,p))
+    else:
+        sys.stdout.write('tonelli_shanks(%d,%d) = %d\n'%(a,p,c))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -483,6 +584,12 @@ def main():
             "$" : 2
         },
         "bininv<bininv_handler>##anum pnum for bininv(anum,pnum) p is prime##" : {
+            "$" : 2
+        },
+        "polmulmod<polmulmod_handler>##anum bnum fnum blen for binary multiple mod##" : {
+            "$" : 4
+        },
+        "modsqrt<modsqrt_handler>##anum pnum for tonelli_shanks algorithm##" : {
             "$" : 2
         }
     }
