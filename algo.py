@@ -382,6 +382,50 @@ def bingcd_handler(args,parser):
     sys.exit(0)
     return
 
+def bininv(a,p):
+    u = a
+    v = p
+    x1 = 1
+    x2 = 0
+    while u != 1 and v != 1:
+        while (u & 1) == 0:
+            u = u >> 1
+            if (x1 & 1) == 0:
+                x1 = x1 >> 1
+            else:
+                x1 = (x1 + p) >> 1
+            logging.info('u %d x1 %d'%(u,x1))
+        while (v & 1) == 0:
+            v = v >> 1
+            if (x2 & 1) == 0:
+                x2 = x2 >> 1
+            else:
+                x2 = (x2 + p) >> 1
+            logging.info('v %d x2 %d'%(v,x2))
+        if u >= v :
+            u = u - v
+            x1 = x1 - x2
+            if x1 < 0:
+                x1 += p
+        else:
+            v = v - u
+            x2 = x2 -x1
+            if x2 < 0:
+                x2 += p
+        logging.info('u %d v %d x1 %d x2 %d'%(u,v,x1,x2))
+    if u == 1:
+        return x1 % p
+    return x2 % p
+
+def bininv_handler(args,parser):
+    fileop.set_logging(args)
+    a = fileop.parse_int(args.subnargs[0])
+    b = fileop.parse_int(args.subnargs[1])
+    c = bininv(a,b)
+    sys.stdout.write('bininv (%d,%d) = %d\n'%(a,b,c))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -436,6 +480,9 @@ def main():
             "$" : 2
         },
         "bingcd<bingcd_handler>##anum bnum for bingcd(anum,bnum)##" : {
+            "$" : 2
+        },
+        "bininv<bininv_handler>##anum pnum for bininv(anum,pnum) p is prime##" : {
             "$" : 2
         }
     }
