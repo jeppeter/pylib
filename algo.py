@@ -346,6 +346,43 @@ def gcd_handler(args,parser):
     sys.exit(0)
     return
 
+def bingcd(a,b):
+    u = a
+    v = b
+    e = 1
+    while True:
+        if (u % 2) != 0 or (v % 2 )!= 0:
+            break
+        if u == 0 and v == 0:
+            break
+        u = u >> 1
+        v = v >> 1
+        e <<= 1
+        logging.info('u %d v %d e %d'%(u,v,e))
+
+    while u != 0:
+        if (u% 2) == 0:
+            u = u >> 1
+        if (v % 2) == 0:
+            v = v >> 1
+        if u >= v:
+            u = u - v
+            logging.info('u %d v %d'%(u,v))
+        else:
+            v = v - u
+            logging.info('v %d u %d'%(v,u))
+    return e * v
+
+def bingcd_handler(args,parser):
+    fileop.set_logging(args)
+    a = fileop.parse_int(args.subnargs[0])
+    b = fileop.parse_int(args.subnargs[1])
+    c = bingcd(a,b)
+    sys.stdout.write('bingcd (%d,%d) = %d\n'%(a,b,c))
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -396,6 +433,9 @@ def main():
             "$" : 2
         },
         "gcd<gcd_handler>##anum bnum for gcd(anum,bnum)##" : {
+            "$" : 2
+        },
+        "bingcd<bingcd_handler>##anum bnum for bingcd(anum,bnum)##" : {
             "$" : 2
         }
     }
