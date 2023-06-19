@@ -379,3 +379,59 @@ class BinaryField(object):
 		return self * mval
 
 
+class ECBin(object):
+	def __init__(self,jsons=''):
+		self.unpack(jsons)
+		return
+
+	def __str__(self):
+		return self.pack()
+
+	def __repr__(self):
+		return self.pack()
+
+	def unpack(self,jsons):
+		rdict = json.loads(jsons)
+		if P_PARAM not in rdict.keys() or X_PARAM not in rdict.keys():
+			raise Exception('no [%s] or [%s]  in keys'%(P_PARAM,X_PARAM))
+		self.p = rdict[P_PARAM]
+		self.x = rdict[X_PARAM]
+		return
+
+	def pack(self):
+		rdict = dict()
+		rdict[P_PARAM] =self.p
+		rdict[X_PARAM] = self.x
+		return json.dumps(rdict,indent=4)
+
+	def _check_other(self,other):
+		if issubclass(other.__class__,ECBin):
+			raise Exception('not ECBin')
+		if self.p != other.p:
+			raise Exception('p [%d] != [%d]'%(self.p,other.p))
+		return
+
+	def __add__(self,other):
+		self._check_other(other)
+		val = self.val ^ other.val
+		val = val % self.p
+		retv = ECBin(self.pack())
+		retv.val = val
+		return retv
+
+	def __mul__(self,other):
+		self._check_other(other)
+		valv = self.val
+		oval = other.val
+		retv = 0
+		if (valv & 1) != 0:
+			retv = oval
+		valv = valv >> 1
+		while valv > 0:
+			oval = (oval << 1) % self.p
+			if (valv & 1) != 0:
+				retv = retv ^ oval
+			valv = valv >> 1
+		ev = ECBin(self.pack())
+		ev.val = retv
+		return ev
