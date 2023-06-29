@@ -527,6 +527,70 @@ def modsqrt_handler(args,parser):
     sys.exit(0)
     return
 
+def get_bytes_int(cbytes,bits):
+    retval = 0
+    passbits = 0
+    curi = 0
+    if (bits % 8) != 0:
+        leftbits = bits % 8
+        leftbits += 1
+        val = int(cbytes[0])
+        curval = int(val & 0xff) & ((1 << leftbits) - 1)
+        retval |= curval
+        passbits += (bits % 8)
+        curi += 1
+    while passbits < bits:
+        retval <<= 8
+        val = int(cbytes[curi])
+        curval = int(val & 0xff)
+        retval |= curval
+        passbits += 8
+        curi += 1
+    return retval
+
+def get_one_value(bits):
+    curbits = 0
+    while curbits == 0:
+        curbits = fileop.get_random_int(bits)
+    abytes = curbits // 8
+    if (curbits % 8) != 0:
+        abytes += 1
+    cbytes = os.urandom(abytes)
+    aint = get_bytes_int(cbytes,curbits)
+    return aint,curbits
+
+def gen_one_param(bits):
+    aval,abits = get_one_value(bits)
+    bval ,bbits = get_one_value(bits)
+    cbits = ((abits + 7) // 8) * 8 + ((bbits + 7) // 8) * 8 + 4 * 64 + 1
+    logging.info('abits [%d] bbits [%d] cbits [%d]'%(abits,bbits,cbits))
+    cval = (1 << cbits) - 1
+    return [aval,bval,cval]
+
+
+def genbinparam(bits,num):
+    paramret = []
+    for i in range(num):
+        paramret.append(gen_one_param(bits))
+    return paramret
+
+
+def genbinparam_handler(args,parser):
+    fileop.set_logging(args)
+    bits = 2048
+    num = 100
+    if len(args.subnargs) > 0:
+        bits = fileop.parse_int(args.subnargs[0])
+    if len(args.subnargs) > 1:
+        num = fileop.parse_int(args.subnargs[1])
+    fileop.init_random()
+    params = genbinparam(bits,num)
+    for p in params:
+        sys.stdout.write('0x%x 0x%x 0x%x\n'%(p[0],p[1],p[2]))
+    sys.exit(0)
+    return
+
+
 
 def main():
     commandline='''
@@ -591,6 +655,9 @@ def main():
         },
         "modsqrt<modsqrt_handler>##anum pnum for tonelli_shanks algorithm##" : {
             "$" : 2
+        },
+        "genbinparam<genbinparam_handler>##[bits] [num] default bits 2048 default num 100##" : {
+            "$" : "*"
         }
     }
     '''

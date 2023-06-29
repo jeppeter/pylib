@@ -8,7 +8,14 @@ import logging
 import hashlib
 import platform
 import struct
+import random
+import time
 
+def init_random():
+    random.seed(int(time.time()))
+
+def get_random_int(maxnum):
+    return random.randint(0,maxnum)
 
 def load_log_commandline(parser):
     logcommand = '''
