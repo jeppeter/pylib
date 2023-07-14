@@ -1003,6 +1003,31 @@ def filterlog_handler(args,parser):
     write_file(outs,args.output)
     sys.exit(0)
 
+def trans_byte(numbers):
+    retb = b''
+    for c in numbers:
+        cstr = '%x'%(c)
+        if (len(cstr) % 2) != 0:
+            cstr = '0%s'%(cstr)
+        idx = 0
+        while idx < len(cstr):
+            cint = int(cstr[idx:idx+2],16)
+            logging.info('cint [0x%x]'%(cint))
+            retb += struct.pack('B',cint)
+            idx += 2
+    return retb
+
+
+
+def randwr_handler(args,parser):
+    set_logging(args)
+    numbers = []
+    for c in args.subnargs:
+        numbers.append(parse_int(c))
+    obytes = trans_byte(numbers)
+    write_file_bytes(obytes,args.output)
+    sys.exit(0)
+    return
 
 
 def main():
@@ -1079,6 +1104,9 @@ def main():
         },
         "filterlog<filterlog_handler>##[rust|python] to filter file for rust or python log##" : {
             "$" : "?"
+        },
+        "randwr<randwr_handler>##number ... to write for output##" : {
+            "$" : "+"
         }
     }
     '''
