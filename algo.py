@@ -15,8 +15,10 @@ import json
 
 sys.path.insert(0,os.path.join(os.path.abspath(os.path.dirname(__file__)),'..','python-ecdsa','src'))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'algo')))
 import ecdsa
 import fileop
+import montred
 
 
 
@@ -590,6 +592,17 @@ def genbinparam_handler(args,parser):
     sys.exit(0)
     return
 
+def montred_handler(args,parser):
+    fileop.set_logging(args)
+    mod = fileop.parse_int(args.subnargs[0])
+    v = fileop.parse_int(args.subnargs[1])
+    mb = montred.MontgomeryReducer(mod)
+    inv = mb.convert_in(v)
+    outv = mb.convert_out(v)
+    sys.stdout.write('inv 0x%x outv 0x%x\n'%(inv,outv))
+    sys.exit(0)
+    return
+
 
 
 def main():
@@ -658,6 +671,9 @@ def main():
         },
         "genbinparam<genbinparam_handler>##[bits] [num] default bits 2048 default num 100##" : {
             "$" : "*"
+        },
+        "montred<montred_handler>##modnum snum ##" : {
+            "$" : 2
         }
     }
     '''

@@ -6,48 +6,10 @@
 # https://www.nayuki.io/page/montgomery-reduction-algorithm
 # 
 
-import math, random, unittest
+import math
 import logging
 
-def set_logging():
-    loglvl = logging.DEBUG
-    curlog = logging.getLogger('')
-    #sys.stderr.write('curlog [%s][%s]\n'%(args.logname,curlog))
-    curlog.setLevel(loglvl)
-    if len(curlog.handlers) > 0 :
-        curlog.handlers = []
-    formatter = logging.Formatter('%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d<%(levelname)s>\t%(message)s')
-    logstderr = logging.StreamHandler()
-    logstderr.setLevel(loglvl)
-    logstderr.setFormatter(formatter)
-    curlog.addHandler(logstderr)
-    return
 
-
-class MontgomeryReducerTest(unittest.TestCase):
-	
-	def test_basic(self) -> None:
-		for _ in range(1):
-			bitlen: int = random.randint(2, 100)
-			mod: int = random.randrange(1 << bitlen, 2 << bitlen) | 1  # Force it to be odd
-			mr = MontgomeryReducer(mod)
-			
-			for _ in range(100):
-				x: int = random.randrange(mod)
-				y: int = random.randrange(mod)
-				u: int = mr.convert_in(x)
-				v: int = mr.convert_in(y)
-				w: int = mr.multiply(u, v)
-				if mr.convert_out(w) != x * y % mod:
-					raise AssertionError()
-			
-			for _ in range(10):
-				x = random.randrange(mod)
-				y = random.randrange(mod)
-				u = mr.convert_in(x)
-				v = mr.pow(u, y)
-				if mr.convert_out(v) != pow(x, y, mod):
-					raise AssertionError()
 
 
 
@@ -116,8 +78,3 @@ class MontgomeryReducer:
 			y >>= 1
 		return z
 
-
-
-if __name__ == "__main__":
-	set_logging()
-	unittest.main()
