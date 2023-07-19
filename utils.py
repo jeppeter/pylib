@@ -1106,7 +1106,7 @@ def main():
             "$" : "?"
         },
         "randwr<randwr_handler>##number ... to write for output##" : {
-            "$" : "+"
+            "$" : "*"
         }
     }
     '''
