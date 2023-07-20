@@ -674,7 +674,7 @@ def main():
         "genbinparam<genbinparam_handler>##[bits] [num] default bits 2048 default num 100##" : {
             "$" : "*"
         },
-        "montfrom<montfrom_handler>##anum pnum for BN_to_montgomery ##" : {
+        "montto<montto_handler>##anum pnum for BN_to_montgomery ##" : {
             "$" : 2
         }
     }
