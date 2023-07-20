@@ -592,14 +592,16 @@ def genbinparam_handler(args,parser):
     sys.exit(0)
     return
 
-def montred_handler(args,parser):
+def montfrom_handler(args,parser):
     fileop.set_logging(args)
-    mod = fileop.parse_int(args.subnargs[0])
-    v = fileop.parse_int(args.subnargs[1])
+    mod = fileop.parse_int(args.subnargs[1])
+    v = fileop.parse_int(args.subnargs[0])
     mb = montred.MontgomeryReducer(mod)
-    inv = mb.convert_in(v)
-    outv = mb.convert_out(v)
-    sys.stdout.write('inv 0x%x outv 0x%x\n'%(inv,outv))
+    invv = mb.reciprocal_mod(mod-2,mod)
+    inv_b = mb.convert_in(invv)
+    aval=mb.convert_in(v)
+    res = mb.convert_out(mb.multiply(aval,inv_b))
+    sys.stdout.write('invv 0x%x inv_b 0x%x res 0x%x\n'%(invv,inv_b,res))
     sys.exit(0)
     return
 
@@ -672,7 +674,7 @@ def main():
         "genbinparam<genbinparam_handler>##[bits] [num] default bits 2048 default num 100##" : {
             "$" : "*"
         },
-        "montred<montred_handler>##modnum snum ##" : {
+        "montfrom<montfrom_handler>##anum pnum for BN_to_montgomery ##" : {
             "$" : 2
         }
     }
