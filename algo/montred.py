@@ -9,12 +9,6 @@
 import math
 import logging
 
-
-
-
-
-import math
-
 MONT_BITSIZE = 0x40
 
 class MontReducer(object):
@@ -60,13 +54,19 @@ class MontReducer(object):
 		x = x % self.mod
 		y = y % self.mod
 		product = x * y
-		temp = ((product & self.MASK) * self.FACTOR) & self.MASK
+		logging.info('prod 0x%X'%(product))
+		tm = product & self.MASK
+		logging.info('tm 0x%X'%(tm))
+		tf = tm * self.FACTOR
+		logging.info('tf 0x%X'%(tf))
+		temp = tf & self.MASK
+		logging.info('temp 0x%X'%(temp))
 		reduced = (product + temp * self.mod) >> self.BL
-		if reduced < self.mod:
-			result = reduced
-		else:
-			result = reduced - self.mod
-		return result
+		logging.info('reduced 0x%X'%(reduced))
+		if reduced >= self.mod:
+			reduced = reduced - self.mod
+		logging.info('reduced 0x%X'%(reduced))
+		return reduced
 
 
 
