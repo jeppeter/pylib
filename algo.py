@@ -612,6 +612,17 @@ def montfrom_handler(args,parser):
     sys.exit(0)
     return
 
+def montmul_handler(args,parser):
+    fileop.set_logging(args)
+    mod = fileop.parse_int(args.subnargs[2])
+    a = fileop.parse_int(args.subnargs[0])
+    b = fileop.parse_int(args.subnargs[1])
+    mb = montred.MontReducer(mod)
+    c = mb.multiply(a,b)
+    sys.stdout.write('BN_mod_mul_montgomery(0x%X,0x%X,0x%X,0x%X)\n'%(c,a,b,mod))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -685,6 +696,9 @@ def main():
         },
         "montfrom<montfrom_handler>##anum pnum for BN_from_montgomery##" : {
             "$" : 2
+        },
+        "montmul<montmul_handler>##anum bnum pnum for BN_mod_mul_montgomery##" : {
+            "$" : 3
         }
     }
     '''

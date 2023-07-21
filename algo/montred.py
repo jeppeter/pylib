@@ -29,13 +29,16 @@ class MontReducer(object):
 		self.R = ( 1 << self.BL)
 		self.RR = (1 << (self.BL * 2))
 		self.INVR = pow(self.R,mod-2,mod)
+		self.FACTOR = (self.R * self.INVR - 1) // self.mod
+		self.MASK = (self.R - 1)
 		return
 
 	def mont_from(self,a):
 		return (a * self.INVR) % self.mod
 
 	def mont_to(self,a):
-		return (a * self.RR * self.INVR) % self.mod
+		#return (a * self.RR * self.INVR) % self.mod
+		return (a * self.R) % self.mod
 
 	def __str__(self):
 		return self.format()
@@ -50,7 +53,21 @@ class MontReducer(object):
 		s += ' INVR 0x%X'%(self.INVR)
 		s += ' BL 0x%X'%(self.BL)
 		s += ' MAXB 0x%X'%(self.MAXB)
+		s += ' FACTOR 0x%X'%(self.FACTOR)
 		return s
+
+	def multiply(self,x,y):
+		x = x % self.mod
+		y = y % self.mod
+		product = x * y
+		temp = ((product & self.MASK) * self.FACTOR) & self.MASK
+		reduced = (product + temp * self.mod) >> self.BL
+		if reduced < self.mod:
+			result = reduced
+		else:
+			result = reduced - self.mod
+		return result
+
 
 
 
