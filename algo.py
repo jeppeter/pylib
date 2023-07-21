@@ -592,19 +592,25 @@ def genbinparam_handler(args,parser):
     sys.exit(0)
     return
 
+def montto_handler(args,parser):
+    fileop.set_logging(args)
+    mod = fileop.parse_int(args.subnargs[1])
+    v = fileop.parse_int(args.subnargs[0])
+    mb = montred.MontReducer(mod)
+    sys.stdout.write('%s\n'%(mb))
+    sys.stdout.write('BN_to_montgomery(0x%X,0x%X,0x%X)\n'%(mb.mont_to(v),v,mod))
+    sys.exit(0)
+    return
+
 def montfrom_handler(args,parser):
     fileop.set_logging(args)
     mod = fileop.parse_int(args.subnargs[1])
     v = fileop.parse_int(args.subnargs[0])
-    mb = montred.MontgomeryReducer(mod)
-    invv = mb.reciprocal_mod(mod-2,mod)
-    inv_b = mb.convert_in(invv)
-    aval=mb.convert_in(v)
-    res = mb.convert_out(mb.multiply(aval,inv_b))
-    sys.stdout.write('invv 0x%x inv_b 0x%x res 0x%x\n'%(invv,inv_b,res))
+    mb = montred.MontReducer(mod)
+    sys.stdout.write('%s\n'%(mb))
+    sys.stdout.write('BN_from_montgomery(0x%X,0x%X,0x%X)\n'%(mb.mont_from(v),v,mod))
     sys.exit(0)
     return
-
 
 
 def main():
@@ -675,6 +681,9 @@ def main():
             "$" : "*"
         },
         "montto<montto_handler>##anum pnum for BN_to_montgomery ##" : {
+            "$" : 2
+        },
+        "montfrom<montfrom_handler>##anum pnum for BN_from_montgomery##" : {
             "$" : 2
         }
     }

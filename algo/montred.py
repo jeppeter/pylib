@@ -15,6 +15,47 @@ import logging
 
 import math
 
+MONT_BITSIZE = 0x40
+
+class MontReducer(object):
+	def __init__(self,mod):
+		if mod < 3 or mod % 2 == 0:
+			raise ValueError("Modulus must be an odd number at least 3")
+		self.mod = mod
+		bl = mod.bit_length()
+		bl = ((bl + MONT_BITSIZE -1) // MONT_BITSIZE) * MONT_BITSIZE
+		self.BL = bl
+		self.MAXB = mod.bit_length()
+		self.R = ( 1 << self.BL)
+		self.RR = (1 << (self.BL * 2))
+		self.INVR = pow(self.R,mod-2,mod)
+		return
+
+	def mont_from(self,a):
+		return (a * self.INVR) % self.mod
+
+	def mont_to(self,a):
+		return (a * self.RR * self.INVR) % self.mod
+
+	def __str__(self):
+		return self.format()
+
+	def __repr__(self):
+		return self.format()
+
+	def format(self):
+		s = 'N 0x%X'%(self.mod)
+		s += ' R 0x%X'%(self.R)
+		s += ' RR 0x%X'%(self.RR)
+		s += ' INVR 0x%X'%(self.INVR)
+		s += ' BL 0x%X'%(self.BL)
+		s += ' MAXB 0x%X'%(self.MAXB)
+		return s
+
+
+
+
+
 
 
 class MontgomeryReducer:
@@ -35,6 +76,20 @@ class MontgomeryReducer:
 		self.reciprocal = MontgomeryReducer.reciprocal_mod(self.reducer % mod, mod)
 		self.factor = (self.reducer * self.reciprocal - 1) // mod
 		self.convertedone = self.reducer % mod
+
+	def __str__(self):
+		return self.format()
+
+	def __repr__(self):
+		return self.format()
+
+	def format(self):
+		s = 'modulus 0x%x reducerbits 0x%x'%(self.modulus,self.reducerbits)
+		s += ' reducer 0x%x'%(self.reducer)
+		s += ' reciprocal 0x%x'%(self.reciprocal)
+		s += ' factor 0x%x'%(self.factor)
+		s += ' convertedone 0x%x'%(self.convertedone)
+		return s
 	
 	
 	# The range of x is unlimited
