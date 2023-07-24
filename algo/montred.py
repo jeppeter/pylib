@@ -25,6 +25,7 @@ class MontReducer(object):
 		self.INVR = pow(self.R,mod-2,mod)
 		self.FACTOR = (self.R * self.INVR - 1) // self.mod
 		self.MASK = (self.R - 1)
+		self.CONVERTDONE = (self.MASK + 1) % self.mod
 		return
 
 	def mont_from(self,a):
@@ -54,20 +55,31 @@ class MontReducer(object):
 		x = x % self.mod
 		y = y % self.mod
 		product = x * y
-		logging.info('prod 0x%X'%(product))
 		tm = product & self.MASK
-		logging.info('tm 0x%X'%(tm))
 		tf = tm * self.FACTOR
-		logging.info('tf 0x%X'%(tf))
 		temp = tf & self.MASK
-		logging.info('temp 0x%X'%(temp))
 		reduced = (product + temp * self.mod) >> self.BL
-		logging.info('reduced 0x%X'%(reduced))
 		if reduced >= self.mod:
 			reduced = reduced - self.mod
-		logging.info('reduced 0x%X'%(reduced))
 		return reduced
 
+	# Input x (base) and output (power) are in Montgomery form and in the range [0, modulus); input y (exponent) is in standard form
+	def pow(self, x, y):
+		assert 0 <= x < self.mod
+		if y < 0:
+			raise ValueError("Negative exponent")
+		z = self.CONVERTDONE
+		logging.info('z 0x%X'%(z))
+		while y != 0:
+			if y & 1 != 0:
+				rz = self.multiply(z, x)
+				logging.info('z 0x%X * x 0x%X = 0x%X'%(z,x,rz))
+				z = rz
+			rx = self.multiply(x, x)
+			logging.info('x 0x%X ^ 2 = rx 0x%X'%(x,rx))
+			x = rx
+			y >>= 1
+		return z
 
 
 
@@ -137,10 +149,13 @@ class MontgomeryReducer:
 		if y < 0:
 			raise ValueError("Negative exponent")
 		z = self.convertedone
+		logging.info('z 0x%X'%(z))
 		while y != 0:
 			if y & 1 != 0:
 				z = self.multiply(z, x)
+				logging.info('z 0x%X'%(z))
 			x = self.multiply(x, x)
+			logging.info('x 0x%X'%(x))
 			y >>= 1
 		return z
 	
