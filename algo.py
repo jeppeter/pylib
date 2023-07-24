@@ -629,7 +629,9 @@ def montpow_handler(args,parser):
     a = fileop.parse_int(args.subnargs[0])
     e = fileop.parse_int(args.subnargs[1])
     mb = montred.MontReducer(mod)
-    c = mb.pow(a,e)
+    ato = mb.mont_to(a)
+    eto = mb.mont_to(e)
+    c = mb.pow(ato,eto)
     sys.stdout.write('BN_mod_exp_mont(0x%X,0x%X,0x%X,0x%X)\n'%(c,a,e,mod))
     sys.exit(0)
     return
