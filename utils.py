@@ -11,6 +11,8 @@ import time
 import struct
 import inspect
 import json
+import subprocess
+import traceback
 
 
 def set_logging(args):
@@ -1029,6 +1031,50 @@ def randwr_handler(args,parser):
     sys.exit(0)
     return
 
+def get_patch_file(specfile,patchdir):
+    s = read_file(specfile)
+    sarr = re.split('\n',s)
+    mexpr = re.compile('^Patch[0-9]+:\\s+(.*)')
+    patchfiles = []
+    for l in sarr:
+        l = l.rstrip('\r')
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0:
+            patchfiles.append(os.path.join(patchdir,m[0]))
+    return patchfiles
+
+
+def rpmpatch_handler(args,parser):
+    set_logging(args)
+    specfile = args.subnargs[0]
+    srcdir = args.subnargs[1]
+    srcdir = os.path.abspath(srcdir)
+    patchdir = os.path.abspath(os.path.join(srcdir,'..'))
+    patchfiles = get_patch_file(specfile,patchdir)
+    retval = True
+    cwddir = os.getcwd()
+    for f in patchfiles:
+        os.chdir(srcdir)
+        try:
+            logging.info('cur dir [%s]'%(os.getcwd()))
+            cmds = 'git apply -p1 <%s'%(f)
+            logging.info('run %s'%(cmds))
+            fout= open(os.devnull,'w+')
+            ret = subprocess.call(cmds,shell=True,stdout=fout)
+            if ret != 0:
+                logging.error('%s retval %d'%(cmds,ret))
+                retval = False
+        except:
+            logging.error('%s'%(traceback.format_exc()))
+            logging.error('run [%s] error'%(cmds))
+            retval = False
+        os.chdir(cwddir)
+    if not retval:
+        sys.exit(5)
+
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1107,6 +1153,9 @@ def main():
         },
         "randwr<randwr_handler>##number ... to write for output##" : {
             "$" : "*"
+        },
+        "rpmpatch<rpmpatch_handler>##specfile sourcedir to patch##" : {
+            "$" : 2
         }
     }
     '''
