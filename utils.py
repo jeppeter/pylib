@@ -1116,9 +1116,15 @@ def rpmfiles_handler(args,parser):
             logging.info('idx[%d]%s > jdx[%d] %s'%(idx,rsvec[idx].bname,jdx,csvec[jdx].bname))
             jdx += 1
         else:
-            logging.info('idx[%d]jdx[%d] %s'%(idx,jdx,csvec[jdx].bname))
+            logging.info('idx[%d]jdx[%d] %s [%s]'%(idx,jdx,csvec[jdx].bname,csvec[jdx].fname))
             hashvec.append(csvec[jdx])
             jdx += 1
+            while jdx < len(csvec):
+                if csvec[jdx].bname != rsvec[idx].bname:
+                    break
+                logging.info('idx[%d]jdx[%d] %s [%s]'%(idx,jdx,csvec[jdx].bname,csvec[jdx].fname))
+                hashvec.append(csvec[jdx])
+                jdx += 1
             idx += 1
     for l in hashvec:
         sys.stdout.write('%s\n'%(l.fname))
