@@ -1075,6 +1075,56 @@ def rpmpatch_handler(args,parser):
     sys.exit(0)
     return
 
+class SimpleFile(object):
+    def __init__(self,fname):
+        self.fname = fname
+        self.bname = os.path.basename(fname)
+        return
+
+
+def TakeSimpleBase(elem):
+    logging.info('%s'%(elem.bname))
+    return elem.bname
+
+def compact_simple_file(s):
+    sarr = re.split('\n',s)
+    rsvec = []
+    for l in sarr:
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        rsvec.append(SimpleFile(l))
+    return rsvec
+
+
+def rpmfiles_handler(args,parser):
+    set_logging(args)
+    rs = read_file(args.subnargs[0])
+    cs = read_file(args.subnargs[1])
+    rsvec = compact_simple_file(rs)
+    csvec = compact_simple_file(cs)
+    rsvec.sort(key=TakeSimpleBase)
+    csvec.sort(key=TakeSimpleBase)
+    idx = 0
+    jdx = 0
+    hashvec = []
+    while idx < len(rsvec) and jdx < len(csvec):
+        if rsvec[idx].bname < csvec[jdx].bname:
+            logging.info('idx[%d]%s < jdx[%d] %s'%(idx,rsvec[idx].bname,jdx,csvec[jdx].bname))
+            idx += 1
+        elif rsvec[idx].bname > csvec[jdx].bname:
+            logging.info('idx[%d]%s > jdx[%d] %s'%(idx,rsvec[idx].bname,jdx,csvec[jdx].bname))
+            jdx += 1
+        else:
+            logging.info('idx[%d]jdx[%d] %s'%(idx,jdx,csvec[jdx].bname))
+            hashvec.append(csvec[jdx])
+            jdx += 1
+            idx += 1
+    for l in hashvec:
+        sys.stdout.write('%s\n'%(l.fname))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1155,6 +1205,9 @@ def main():
             "$" : "*"
         },
         "rpmpatch<rpmpatch_handler>##specfile sourcedir to patch##" : {
+            "$" : 2
+        },
+        "rpmfiles<rpmfiles_handler>##rpmfiles listfiles to match rpm files##" : {
             "$" : 2
         }
     }
