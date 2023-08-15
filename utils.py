@@ -1131,6 +1131,101 @@ def rpmfiles_handler(args,parser):
     sys.exit(0)
     return
 
+def format_tab_line(tab,s):
+    rets = ''
+    for i in range(tab):
+        rets += '    '
+    rets += s
+    rets += '\n'
+    return rets
+
+def format_one_cp_line(srcfile,dstfile,tabs=0,retline=0):
+    logging.info('retline [%d]'%(retline))
+    rets = format_tab_line(tabs,'if [ -f "%s" ]'%(dstfile))
+    retline += 1
+    rets += format_tab_line(tabs,'then')
+    retline += 1
+    rets += format_tab_line(tabs+1,'if [ -f "%s" ]'%(srcfile))
+    retline += 1
+    rets += format_tab_line(tabs+1,'then')
+    retline += 1
+    rets += format_tab_line(tabs+2,'cp -f "%s" "%s" || (echo "[line:%d]cp [%s] => [%s] error" >&2)'%(srcfile,dstfile,retline,srcfile,dstfile))
+    retline += 1
+    rets += format_tab_line(tabs+1,'else')
+    retline += 1
+    rets += format_tab_line(tabs+2,'echo "[line:%d]no [%s] srcfile" >&2'%(retline,srcfile))
+    retline += 1
+    rets += format_tab_line(tabs+1,'fi')
+    retline += 1
+    rets += format_tab_line(tabs,'else')
+    retline += 1
+    rets += format_tab_line(tabs+1,'echo "[line:%d]no [%s] dstfile" >&2'%(retline,dstfile))
+    retline += 1
+    rets += format_tab_line(tabs,'fi')
+    retline += 1
+    return rets,retline
+
+def append_dir_files(s,ds):
+    sarr = re.split('\n',s)
+    rsvec = []
+    for l in sarr:
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        curf = '%s/%s'%(ds,l)
+        #logging.info('cf %s ds[%s]'%(curf,ds))
+        curf = os.path.abspath(curf)
+        #logging.info('abs cf %s'%(curf))
+        rsvec.append(SimpleFile(curf))
+    return rsvec
+
+
+def formatcp_handler(args,parser):
+    set_logging(args)
+    srcdir = os.path.abspath('.')
+    if args.srcdir is not None:
+        srcdir = os.path.abspath(args.srcdir)
+    dstdir = '/'
+    if args.dstdir is not None:
+        dstdir = os.path.abspath(args.dstdir)
+    srcs = read_file(args.subnargs[0])
+    dsts = read_file(args.subnargs[1])
+    outs = format_tab_line(0,'#! /bin/sh')
+    # we set 2 because count from 1 not 0
+    retline = 2
+    srcfiles = append_dir_files(srcs,srcdir)
+    dstfiles = append_dir_files(dsts,dstdir)
+    idx = 0
+    jdx = 0
+
+    while jdx < len(dstfiles) and idx < len(srcfiles):
+        if dstfiles[jdx].bname == srcfiles[idx].bname:
+            outs += '\n'
+            retline += 1
+            s, retline= format_one_cp_line(srcfiles[idx].fname,dstfiles[jdx].fname,0,retline)
+            outs += s
+            jdx += 1
+            while jdx < len(dstfiles):
+                if dstfiles[jdx].bname != srcfiles[idx].bname:
+                    break
+                outs += '\n'
+                retline += 1
+                s , retline= format_one_cp_line(srcfiles[idx].fname,dstfiles[jdx].fname,0,retline)
+                outs += s                
+                jdx += 1
+            idx += 1
+        elif dstfiles[jdx].bname < srcfiles[idx].bname:
+            logging.info('skip jdx[%d] %s (%s)'%(jdx,dstfiles[jdx].bname,dstfiles[jdx].fname))
+            jdx += 1
+        else:
+            logging.info('skip idx[%d] %s (%s)'%(idx,srcfiles[idx].bname,srcfiles[idx].fname))
+            idx += 1
+
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
+
 
 def main():
     commandline='''
@@ -1138,6 +1233,8 @@ def main():
         "input|i" : null,
         "utf8mode|U" : false,
         "output|o" : null,
+        "srcdir|s" : null,
+        "dstdir|d" : null,
         "xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
             "$" : "+"
         },
@@ -1214,6 +1311,9 @@ def main():
             "$" : 2
         },
         "rpmfiles<rpmfiles_handler>##rpmfiles listfiles to match rpm files##" : {
+            "$" : 2
+        },
+        "formatcp<formatcp_handler>##srcfilelist dstfilelist to copy##" : {
             "$" : 2
         }
     }
