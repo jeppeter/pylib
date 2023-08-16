@@ -1149,7 +1149,7 @@ def format_one_cp_line(srcfile,dstfile,tabs=0,retline=0):
     retline += 1
     rets += format_tab_line(tabs+1,'then')
     retline += 1
-    rets += format_tab_line(tabs+2,'cp -f "%s" "%s" || (echo "[line:%d]cp [%s] => [%s] error" >&2)'%(srcfile,dstfile,retline,srcfile,dstfile))
+    rets += format_tab_line(tabs+2,'cp -f "%s" "%s" && echo "[line:%d] cp [%s] => [%s] succ" || (echo "[line:%d]cp [%s] => [%s] error" >&2)'%(srcfile,dstfile,retline,srcfile,dstfile,retline,srcfile,dstfile))
     retline += 1
     rets += format_tab_line(tabs+1,'else')
     retline += 1
@@ -1215,10 +1215,10 @@ def formatcp_handler(args,parser):
                 jdx += 1
             idx += 1
         elif dstfiles[jdx].bname < srcfiles[idx].bname:
-            logging.info('skip jdx[%d] %s (%s)'%(jdx,dstfiles[jdx].bname,dstfiles[jdx].fname))
+            logging.error('skip jdx[%d] %s (%s)'%(jdx,dstfiles[jdx].bname,dstfiles[jdx].fname))
             jdx += 1
         else:
-            logging.info('skip idx[%d] %s (%s)'%(idx,srcfiles[idx].bname,srcfiles[idx].fname))
+            logging.error('skip idx[%d] %s (%s)'%(idx,srcfiles[idx].bname,srcfiles[idx].fname))
             idx += 1
 
     write_file(outs,args.output)
