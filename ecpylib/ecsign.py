@@ -10,6 +10,7 @@ sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..','.
 import fileop
 import loglib
 import ecdsa
+from ecdsa.util import sigencode_string,sigdecode_string
 
 
 class RandomBytes(object):
@@ -95,9 +96,14 @@ def ecp256gen_handler(args,parser):
 def ecp224sign_handler(args,parser):
 	loglib.set_logging(args)
 	keyb = fileop.read_file_bytes(args.subnargs[0])
-	conb = fileop.read_file_bytes(args.subnargs[1])
 	sk = ecdsa.SigningKey.from_string(keyb,curve=ecdsa.NIST224p)
-	sig = sk.sign(conb)
+	if os.path.exists(args.subnargs[1]):
+		conb = fileop.read_file_bytes(args.subnargs[1])
+		sig = sk.sign(conb)
+	else:
+		hashnum = fileop.parse_int(args.subnargs[1])
+		r,s = sk.sign_number(hashnum)
+		sig = sigencode_string(r,s,sk.privkey.order)
 	rets = fileop.format_bytes(sig,'signature')
 	fileop.write_file(rets,None)
 	fileop.write_file_bytes(sig,args.output)
@@ -107,10 +113,17 @@ def ecp224sign_handler(args,parser):
 def ecp224vfy_handler(args,parser):
 	loglib.set_logging(args)
 	keyb = fileop.read_file_bytes(args.subnargs[0])
-	conb = fileop.read_file_bytes(args.subnargs[1])
-	signb = fileop.read_file_bytes(args.subnargs[2])
 	pk = ecdsa.VerifyingKey.from_string(keyb,curve=ecdsa.NIST224p)
-	retb = pk.verify(signb,conb)
+	signb = fileop.read_file_bytes(args.subnargs[2])
+	if os.path.exists(args.subnargs[1]):
+		conb = fileop.read_file_bytes(args.subnargs[1])
+		retb = pk.verify(signb,conb)
+	else:
+		hashnum = fileop.parse_int(args.subnargs[1])
+		r,s = sigdecode_string(signb,pk.pubkey.order)
+		sig = ecdsa.ecdsa.Signature(r, s)
+		retb = pk.pubkey.verifies(hashnum, sig)
+
 	sys.stdout.write('retb %s\n'%(retb))
 	sys.exit(0)
 	return
@@ -161,9 +174,10 @@ def main():
 		"ecp224vfy<ecp224vfy_handler>##key.bin content.bin sign.bin to verify ecdsa##" : {
 			"$" : 3
 		},
-		"ecp224gen<ecp224gen_handler>##to generate gen##" : {
-			"$" : 0
-		}	}
+		"ecp224gen<ecp224gen_handler>##[privnum] to generate gen or set privnum##" : {
+			"$" : "?"
+		}	
+	}
 	'''
 	parser = extargsparse.ExtArgsParse()
 	parser.load_command_line_string(commandline)
