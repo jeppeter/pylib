@@ -84,8 +84,8 @@ def format_bn(bs):
 class ECCInstance(object):
     def __init__(self,sslbin,outpath,params,privnum,hashnum):
         self.params = params
-        self.privnum = privnum
-        self.hashnum = hashnum
+        self.privnum = privnum % params.order
+        self.hashnum = hashnum % params.order
         self.sslbin = sslbin
         self.outpath = outpath
         self.ecprivname = '%s/ecpriv.%s.%x'%(self.outpath,self.params.name,self.privnum)
@@ -117,7 +117,7 @@ class ECCInstance(object):
         tlen = len(ts) >> 1
 
         s += format_tab_line(tab,'')
-        s += format_tab_line(tab,'"%s" ecsignbase -o "%s" "%s" 0x%x 0x%x 2>"%s"'%(self.sslbin,self.signbin,self.ecprivname,self.hashnum,tlen,self.signlog))
+        s += format_tab_line(tab,'"%s" ecsignbase -o "%s" "%s" 0x%x %d 2>"%s"'%(self.sslbin,self.signbin,self.ecprivname,self.hashnum,tlen,self.signlog))
         s += format_tab_line(tab,'if [ $? -ne 0 ]')
         s += format_tab_line(tab,'then')
         s += format_tab_line(tab+1,'echo "[%d]sign %s 0x%x with hashnumber 0x%x error" >&2'%(GL_LINES,self.params.name,self.privnum,self.hashnum))
@@ -125,7 +125,7 @@ class ECCInstance(object):
         s += format_tab_line(tab,'fi')
         s += format_tab_line(tab,'')
         fmts = '"%s" ecvfybase "%s"'%(self.sslbin,self.params.name)
-        fmts += ' 0x%x "%s" "%s" 0x%x'%(self.hashnum,self.ecpubname,self.signbin,tlen)
+        fmts += '  "%s" 0x%x "%s" %d'%(self.ecpubname,self.hashnum,self.signbin,tlen)
         fmts += ' 2>"%s"'%(self.vfylog)
         s += format_tab_line(tab,fmts)
         s += format_tab_line(tab,'if [ $? -ne 0 ]')
@@ -164,13 +164,14 @@ def fmtsslcode_handler(args,parser):
                 fmts += 'export LD_LIBRARY_PATH=%s'%(f)
         if len(fmts) > 0:
             s += format_tab_line(0,fmts)
+    logging.info('ecnames %s'%(ecnames))
     while idx < args.cases:
         curidx = random.randrange(len(ecnames))
-        curname = GL_ECC_NAMES[curidx]
+        curname = ecnames[curidx]
         curparam = GL_ECC_PARAMS[curname]
         maxb = get_bytes(curparam.order)
-        privnum = format_bn(random.randbytes(maxb))
-        hashnum = format_bn(random.randbytes(maxb))
+        privnum = format_bn(os.urandom(maxb))
+        hashnum = format_bn(os.urandom(maxb))
         curinst = ECCInstance(args.sslbin,args.outpath,curparam,privnum,hashnum)        
         s  += curinst.format_code(0)
         idx += 1
@@ -202,11 +203,11 @@ def main():
     commandline='''
     {
         "output|o" : null,
-        "input:i" : null,
-        "sslbin" : null,
+        "input|i" : null,
+        "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
         "rustbin" : null,
         "sslsopath" : ["/mnt/zdisk/clibs/dynamiclib","/home/bt/source/openssl"],
-        "outpath" : null,
+        "outpath" : "/mnt/zdisk/ssllogs",
         "cases|C" : 100,
         "fmtsslcode<fmtsslcode_handler>##to format code##" : {
             "$" : "*"
