@@ -255,9 +255,31 @@ class RustVerify(object):
 
     def format_code(self,tab=0):
         rets = ''
+        rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'"%s" ecvfybase -vvvvv %s "%s" 0x%x "%s" 2>"%s" || (ECHO "[%d] error run ecvfybase" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,self.vfylog, GL_LINES))
         return rets
 
+class SslVerify(object):
+    def __init__(self,privnum,ecname,rootpath,hashnum,sslbin):
+        self.rootpath = rootpath
+        self.sslbin = sslbin
+        self.privnum = privnum
+        self.hashnum = hashnum
+        self.ecname = ecname
+        self.signbin = os.path.join(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,privnum,hashnum))
+        self.ecpubbin = os.path.join(rootpath,'rust.ecpub.%s.%x'%(ecname,privnum))
+        self.vfylog = os.path.join(rootpath,'ssl.vfy.%x.%x.log'%(self.privnum,self.hashnum))
+        return
+
+    def format_code(self,tab=0):
+        rets = format_tab_line(tab,'')
+        rets += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" 2>"%s"'%(self.sslbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,self.vfylog))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not run ecvfybase succ"'%(GL_LINES))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        return rets
 
 def fmtrustcode_handler(args,parser):
     loglib.set_logging(args)
@@ -325,6 +347,46 @@ def fmtrustsign_handler(args,parser):
         curinst = RustInstance(args.rustbin,args.rustoutpath,curparam,privnum,hashnum)
         s  += curinst.format_code(0)
         idx += 1
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+def fmtsslvfy_handler(args,parser):
+    loglib.set_logging(args)
+    if args.sslbin is None or len(args.sslbin) == 0:
+        raise Exception('need sslbin set')
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath set')
+    # now read dir
+    matchbins = dict()    
+    for r,d,files in os.walk(args.outpath):
+        if r == args.outpath:
+            for f in files:
+                if f.startswith('rust.sign'):
+                    sarr = re.split('\\.',f)
+                    logging.info('%s'%(sarr))
+                    if len(sarr) >= 6 and sarr[5] == 'bin':
+                        privnum = int(sarr[3],16)
+                        hashnum = int(sarr[4],16)
+                        ecname = sarr[2]
+                        sslvfybin = SslVerify(privnum,ecname,r,hashnum,args.sslbin)
+                        matchbins['%s.%x'%(ecname,privnum)] = sslvfybin
+
+    s = format_tab_line(0,'#! /bin/sh')
+    s += format_tab_line(0,'')
+    random.seed(time.time())
+    if len(args.sslsopath) > 0:
+        fmts = ''
+        for f in args.sslsopath:
+            if len(fmts) > 0:
+                fmts += ':%s'%(f)
+            else:
+                fmts += 'export LD_LIBRARY_PATH=%s'%(f)
+        if len(fmts) > 0:
+            s += format_tab_line(0,fmts)
+    for k in matchbins.keys():
+        v = matchbins[k]
+        s += v.format_code()
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
