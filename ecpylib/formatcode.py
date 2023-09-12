@@ -273,7 +273,11 @@ class SslVerify(object):
 
     def format_code(self,tab=0):
         rets = format_tab_line(tab,'')
-        rets += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" 2>"%s"'%(self.sslbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,self.vfylog))
+        ts = '%x'%(self.hashnum)
+        if (len(ts) % 2) != 0:
+            ts = '0%s'%(ts)
+        tlen = len(ts) >> 1
+        rets += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" %d 2>"%s"'%(self.sslbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,tlen,self.vfylog))
         rets += format_tab_line(tab,'if [ $? -ne 0 ]')
         rets += format_tab_line(tab,'then')
         rets += format_tab_line(tab+1,'echo "[%d] can not run ecvfybase succ"'%(GL_LINES))
