@@ -6,6 +6,7 @@ import sys
 import os
 import random
 import time
+import re
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)),'..'))
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','python-ecdsa','src')))
@@ -198,6 +199,58 @@ def getbn_handler(args,parser):
     sys.exit(0)
     return
 
+class RustVerify(object):
+    def __init__(self,privnum,ecname,rootpath,hashnum,rustbin):
+        self.rootpath = rootpath
+        self.rustbin = rustbin
+        self.rustbin = self.rustbin.replace('\\','\\\\')
+        self.privnum = privnum
+        self.hashnum = hashnum
+        self.ecname = ecname
+        self.signbin = os.path.join(rootpath,'sign.%s.%x.%x.bin'%(ecname,privnum,hashnum))
+        self.signbin = self.signbin.replace('\\','\\\\')
+        self.ecpubbin = os.path.join(rootpath,'ecpub.%s.%x'%(ecname,privnum))
+        self.ecpubbin = self.ecpubbin.replace('\\','\\\\')
+        self.vfylog = os.path.join(rootpath,'rust.vfy.%x.%x.log'%(self.privnum,self.hashnum))
+        self.vfylog = self.vfylog.replace('\\','\\\\')
+        return
+
+    def format_code(self,tab=0):
+        rets = ''
+        rets += format_tab_line(tab,'"%s" ecvfybase -vvvvv %s "%s" 0x%x "%s" 2>"%s" || (ECHO "[%d] error run ecvfybase" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,self.vfylog, GL_LINES))
+        return rets
+
+
+def fmtrustcode_handler(args,parser):
+    loglib.set_logging(args)
+    if args.rustbin is None or len(args.rustbin) == 0:
+        raise Exception('need rustbin set')
+    if args.rustoutpath is None or len(args.rustoutpath) == 0:
+        raise Exception('need rustoutpath set')
+    # now read dir
+    matchbins = dict()    
+    for r,d,files in os.walk(args.rustoutpath):
+        if r == args.rustoutpath:
+            for f in files:
+                if f.startswith('sign'):
+                    sarr = re.split('\\.',f)
+                    logging.info('%s'%(sarr))
+                    if len(sarr) >= 5 and sarr[4] == 'bin':
+                        privnum = int(sarr[2],16)
+                        hashnum = int(sarr[3],16)
+                        ecname = sarr[1]
+                        rustbin = RustVerify(privnum,ecname,r,hashnum,args.rustbin)
+                        matchbins['%s.%x'%(ecname,privnum)] = rustbin
+
+    s = ''
+    for k in matchbins.keys():
+        v = matchbins[k]
+        s += v.format_code()
+        s += format_tab_line(0,' ')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -205,15 +258,19 @@ def main():
         "output|o" : null,
         "input|i" : null,
         "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
-        "rustbin" : null,
+        "rustbin" : "X:\\\\ecsimple\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
         "sslsopath" : ["/mnt/zdisk/clibs/dynamiclib","/home/bt/source/openssl"],
         "outpath" : "/mnt/zdisk/ssllogs",
+        "rustoutpath" : "x:\\\\ssllogs",
         "cases|C" : 100,
         "fmtsslcode<fmtsslcode_handler>##to format code##" : {
             "$" : "*"
         },
         "getbn<getbn_handler>##to format bn##" : {
             "$" : "*"
+        },
+        "fmtrustcode<fmtrustcode_handler>##to format rust code##" : {
+            "$" : 0
         }
     }
     '''
