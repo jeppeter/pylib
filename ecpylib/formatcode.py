@@ -137,6 +137,44 @@ class ECCInstance(object):
 
         return s
 
+class RustInstance(object):
+
+    def _format_win_path(self,*args):
+        retp = os.path.join(*args)
+        retp = retp.replace('\\','\\\\')
+        return retp
+
+    def __init__(self,rustbin,outpath,params,privnum,hashnum):
+        self.params = params
+        self.privnum = privnum % params.order
+        self.hashnum = hashnum % params.order
+        self.rustbin = rustbin
+        self.rustoutpath = outpath
+        self.ecname = params.name
+        self.ecprivname = self._format_win_path(self.rustoutpath,'rust.ecpriv.%s.%x'%(self.params.name,self.privnum))
+        self.ecpubname = self._format_win_path(self.rustoutpath,'rust.ecpub.%s.%x'%(self.params.name,self.privnum))
+        self.genlog = self._format_win_path(self.rustoutpath,'rust.ecgen.%s.%x.log'%(self.params.name,self.privnum))
+        self.signlog = self._format_win_path(self.rustoutpath,'rust.sign.%s.%x.%x.log'%(self.params.name,self.privnum,self.hashnum))
+        self.signbin = self._format_win_path(self.rustoutpath,'rust.sign.%s.%x.%x.bin'%(self.params.name,self.privnum,self.hashnum))
+        self.vfylog = self._format_win_path(self.rustoutpath,'rust.vfy.%s.%x.%x.log'%(self.params.name,self.privnum,self.hashnum))
+        return
+
+    def format_code(self,tab):
+        global GL_LINES
+        s = ''
+        s += format_tab_line(tab,'')
+        s += format_tab_line(tab,'"%s" ecgen --ecpriv "%s" --ecpub "%s" %s 0x%x 2>"%s" || (echo "[%d] run ecgen not succ" && exit /b 4)'%(self.rustbin,self.ecprivname,self.ecpubname,self.ecname,self.privnum,self.genlog,GL_LINES))
+        s += format_tab_line(tab,'')
+        ts = '%x'%(self.hashnum)
+        if (len(ts) % 2) != 0:
+            ts = '0%s'%(ts)
+        tlen = len(ts) >> 1
+
+        s += format_tab_line(tab,'"%s" ecsignbase -o "%s" %s 0x%x 0x%x %d 2>"%s" || (echo "[%d] run ecsignbase not succ" && exit /b 4)'%(self.rustbin,self.signbin,self.ecname,self.privnum,self.hashnum,tlen,self.signlog,GL_LINES))
+        s += format_tab_line(tab,'')
+        s += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" 2>"%s" || (echo "[%d] run ecvfybase not succ" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubname,self.hashnum,self.signbin,self.vfylog,GL_LINES))
+        return s
+
 
 def fmtsslcode_handler(args,parser):
     global GL_LINES
@@ -251,6 +289,46 @@ def fmtrustcode_handler(args,parser):
     sys.exit(0)
     return
 
+def fmtrustsign_handler(args,parser):
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = GL_ECC_NAMES
+    if len(args.subnargs) > 0:
+        ecnames = args.subnargs
+        for c in ecnames:
+            if c not in GL_ECC_NAMES:
+                raise Exception('%s not in ECC names'%(c))
+
+    if args.rustbin is None:
+        raise Exception('need rustbin')
+    if args.rustoutpath is None:
+        raise Exception('need rustoutpath')
+
+    idx = 0
+    s = ''
+    s += format_tab_line(0,'if exist "%s" ('%(args.rustoutpath))    
+    s += format_tab_line(1,'echo "exist [%s]"'%(args.rustoutpath))
+    s += format_tab_line(0,') else (')
+    s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
+    s += format_tab_line(0,')')
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+    random.seed(time.time())
+    logging.info('ecnames %s'%(ecnames))
+    while idx < args.cases:
+        curidx = random.randrange(len(ecnames))
+        curname = ecnames[curidx]
+        curparam = GL_ECC_PARAMS[curname]
+        maxb = get_bytes(curparam.order)
+        privnum = format_bn(os.urandom(maxb))
+        hashnum = format_bn(os.urandom(maxb))
+        curinst = RustInstance(args.rustbin,args.rustoutpath,curparam,privnum,hashnum)
+        s  += curinst.format_code(0)
+        idx += 1
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -270,6 +348,12 @@ def main():
             "$" : "*"
         },
         "fmtrustcode<fmtrustcode_handler>##to format rust code##" : {
+            "$" : 0
+        },
+        "fmtrustsign<fmtrustsign_handler>##to format rust sign code##" : {
+            "$" : "*"
+        },
+        "fmtsslvfy<fmtsslvfy_handler>##to format ssl run code##" : {
             "$" : 0
         }
     }
