@@ -685,6 +685,15 @@ def fmtsslsingle_handler(args,parser):
     sys.exit(0)
     return
 
+def listectypes_handler(args,parser):
+    loglib.set_logging(args)
+    global GL_ECC_NAMES
+    init_ecc_params()
+    for n in GL_ECC_NAMES:
+        sys.stdout.write('%s\n'%(n))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -699,6 +708,9 @@ def main():
         "outpath" : "/mnt/zdisk/ssllogs",
         "rustoutpath" : "x:\\\\ssllogs",
         "cases|C" : 100,
+        "listectypes<listectypes_handler>##to list supported ectypes##" : {
+            "$" : 0
+        },
         "fmtsslcode<fmtsslcode_handler>##to format code##" : {
             "$" : "*"
         },
