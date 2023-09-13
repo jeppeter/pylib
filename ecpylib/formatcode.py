@@ -25,8 +25,6 @@ GL_ECC_NAMES = []
 def _init_ecc_params():
     rdict = dict()
     names = []
-    rdict['sect163k1'] = ECCParams('sect163k1',0x04000000000000000000020108A2E0CC0D99F8A5EF)
-    names.append('sect163k1')
     rdict['secp112r1'] = ECCParams('secp112r1',0xDB7C2ABF62E35E7628DFAC6561C5)  
     names.append('secp112r1')
     rdict['prime192v1'] = ECCParams('prime192v1',0xffffffffffffffffffffffff99def836146bc9b1b4d22831)
@@ -43,6 +41,34 @@ def _init_ecc_params():
     names.append('prime192v3')
     rdict['prime239v1'] = ECCParams('prime239v1',0x7fffffffffffffffffffffff7fffff9e5e9a9f5d9071fbd1522688909d0b)
     names.append('prime239v1')
+
+
+    # these are the gf2m coding
+    rdict['sect113r1'] = ECCParams('sect113r1',0x0100000000000000d9ccec8a39e56f)
+    names.append('sect113r1')
+    rdict['sect113r2'] = ECCParams('sect113r2',0x010000000000000108789b2496af93)
+    names.append('sect113r2')
+
+    rdict['sect131r1'] = ECCParams('sect131r1',0x0400000000000000023123953a9464b54d)
+    names.append('sect131r1')
+    rdict['sect131r2'] = ECCParams('sect131r2',0x0400000000000000016954a233049ba98f)
+    names.append('sect131r2')
+
+    rdict['sect163k1'] = ECCParams('sect163k1',0x04000000000000000000020108A2E0CC0D99F8A5EF)
+    names.append('sect163k1')
+    rdict['sect163r1'] = ECCParams('sect163r1',0x03ffffffffffffffffffff48aab689c29ca710279b)
+    names.append('sect163r1')
+    rdict['sect163r2'] = ECCParams('sect163r2',0x040000000000000000000292fe77e70c12a4234c33)
+    names.append('sect163r2')
+
+    rdict['sect193r1'] = ECCParams('sect193r1',0x01000000000000000000000000c7f34a778f443acc920eba49)
+    names.append('sect193r1')
+    rdict['sect193r2'] = ECCParams('sect193r2',0x010000000000000000000000015aab561b005413ccd4ee99d5)
+    names.append('sect193r2')
+
+    rdict['sect233k1'] = ECCParams('sect233k1',0x8000000000000000000000000000069d5bb915bcd46efb1ad5f173abdf)
+    names.append('sect233k1')
+
     return rdict,names
 
 def init_ecc_params():
