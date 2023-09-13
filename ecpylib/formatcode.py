@@ -39,8 +39,88 @@ def _init_ecc_params():
     names.append('prime192v2')
     rdict['prime192v3'] = ECCParams('prime192v3',0xffffffffffffffffffffffff7a62d031c83f4294f640ec13)
     names.append('prime192v3')
+
     rdict['prime239v1'] = ECCParams('prime239v1',0x7fffffffffffffffffffffff7fffff9e5e9a9f5d9071fbd1522688909d0b)
     names.append('prime239v1')
+    rdict['prime239v2'] = ECCParams('prime239v2',0x7fffffffffffffffffffffff800000cfa7e8594377d414c03821bc582063)
+    names.append('prime239v2')
+    rdict['prime239v3'] = ECCParams('prime239v3',0x7fffffffffffffffffffffff7fffff975deb41b3a6057c3c432146526551)
+    names.append('prime239v3')
+
+    rdict['prime256v1'] = ECCParams('prime256v1',0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551)
+    names.append('prime256v1')
+
+    rdict['secp112r2'] = ECCParams('secp112r2',0x36df0aafd8b8d7597ca10520d04b)
+    names.append('secp112r2')
+    rdict['secp128r1'] = ECCParams('secp128r1',0xfffffffe0000000075a30d1b9038a115)
+    names.append('secp128r1')
+    rdict['secp128r2'] = ECCParams('secp128r2',0x3fffffff7fffffffbe0024720613b5a3)
+    names.append('secp128r2')
+    rdict['secp160k1'] = ECCParams('secp160k1',0x0100000000000000000001b8fa16dfab9aca16b6b3)
+    names.append('secp160k1')
+
+    rdict['secp160r1'] = ECCParams('secp160r1',0x0100000000000000000001f4c8f927aed3ca752257)
+    names.append('secp160r1')
+
+    rdict['secp160r2'] = ECCParams('secp160r2',0x0100000000000000000000351ee786a818f3a1a16b)
+    names.append('secp160r2')
+    rdict['secp192k1'] = ECCParams('secp192k1',0xfffffffffffffffffffffffe26f2fc170f69466a74defd8d)
+    names.append('secp192k1')
+
+    rdict['secp224k1'] = ECCParams('secp224k1',0x010000000000000000000000000001dce8d2ec6184caf0a971769fb1f7)
+    names.append('secp224k1')
+
+    rdict['secp256k1'] = ECCParams('secp256k1',0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141)
+    names.append('secp256k1')
+
+    rdict['wap-wsg-idm-ecid-wtls8'] = ECCParams('wap-wsg-idm-ecid-wtls8',0x0100000000000001ecea551ad837e9)
+    names.append('wap-wsg-idm-ecid-wtls8')
+
+    rdict['wap-wsg-idm-ecid-wtls9'] = ECCParams('wap-wsg-idm-ecid-wtls9',0x0100000000000000000001cdc98ae0e2de574abf33)
+    names.append('wap-wsg-idm-ecid-wtls9')
+    rdict['wap-wsg-idm-ecid-wtls12'] = ECCParams('wap-wsg-idm-ecid-wtls12',0xffffffffffffffffffffffffffff16a2e0b8f03e13dd29455c5c2a3d)
+    names.append('wap-wsg-idm-ecid-wtls12')
+
+    rdict['brainpoolP160r1'] = ECCParams('brainpoolP160r1',0xe95e4a5f737059dc60df5991d45029409e60fc09)
+    names.append('brainpoolP160r1')
+
+    rdict['brainpoolP160t1'] = ECCParams('brainpoolP160t1',0xe95e4a5f737059dc60df5991d45029409e60fc09)
+    names.append('brainpoolP160t1')
+    rdict['brainpoolP192r1'] = ECCParams('brainpoolP192r1',0xc302f41d932a36cda7a3462f9e9e916b5be8f1029ac4acc1)
+    names.append('brainpoolP192r1')
+
+    rdict['brainpoolP192t1'] = ECCParams('brainpoolP192t1',0xc302f41d932a36cda7a3462f9e9e916b5be8f1029ac4acc1)
+    names.append('brainpoolP192t1')
+
+    rdict['brainpoolP224r1'] = ECCParams('brainpoolP224r1',0xd7c134aa264366862a18302575d0fb98d116bc4b6ddebca3a5a7939f)
+    names.append('brainpoolP224r1')
+    rdict['brainpoolP224t1'] = ECCParams('brainpoolP224t1',0xd7c134aa264366862a18302575d0fb98d116bc4b6ddebca3a5a7939f)
+    names.append('brainpoolP224t1')
+
+    rdict['brainpoolP256r1'] = ECCParams('brainpoolP256r1',0xa9fb57dba1eea9bc3e660a909d838d718c397aa3b561a6f7901e0e82974856a7)
+    names.append('brainpoolP256r1')
+    rdict['brainpoolP256t1'] = ECCParams('brainpoolP256t1',0xa9fb57dba1eea9bc3e660a909d838d718c397aa3b561a6f7901e0e82974856a7)
+    names.append('brainpoolP256t1')
+    rdict['brainpoolP320r1'] = ECCParams('brainpoolP320r1',0xd35e472036bc4fb7e13c785ed201e065f98fcfa5b68f12a32d482ec7ee8658e98691555b44c59311)
+    names.append('brainpoolP320r1')
+
+    rdict['brainpoolP320t1'] =ECCParams('brainpoolP320t1',0xd35e472036bc4fb7e13c785ed201e065f98fcfa5b68f12a32d482ec7ee8658e98691555b44c59311)
+    names.append('brainpoolP320t1')
+
+    rdict['brainpoolP384r1'] = ECCParams('brainpoolP384r1',0x8cb91e82a3386d280f5d6f7e50e641df152f7109ed5456b31f166e6cac0425a7cf3ab6af6b7fc3103b883202e9046565)
+    names.append('brainpoolP384r1')
+
+    rdict['brainpoolP384t1'] = ECCParams('brainpoolP384t1',0x8cb91e82a3386d280f5d6f7e50e641df152f7109ed5456b31f166e6cac0425a7cf3ab6af6b7fc3103b883202e9046565)
+    names.append('brainpoolP384t1')
+
+    rdict['brainpoolP512r1'] =ECCParams('brainpoolP512r1',0xaadd9db8dbe9c48b3fd4e6ae33c9fc07cb308db3b3c9d20ed6639cca70330870553e5c414ca92619418661197fac10471db1d381085ddaddb58796829ca90069)
+    names.append('brainpoolP512r1')
+    rdict['brainpoolP512t1'] = ECCParams('brainpoolP512t1',0xaadd9db8dbe9c48b3fd4e6ae33c9fc07cb308db3b3c9d20ed6639cca70330870553e5c414ca92619418661197fac10471db1d381085ddaddb58796829ca90069)
+    names.append('brainpoolP512t1')
+
+    rdict['SM2'] = ECCParams('SM2',0xfffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123)
+    names.append('SM2')
+
 
 
     # these are the gf2m coding
@@ -68,6 +148,69 @@ def _init_ecc_params():
 
     rdict['sect233k1'] = ECCParams('sect233k1',0x8000000000000000000000000000069d5bb915bcd46efb1ad5f173abdf)
     names.append('sect233k1')
+
+    rdict['sect233r1'] = ECCParams('sect233r1',0x01000000000000000000000000000013e974e72f8a6922031d2603cfe0d7)
+    names.append('sect233r1')
+    rdict['sect239k1'] = ECCParams('sect239k1',0x2000000000000000000000000000005a79fec67cb6e91f1c1da800e478a5)
+    names.append('sect239k1')
+
+    rdict['sect283k1'] = ECCParams('sect283k1',0x01ffffffffffffffffffffffffffffffffffe9ae2ed07577265dff7f94451e061e163c61)
+    names.append('sect283k1')
+
+    rdict['sect283r1'] = ECCParams('sect283r1',0x03ffffffffffffffffffffffffffffffffffef90399660fc938a90165b042a7cefadb307)
+    names.append('sect283r1')
+    rdict['sect409k1'] = ECCParams('sect409k1',0x007ffffffffffffffffffffffffffffffffffffffffffffffffffe5f83b2d4ea20400ec4557d5ed3e3e7ca5b4b5c83b8e01e5fcf)
+    names.append('sect409k1')
+
+    rdict['sect409r1'] = ECCParams('sect409r1',0x010000000000000000000000000000000000000000000000000001e2aad6a612f33307be5fa47c3c9e052f838164cd37d9a21173)
+    names.append('sect409r1')
+
+    rdict['sect571k1'] = ECCParams('sect571k1',0x020000000000000000000000000000000000000000000000000000000000000000000000131850e1f19a63e4b391a8db917f4138b630d84be5d639381e91deb45cfe778f637c1001)
+    names.append('sect571k1')
+    rdict['sect571r1'] = ECCParams('sect571r1',0x03ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe661ce18ff55987308059b186823851ec7dd9ca1161de93d5174d66e8382e9bb2fe84e47)
+    names.append('sect571r1')
+
+    rdict['c2pnb163v1'] = ECCParams('c2pnb163v1',0x0400000000000000000001e60fc8821cc74daeafc1);
+    names.append('c2pnb163v1')
+    rdict['c2pnb163v2'] = ECCParams('c2pnb163v2',0x03fffffffffffffffffffdf64de1151adbb78f10a7)
+    names.append('c2pnb163v2')
+
+    rdict['c2tnb191v1'] = ECCParams('c2tnb191v1',0x40000000000000000000000004a20e90c39067c893bbb9a5)
+    names.append('c2tnb191v1')
+
+    rdict['c2tnb191v2'] = ECCParams('c2tnb191v2',0x20000000000000000000000050508cb89f652824e06b8173)
+    names.append('c2tnb191v2')
+    rdict['c2tnb191v3'] = ECCParams('c2tnb191v3',0x155555555555555555555555610c0b196812bfb6288a3ea3)
+    names.append('c2tnb191v3')
+
+    rdict['c2pnb208w1'] = ECCParams('c2pnb208w1',0x00000101BAF95C9723C57B6C21DA2EFF2D5ED588BDD5717E212F9D)
+    names.append('c2pnb208w1')
+
+    rdict['c2tnb239v1'] = ECCParams('c2tnb239v1',0x2000000000000000000000000000000f4d42ffe1492a4993f1cad666e447)
+    names.append('c2tnb239v1')
+    rdict['c2tnb239v2'] = ECCParams('c2tnb239v2',0x1555555555555555555555555555553c6f2885259c31e3fcdf154624522d)
+    names.append('c2tnb239v2')
+    rdict['c2tnb239v3'] = ECCParams('c2tnb239v3',0x0cccccccccccccccccccccccccccccac4912d2d9df903ef9888b8a0e4cff)
+    names.append('c2tnb239v3')
+
+    rdict['c2pnb272w1'] = ECCParams('c2pnb272w1',0x0100faf51354e0e39e4892df6e319c72c8161603fa45aa7b998a167b8f1e629521)
+    names.append('c2pnb272w1')
+
+    rdict['c2pnb304w1'] = ECCParams('c2pnb304w1',0x0101d556572aabac800101d556572aabac8001022d5c91dd173f8fb561da6899164443051d)
+    names.append('c2pnb304w1')
+
+    rdict['c2tnb359v1'] = ECCParams('c2tnb359v1',0x01af286bca1af286bca1af286bca1af286bca1af286bc9fb8f6b85c556892c20a7eb964fe7719e74f490758d3b)
+    names.append('c2tnb359v1')
+
+    rdict['c2pnb368w1'] = ECCParams('c2pnb368w1',0x010090512da9af72b08349d98a5dd4c7b0532eca51ce03e2d10f3b7ac579bd87e909ae40a6f131e9cfce5bd967)
+    names.append('c2pnb368w1')
+    rdict['c2tnb431r1'] = ECCParams('c2tnb431r1',0x0340340340340340340340340340340340340340340340340340340323c313fab50589703b5ec68d3587fec60d161cc149c1ad4a91)
+    names.append('c2tnb431r1')
+
+    rdict['wap-wsg-idm-ecid-wtls1'] = ECCParams('wap-wsg-idm-ecid-wtls1',0x00fffffffffffffffdbf91af6dea73)
+    names.append('wap-wsg-idm-ecid-wtls1')
+
+
 
     return rdict,names
 
