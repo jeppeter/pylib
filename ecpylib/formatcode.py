@@ -366,8 +366,8 @@ class RustInstance(object):
         global GL_LINES
         s = ''
         s += format_tab_line(tab,'')
-        s += format_tab_line(tab,'REM TESTCASE ecgen ecname %s privnum 0x%x privnumshort 0x%x'%(self.ecname,self.privnum,self.privnumshort))
-        s += format_tab_line(tab,'"%s" ecgen --ecpriv "%s" --ecpub "%s" %s 0x%x 2>"%s" || (echo "[%d] run ecgen not succ" && exit /b 4)'%(self.rustbin,self.ecprivname,self.ecpubname,self.ecname,self.privnum,self.genlog,GL_LINES))
+        s += format_tab_line(tab,'REM TESTCASE ecgenbase ecname %s privnum 0x%x privnumshort 0x%x'%(self.ecname,self.privnum,self.privnumshort))
+        s += format_tab_line(tab,'"%s" ecgenbase --ecpriv "%s" --ecpub "%s" %s 0x%x 2>"%s" || (echo "[%d] run ecgen not succ" && exit /b 4)'%(self.rustbin,self.ecprivname,self.ecpubname,self.ecname,self.privnum,self.genlog,GL_LINES))
         s += format_tab_line(tab,'')
         ts = '%x'%(self.hashnum)
         if (len(ts) % 2) != 0:
