@@ -153,7 +153,7 @@ class HwdbTrieNode(object):
         self.__reset_value()
         return
 
-    def format(self,tab=0):
+    def format(self,tab=0,depth=-1):
         s = ''
         s += format_tab_line(tab,'Node')
         s += format_tab_line(tab+1,'{')
@@ -161,13 +161,17 @@ class HwdbTrieNode(object):
         if self.is_end:
             s += format_tab_line(tab+2,'total_path : %s'%(self.total_path))
         else:
-            idx = 0
-            while idx < len(self.children):
-                s += format_tab_line(tab+2,'ChildEnt[%d]'%(idx))
-                s += self.childents[idx].format(tab+2)
-                s += format_tab_line(tab+2,'Children[%d]'%(idx))
-                s += self.children[idx].format(tab+2)
-                idx += 1
+            if depth < 0 or depth > 0:
+                idx = 0
+                while idx < len(self.children):
+                    s += format_tab_line(tab+2,'ChildEnt[%d]'%(idx))
+                    curdepth = depth
+                    if curdepth > 0:
+                        curdepth -= 1
+                    s += self.childents[idx].format(tab+2)
+                    s += format_tab_line(tab+2,'Children[%d]'%(idx))
+                    s += self.children[idx].format(tab+2,curdepth)
+                    idx += 1
         idx = 0
         while idx < len(self.values):
             s += format_tab_line(tab+2,'Value[%d]'%(idx))
@@ -269,7 +273,7 @@ class HwdbTrie(object):
         self.root.dump_data(indb,self.rootoff)
         return passed
 
-    def format(self,tab=0):
+    def format(self,tab=0,depth=-1):
         s = ''
         s += format_tab_line(tab,'Root')
         s += format_tab_line(tab+1,'{')
@@ -282,7 +286,7 @@ class HwdbTrie(object):
         s += format_tab_line(tab+1,'rootoff : 0x%x'%(self.rootoff))
         s += format_tab_line(tab+1,'nodeslen : 0x%x'%(self.nodeslen))
         s += format_tab_line(tab+1,'strslen : 0x%x'%(self.strslen))
-        s += self.root.format(tab+1)
+        s += self.root.format(tab+1,depth)
         s += format_tab_line(tab+1,'}')
         return s
 
@@ -295,7 +299,7 @@ def dump_handler(args,parser):
         trif = HwdbTrie()
         indb = fileop.read_file_bytes(f)
         trif.dump_data(indb)
-        s = trif.format(0)
+        s = trif.format(0,args.depth)
         fileop.write_file(s,args.output)
     sys.exit(0)
     return
@@ -305,6 +309,7 @@ def main():
     {
         "input|i" : null,
         "output|o" : null,
+        "depth|D" : -1,
         "dump<dump_handler>##hwdb.bin ... to dump file ##" : {
             "$" : "+"
         }
