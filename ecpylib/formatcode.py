@@ -580,7 +580,8 @@ def fmtrustsign_handler(args,parser):
     s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
     s += format_tab_line(0,')')
     s += format_tab_line(0,'')
-    s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+    if args.verbose >= 3:
+        s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
     random.seed(time.time())
     logging.info('ecnames %s'%(ecnames))
     while idx < args.cases:
