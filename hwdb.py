@@ -197,8 +197,22 @@ class HwdbTrieNode(object):
             self.is_end = True
             self.total_path = prefix
         else:
+            # first to get the prefix off
+            idx = self.prefix_off
+            appprefix = b''
+            while idx != 0 and  idx < len(indb):
+                curdb = struct.unpack('B',indb[idx])[0]
+                if curdb == 0:
+                    break
+                appprefix += curdb
+                idx += 1
+            if len(appprefix) > 0:
+                if sys.version[0] == '3':
+                    prefix += appprefix.decode('utf-8')
+                else:
+                    prefix += str(appprefix)
             idx = 0
-            curoff = passed
+            curoff = passed                        
             while idx < self.children_count:
                 chldent = HwdbTrieEntry()
                 lastoff = curoff

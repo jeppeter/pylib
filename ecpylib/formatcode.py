@@ -480,7 +480,7 @@ class SslVerify(object):
         self.ecname = ecname
         self.signbin = os.path.join(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,self.privnumshort,self.hashnumshort))
         self.ecpubbin = os.path.join(rootpath,'rust.ecpub.%s.%x'%(ecname,self.privnumshort))
-        self.vfylog = os.path.join(rootpath,'ssl.vfy.%x.%x.log'%(self.privnumshort,self.hashnumshort))
+        self.vfylog = os.path.join(rootpath,'ssl.vfy.%s.%x.%x.log'%(self.ecname,self.privnumshort,self.hashnumshort))
         return
 
     def format_code(self,tab=0):
