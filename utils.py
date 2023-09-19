@@ -1225,6 +1225,14 @@ def formatcp_handler(args,parser):
     sys.exit(0)
     return
 
+def runtime_handler(args,parser):
+    set_logging(args)
+    stime = time.time()
+    retval = subprocess.call(args.subnargs,shell=args.shellmode)
+    etime = time.time()
+    sys.stdout.write('run %s retval %d time %s\n'%(args.subnargs,retval,etime - stime))
+    sys.exit(0)
+    return
 
 
 def main():
@@ -1235,6 +1243,7 @@ def main():
         "output|o" : null,
         "srcdir|s" : null,
         "dstdir|d" : null,
+        "shellmode|S" : false,
         "xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
             "$" : "+"
         },
@@ -1315,6 +1324,9 @@ def main():
         },
         "formatcp<formatcp_handler>##srcfilelist dstfilelist to copy##" : {
             "$" : 2
+        },
+        "runtime<runtime_handler>##cmds ... to run time##" : {
+            "$" : "+"
         }
     }
     '''
