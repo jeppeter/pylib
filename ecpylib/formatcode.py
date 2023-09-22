@@ -729,6 +729,9 @@ def main():
         },
         "fmtsslsingle<fmtsslsingle_handler>##to format ssl single##" : {
             "$" : 0
+        },
+        "fmtsslecgen<fmtsslecgen_handler>##ecnames ... to format ecnames##" : {
+            "$" : "*"
         }
     }
     '''
