@@ -695,6 +695,101 @@ def listectypes_handler(args,parser):
     sys.exit(0)
     return
 
+class SslEcgenInstance(object):
+    def __init__(self,opensslbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.opensslbin = opensslbin
+        self.outdir = outdir
+        self.compressed_file = os.path.join(outdir,'ecgen.%s.%d.compressed.pem'%(ecname,partnum))
+        self.compressed_explicit_file = os.path.join(outdir,'ecgen.%s.%d.compressed.explicit.pem'%(ecname,partnum))
+        self.uncompressed_file = os.path.join(outdir,'ecgen.%s.%d.uncompressed.pem'%(ecname,partnum))
+        self.uncompressed_explicit_file = os.path.join(outdir,'ecgen.%s.%d.uncompressed.explicit.pem'%(ecname,partnum))
+        self.hybrid_file = os.path.join(outdir,'ecgen.%s.%d.hybrid.pem'%(ecname,partnum))
+        self.hybrid_explicit_file = os.path.join(outdir,'ecgen.%s.%d.hybrid.explicit.pem'%(ecname,partnum))
+        return
+
+    def _format_ecgen(self,cmprtype,paramenc,tab=0):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        curfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        logfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        outs = ''
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+        appends = '-conv_form %s'%(cmprtype)
+        if paramenc is not None:
+            appends += ' -param_enc %s'%(paramenc)
+        outs += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2> "%s"'%(self.opensslbin,self.ecname,curfile,appends,logfile))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_ecgen('compressed',None,tab)
+        outs += self._format_ecgen('uncompressed',None,tab)
+        outs += self._format_ecgen('hybrid',None,tab)
+        outs += self._format_ecgen('compressed','explicit',tab)
+        outs += self._format_ecgen('uncompressed','explicit',tab)
+        outs += self._format_ecgen('hybrid','explicit',tab)
+        return outs
+
+def fmtsslecgen_handler(args,parser):
+    global GL_ECC_NAMES
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = args.subnargs
+    if len(ecnames) == 0:
+        ecnames = GL_ECC_NAMES
+
+    for n in ecnames:
+        if n not in GL_ECC_NAMES:
+            raise Exception('%s not in GL_ECC_NAMES'%(n))
+
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath set')
+
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    idx = 0
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'if [ ! -d "%s" ] '%(args.outpath))
+    s += format_tab_line(0,'then')
+    s += format_tab_line(1,'mkdir -p "%s"'%(args.outpath))
+    s += format_tab_line(0,'fi')
+
+
+    idx = 0
+    while idx < args.cases:
+        curidx = random.randrange(len(ecnames))
+        curname = ecnames[curidx]
+        inst = SslEcgenInstance(opensslbin,args.outpath,curname,idx)
+        s += inst.format_code(0)
+        idx += 1
+
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -703,6 +798,7 @@ def main():
         "input|i" : null,
         "rustrand" : null,
         "sslrand" : null,
+        "opensslbin" : null,
         "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
         "rustbin" : "X:\\\\ecsimple\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
         "sslsopath" : ["/mnt/zdisk/clibs/dynamiclib","/home/bt/source/openssl"],
