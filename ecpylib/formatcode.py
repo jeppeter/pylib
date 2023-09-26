@@ -828,6 +828,21 @@ def main():
         },
         "fmtsslecgen<fmtsslecgen_handler>##ecnames ... to format ecnames##" : {
             "$" : "*"
+        },
+        "fmtrustecprivload<fmtrustecprivload_handler>##to load from input and give output##" : {
+            "$" : 0
+        },
+        "fmtrustecpubload<fmtrustecpubload_handler>##to load from input and give output##" : {
+            "$" : 0
+        },
+        "fmtrustecgen<fmtrustecgen_handler>##ecnames ... to format ecnames ecgen##" : {
+            "$" : "*"
+        },
+        "fmtsslecprivload<fmtsslecprivload_handler>##to load from input and give output##" : {
+            "$" : 0
+        },
+        "fmtsslecpubload<fmtsslecpubload_handler>##to load from input and give output##" : {
+            "$" : 0
         }
     }
     '''
