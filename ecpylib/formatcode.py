@@ -709,27 +709,51 @@ class SslEcgenInstance(object):
         self.hybrid_explicit_file = os.path.join(outdir,'ecgen.%s.%d.hybrid.explicit.pem'%(ecname,partnum))
         return
 
+    def _formaat_base(self,tab):
+        rets = ''
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
+        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" 2>"%s"'%(self.opensslbin,self.ecname,privfile,privlogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d base error" >&2'%(GL_LINES,self.ecname,self.partnum))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        rets += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s"  2> "%s"'%(self.opensslbin,privfile,pubfile,publogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d error" >&2'%(GL_LINES,self.ecname,self.partnum))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+
+        return rets
+
     def _format_ecgen(self,cmprtype,paramenc,tab=0):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
+        infile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
         privfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
         pubfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
         privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
         publogfile = os.path.join(self.outdir,'ecgen.pub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
         outs = ''
         outs += format_tab_line(tab,'')
-        outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+        #outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
         appends = '-conv_form %s'%(cmprtype)
         if paramenc is not None:
             appends += ' -param_enc %s'%(paramenc)
-        outs += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2> "%s"'%(self.opensslbin,self.ecname,privfile,appends,privlogfile))
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -out "%s" %s 2> "%s"'%(self.opensslbin,infile,privfile,appends,privlogfile))
         outs += format_tab_line(tab,'if [ $? -ne 0 ]')
         outs += format_tab_line(tab,'then')
         outs += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
         outs += format_tab_line(tab+1,'exit 4')
         outs += format_tab_line(tab,'fi')
-        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2> "%s"'%(self.opensslbin,privfile,pubfile,appends,publogfile))
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2> "%s"'%(self.opensslbin,infile,pubfile,appends,publogfile))
         outs += format_tab_line(tab,'if [ $? -ne 0 ]')
         outs += format_tab_line(tab,'then')
         outs += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
@@ -740,6 +764,7 @@ class SslEcgenInstance(object):
 
     def format_code(self,tab):
         outs = ''
+        outs += self._formaat_base(tab)
         outs += self._format_ecgen('compressed',None,tab)
         outs += self._format_ecgen('uncompressed',None,tab)
         outs += self._format_ecgen('hybrid',None,tab)
@@ -802,16 +827,15 @@ def fmtsslecgen_handler(args,parser):
     return
 
 class RustEcprivExport(object):
-    def __init__(self,rustbin,outdir,ecname,partnum,types):
+    def __init__(self,rustbin,outdir,ecname,partnum):
         self.rustbin = rustbin
         self.outdir = outdir
         self.ecname = ecname
         self.partnum = partnum
-        self.types = types
         return
 
     def _format_rust_code(self,tab,outcmprtype,outparamenc):
-        infile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,self.types))
+        infile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
         if outparamenc is not None and len(outparamenc) > 0:
@@ -819,31 +843,22 @@ class RustEcprivExport(object):
             appends += ' --ecparamenc %s'%(outparamenc)
         else:
             appends += ' --ecparamenc ""'
-        outfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.%s.out.%s.pem'%(self.ecname,self.partnum,self.types,outtypes))
-        logfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.%s.out.%s.log'%(self.ecname,self.partnum,self.types,outtypes))
+        outfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
+        logfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
-        rets += format_tab_line(tab,'REM RUSTECPRIV TESTCASE from ecname %s partnum %d types %s to %s'%(self.ecname,self.partnum,self.types,outtypes))
+        rets += format_tab_line(tab,'REM RUSTECPRIV TESTCASE from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
         rets += format_tab_line(tab,'"%s" ecprivload -o "%s" "%s" 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,logfile,GL_LINES,outfile))
         return rets
 
     def format_code(self,tab):
         rets = ''
-        explicited = False
-        sarr = re.split('\\.',self.types)
-        if len(sarr) > 1:
-            explicited = True
-        if explicited:
-            rets += self._format_rust_code(tab,'compressed','explicit')
-            rets += self._format_rust_code(tab,'uncompressed','explicit')
-            rets += self._format_rust_code(tab,'hybrid','explicit')
-        else:
-            rets += self._format_rust_code(tab,'compressed','explicit')
-            rets += self._format_rust_code(tab,'uncompressed','explicit')
-            rets += self._format_rust_code(tab,'hybrid','explicit')
-            rets += self._format_rust_code(tab,'compressed',None)
-            rets += self._format_rust_code(tab,'uncompressed',None)
-            rets += self._format_rust_code(tab,'hybrid',None)
+        rets += self._format_rust_code(tab,'compressed','explicit')
+        rets += self._format_rust_code(tab,'uncompressed','explicit')
+        rets += self._format_rust_code(tab,'hybrid','explicit')
+        rets += self._format_rust_code(tab,'compressed',None)
+        rets += self._format_rust_code(tab,'uncompressed',None)
+        rets += self._format_rust_code(tab,'hybrid',None)
         return rets
 
 def fmtrustecprivload_handler(args,parser):
@@ -855,7 +870,7 @@ def fmtrustecprivload_handler(args,parser):
         raise Exception('must specified rustoutpath')
     sarr = re.split('\n',ins)
     lidx = 0
-    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)\\s+([a-z\\.]+)')
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
     outexps = dict()
     for l in sarr:
         lidx += 1
@@ -863,12 +878,13 @@ def fmtrustecprivload_handler(args,parser):
         if len(l) == 0:
             continue
         m = mexpr.findall(l)
-        if m is not None and len(m) > 0 and len(m[0]) > 2:
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
             partnum = fileop.parse_int(m[0][1])
             ecname = m[0][0]
-            types = m[0][2]
-            ecprivexp = RustEcprivExport(args.rustbin,args.rustoutpath,ecname,partnum,types)
-            ntypes = '%s.%d.%s'%(ecname,partnum,types)
+            ecprivexp = RustEcprivExport(args.rustbin,args.rustoutpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
             outexps[ntypes] = ecprivexp
     s = ''
     s += format_tab_line(0,'echo off')
@@ -893,16 +909,15 @@ def fmtrustecprivload_handler(args,parser):
 
 
 class RustEcpubExport(object):
-    def __init__(self,rustbin,outdir,ecname,partnum,types):
+    def __init__(self,rustbin,outdir,ecname,partnum):
         self.rustbin = rustbin
         self.outdir = outdir
         self.ecname = ecname
         self.partnum = partnum
-        self.types = types
         return
 
     def _format_rust_code(self,tab,outcmprtype,outparamenc):
-        infile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self.types))
+        infile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
         if outparamenc is not None and len(outparamenc) > 0:
@@ -910,31 +925,22 @@ class RustEcpubExport(object):
             appends += ' --ecparamenc %s'%(outparamenc)
         else:
             appends += ' --ecparamenc ""'
-        outfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.%s.out.%s.pem'%(self.ecname,self.partnum,self.types,outtypes))
-        logfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.%s.out.%s.log'%(self.ecname,self.partnum,self.types,outtypes))
+        outfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
+        logfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
-        rets += format_tab_line(tab,'REM RUSTECPUB TESTCASE  from ecname %s partnum %d types %s to %s'%(self.ecname,self.partnum,self.types,outtypes))
+        rets += format_tab_line(tab,'REM RUSTECPUB TESTCASE  from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
         rets += format_tab_line(tab,'"%s" ecpubload -o "%s" "%s" 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,logfile,GL_LINES,outfile))
         return rets
 
     def format_code(self,tab):
         rets = ''
-        explicited = False
-        sarr = re.split('\\.',self.types)
-        if len(sarr) > 1:
-            explicited = True
-        if explicited:
-            rets += self._format_rust_code(tab,'compressed','explicit')
-            rets += self._format_rust_code(tab,'uncompressed','explicit')
-            rets += self._format_rust_code(tab,'hybrid','explicit')
-        else:
-            rets += self._format_rust_code(tab,'compressed','explicit')
-            rets += self._format_rust_code(tab,'uncompressed','explicit')
-            rets += self._format_rust_code(tab,'hybrid','explicit')
-            rets += self._format_rust_code(tab,'compressed',None)
-            rets += self._format_rust_code(tab,'uncompressed',None)
-            rets += self._format_rust_code(tab,'hybrid',None)
+        rets += self._format_rust_code(tab,'compressed','explicit')
+        rets += self._format_rust_code(tab,'uncompressed','explicit')
+        rets += self._format_rust_code(tab,'hybrid','explicit')
+        rets += self._format_rust_code(tab,'compressed',None)
+        rets += self._format_rust_code(tab,'uncompressed',None)
+        rets += self._format_rust_code(tab,'hybrid',None)
         return rets
 
 
@@ -947,7 +953,7 @@ def fmtrustecpubload_handler(args,parser):
         raise Exception('must specified rustoutpath')
     sarr = re.split('\n',ins)
     lidx = 0
-    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)\\s+([a-z\\.]+)')
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
     outexps = dict()
     for l in sarr:
         lidx += 1
@@ -955,12 +961,13 @@ def fmtrustecpubload_handler(args,parser):
         if len(l) == 0:
             continue
         m = mexpr.findall(l)
-        if m is not None and len(m) > 0 and len(m[0]) > 2:
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
             partnum = fileop.parse_int(m[0][1])
             ecname = m[0][0]
-            types = m[0][2]
-            ecprivexp = RustEcpubExport(args.rustbin,args.rustoutpath,ecname,partnum,types)
-            ntypes = '%s.%d.%s'%(ecname,partnum,types)
+            ecprivexp = RustEcpubExport(args.rustbin,args.rustoutpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
             outexps[ntypes] = ecprivexp
     s = ''
     s += format_tab_line(0,'echo off')
