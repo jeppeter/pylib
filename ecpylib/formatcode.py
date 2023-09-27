@@ -774,6 +774,133 @@ class SslEcgenInstance(object):
         outs += self._format_ecgen('hybrid','explicit',tab)
         return outs
 
+class SslSM2genInstance(object):
+    def __init__(self,opensslbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.opensslbin = opensslbin
+        self.outdir = outdir
+        return
+
+    def _format_nbase(self,tab):
+        rets = ''
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
+        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" 2>"%s"'%(self.opensslbin,self.ecname,privfile,privlogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d   error" >&2'%(GL_LINES,self.ecname,self.partnum))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        rets += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" 2> "%s"'%(self.opensslbin,privfile,pubfile,publogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d error" >&2'%(GL_LINES,self.ecname,self.partnum))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+
+        return rets
+        return rets
+
+    def _formaat_base(self,tab,cmprtype,paramenc):
+        rets = ''
+        types = '%s'%(cmprtype)
+        appends = '-conv_form %s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            types += '.%s'%(paramenc)
+            appends += ' -param_enc %s'%(paramenc)
+
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
+        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
+        rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2>"%s"'%(self.opensslbin,self.ecname,privfile,appends,privlogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d  base %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        rets += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2> "%s"'%(self.opensslbin,privfile,pubfile,appends,publogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+
+        return rets
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_nbase(tab)
+        outs += self._formaat_base(tab,'compressed',None)
+        outs += self._formaat_base(tab,'uncompressed',None)
+        outs += self._formaat_base(tab,'hybrid',None)
+        outs += self._formaat_base(tab,'compressed','explicit')
+        outs += self._formaat_base(tab,'uncompressed','explicit')
+        outs += self._formaat_base(tab,'hybrid','explicit')
+        return outs
+
+class Asn1SM2Instance(object):
+    def __init__(self,asn1bin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.asn1bin = asn1bin
+        self.outdir = outdir
+        return
+
+    def _formaat_base(self,tab,cmprtype,paramenc):
+        rets = ''
+        types = ''
+        if cmprtype is not None and len(cmprtype) > 0:
+            types += '%s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            if len(types) > 0:
+                types += '.%s'%(paramenc)
+            else:
+                types += '%s'%(paramenc)
+
+        rets += format_tab_line(tab,'')
+        if len(types) > 0:
+            rets += format_tab_line(tab,'REM ASN1PARSE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+            privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+            privlogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
+            pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+            publogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
+            rets += format_tab_line(tab,'"%s" asn1parse "%s" >"%s" || (echo "[%d] dump %s.%d %s error" >&2 && exit /b 4)'%(self.asn1bin,privfile,privlogfile,GL_LINES,self.ecname,self.partnum,types))
+            rets += format_tab_line(tab,'"%s" asn1parse "%s" > "%s" || (echo "[%d] dump %s.%d %s error" >&2 && exit /b 4)'%(self.asn1bin,pubfile,publogfile,GL_LINES,self.ecname,self.partnum,types))
+        else:
+            rets += format_tab_line(tab,'REM ASN1PARSE ecname %s partnum %d'%(self.ecname,self.partnum))
+            privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+            privlogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
+            pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+            publogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
+            rets += format_tab_line(tab,'"%s" asn1parse "%s" >"%s" || (echo "[%d] dump %s.%d error" >&2 && exit /b 4)'%(self.asn1bin,privfile,privlogfile,GL_LINES,self.ecname,self.partnum))
+            rets += format_tab_line(tab,'"%s" asn1parse "%s" > "%s" || (echo "[%d] dump %s.%d error" >&2 && exit /b 4)'%(self.asn1bin,pubfile,publogfile,GL_LINES,self.ecname,self.partnum))
+
+        return rets
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._formaat_base(tab,None,None)
+        outs += self._formaat_base(tab,'compressed',None)
+        outs += self._formaat_base(tab,'uncompressed',None)
+        outs += self._formaat_base(tab,'hybrid',None)
+        outs += self._formaat_base(tab,'compressed','explicit')
+        outs += self._formaat_base(tab,'uncompressed','explicit')
+        outs += self._formaat_base(tab,'hybrid','explicit')
+        return outs
+
+
 def fmtsslecgen_handler(args,parser):
     global GL_ECC_NAMES
     loglib.set_logging(args)
@@ -1141,6 +1268,102 @@ def fmtrustdiff_handler(args,parser):
     return
 
 
+def fmtsslsm2gen_handler(args,parser):
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = ['SM2']
+
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath set')
+
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    idx = 0
+    random.seed(time.time())
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'if [ ! -d "%s" ] '%(args.outpath))
+    s += format_tab_line(0,'then')
+    s += format_tab_line(1,'mkdir -p "%s"'%(args.outpath))
+    s += format_tab_line(0,'fi')
+
+
+    idx = 0
+    while idx < args.cases:
+        curidx = random.randrange(len(ecnames))
+        curname = ecnames[curidx]
+        nb = random.randbytes(8)
+        bn = format_bn(nb)
+        inst = SslSM2genInstance(opensslbin,args.outpath,curname,bn)
+        s += inst.format_code(0)
+        if idx > 0 and (idx % 50) == 0 and args.verbose == 0:
+            s += format_tab_line(0,'')
+            s += format_tab_line(0,'echo -n "."')
+        idx += 1
+
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+def fmtsm2asn1_handler(args,parser):
+    loglib.set_logging(args)
+    ins = fileop.read_file(args.input)
+    if args.asn1parsebin is None or len(args.asn1parsebin) == 0:
+        raise Exception('must specified asn1parsebin')
+    if args.rustoutpath is None or len(args.rustoutpath) == 0:
+        raise Exception('must specified rustoutpath')
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = Asn1SM2Instance(args.asn1parsebin,args.rustoutpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    s = ''
+    s += format_tab_line(0,'echo off')
+    s += format_tab_line(0,'if exist "%s" ('%(args.rustoutpath))    
+    s += format_tab_line(1,'echo "exist [%s]"'%(args.rustoutpath))
+    s += format_tab_line(0,') else (')
+    s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
+    s += format_tab_line(0,')')
+    s += format_tab_line(0,'')
+
+    if args.verbose > 0:
+        s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+        s += format_tab_line(0,'')
+
+    for k in outexps.keys():
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -1202,6 +1425,12 @@ def main():
             "$" : 0
         },
         "fmtrustdiff<fmtrustdiff_handler>##format ssl input as rust diff##"  : {
+            "$" : 0
+        },
+        "fmtsslsm2gen<fmtsslsm2gen_handler>##format ssl sm2 pem##" : {
+            "$" : 0
+        },
+        "fmtsm2asn1<fmtsm2asn1_handler>##format dump##" : {
             "$" : 0
         }
     }
