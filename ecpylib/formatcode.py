@@ -713,18 +713,26 @@ class SslEcgenInstance(object):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        curfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        logfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        privfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        publogfile = os.path.join(self.outdir,'ecgen.pub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
         outs = ''
         outs += format_tab_line(tab,'')
         outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
         appends = '-conv_form %s'%(cmprtype)
         if paramenc is not None:
             appends += ' -param_enc %s'%(paramenc)
-        outs += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2> "%s"'%(self.opensslbin,self.ecname,curfile,appends,logfile))
+        outs += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2> "%s"'%(self.opensslbin,self.ecname,privfile,appends,privlogfile))
         outs += format_tab_line(tab,'if [ $? -ne 0 ]')
         outs += format_tab_line(tab,'then')
         outs += format_tab_line(tab+1,'echo "[%d] can not make %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2> "%s"'%(self.opensslbin,privfile,pubfile,appends,publogfile))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
         outs += format_tab_line(tab+1,'exit 4')
         outs += format_tab_line(tab,'fi')
         return outs
@@ -790,6 +798,95 @@ def fmtsslecgen_handler(args,parser):
     sys.exit(0)
     return
 
+class RustEcprivExport(object):
+    def __init__(self,rustbin,outdir,ecname,partnum,types):
+        self.rustbin = rustbin
+        self.outdir = outdir
+        self.ecname = ecname
+        self.partnum = partnum
+        self.types = types
+        return
+
+    def _format_rust_code(self,tab,outcmprtype,outparamenc):
+        infile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,self.types))
+        outtypes = '%s'%(outcmprtype)
+        appends = '--eccmprtype %s'%(outcmprtype)
+        if outparamenc is not None and len(outparamenc) > 0:
+            outtypes += '.%s'%(outparamenc)
+            appends += ' --ecparamenc %s'%(outparamenc)
+        else:
+            appends += ' --ecparamenc ""'
+        outfile = os.path.join(self.outdir,'rust.ecgen.%s.%d.%s.out.%s.pem'%(self.ecname,self.partnum,self.types,outtypes))
+        logfile = os.path.join(self.outdir,'rust.ecgen.%s.%d.%s.out.%s.log'%(self.ecname,self.partnum,self.types,outtypes))
+        rets = ''
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'REM RUST TESTCASE from ecname %s partnum %d types %s to %s'%(self.ecname,self.partnum,self.types,outtypes))
+        rets += format_tab_line(tab,'"%s" ecprivload -o "%s" "%s" 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,logfile,GL_LINES,outfile))
+        return rets
+
+    def format_code(self,tab):
+        rets = ''
+        explicited = False
+        sarr = re.split('\\.',self.types)
+        if len(sarr) > 1:
+            explicited = True
+        if explicited:
+            rets += self._format_rust_code(tab,'compressed','explicit')
+            rets += self._format_rust_code(tab,'uncompressed','explicit')
+            rets += self._format_rust_code(tab,'hybrid','explicit')
+        else:
+            rets += self._format_rust_code(tab,'compressed','explicit')
+            rets += self._format_rust_code(tab,'uncompressed','explicit')
+            rets += self._format_rust_code(tab,'hybrid','explicit')
+            rets += self._format_rust_code(tab,'compressed',None)
+            rets += self._format_rust_code(tab,'uncompressed',None)
+            rets += self._format_rust_code(tab,'hybrid',None)
+        return rets
+
+def fmtrustecprivload_handler(args,parser):
+    loglib.set_logging(args)
+    ins = fileop.read_file(args.input)
+    outs = ''
+    if args.rustbin is None or len(args.rustbin) == 0:
+        raise Exception('must specified rustbin')
+    if args.rustoutpath is None or len(args.rustoutpath) == 0:
+        raise Exception('must specified rustoutpath')
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)\\s+([a-z\\.]+)')
+    outexps = []
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 2:
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            types = m[0][2]
+            ecprivexp = RustEcprivExport(args.rustbin,args.rustoutpath,ecname,partnum,types)
+            outexps.append(ecprivexp)
+    s = ''
+    s += format_tab_line(0,'echo off')
+    s += format_tab_line(0,'if exist "%s" ('%(args.rustoutpath))    
+    s += format_tab_line(1,'echo "exist [%s]"'%(args.rustoutpath))
+    s += format_tab_line(0,') else (')
+    s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
+    s += format_tab_line(0,')')
+    s += format_tab_line(0,'')
+
+    if args.verbose > 0:
+        s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+        s += format_tab_line(0,'')
+
+    for e in outexps:
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -798,9 +895,10 @@ def main():
         "input|i" : null,
         "rustrand" : null,
         "sslrand" : null,
-        "opensslbin" : null,
+        "opensslbin" : "/home/bt/source/openssl/apps/openssl",
         "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
         "rustbin" : "X:\\\\ecsimple\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
+        "asn1parsebin" : "X:\\\\ssllib-rs\\\\utest\\\\utest\\\\target\\\\release\\\\utest.exe",
         "sslsopath" : ["/mnt/zdisk/clibs/dynamiclib","/home/bt/source/openssl"],
         "outpath" : "/mnt/zdisk/ssllogs",
         "rustoutpath" : "x:\\\\ssllogs",
