@@ -7,6 +7,7 @@ import os
 import random
 import time
 import re
+import hashlib
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)),'..'))
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..','..','python-ecdsa','src')))
@@ -838,17 +839,17 @@ class RustEcprivExport(object):
         infile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
-        if outparamenc is not None and len(outparamenc) > 0:
+        if outparamenc is None or len(outparamenc) == 0:
+            appends += ' --ecparamenc ""'
+        else:
             outtypes += '.%s'%(outparamenc)
             appends += ' --ecparamenc %s'%(outparamenc)
-        else:
-            appends += ' --ecparamenc ""'
         outfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
         logfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM RUSTECPRIV TESTCASE from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
-        rets += format_tab_line(tab,'"%s" ecprivload -o "%s" "%s" 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,logfile,GL_LINES,outfile))
+        rets += format_tab_line(tab,'"%s" ecprivload -o "%s" "%s" %s 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,appends,logfile,GL_LINES,outfile))
         return rets
 
     def format_code(self,tab):
@@ -920,17 +921,17 @@ class RustEcpubExport(object):
         infile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
-        if outparamenc is not None and len(outparamenc) > 0:
+        if outparamenc is None or len(outparamenc) == 0:
+            appends += ' --ecparamenc ""'
+        else:
             outtypes += '.%s'%(outparamenc)
             appends += ' --ecparamenc %s'%(outparamenc)
-        else:
-            appends += ' --ecparamenc ""'
         outfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
         logfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM RUSTECPUB TESTCASE  from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
-        rets += format_tab_line(tab,'"%s" ecpubload -o "%s" "%s" 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,logfile,GL_LINES,outfile))
+        rets += format_tab_line(tab,'"%s" ecpubload -o "%s" "%s" %s 2>"%s" || (echo "[%d]make %s error" && exit /b 4)'%(self.rustbin,outfile,infile,appends,logfile,GL_LINES,outfile))
         return rets
 
     def format_code(self,tab):
@@ -981,6 +982,90 @@ def fmtrustecpubload_handler(args,parser):
     if args.verbose > 0:
         s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
         s += format_tab_line(0,'')
+
+    for k in outexps.keys():
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+
+
+def diffpem_handler(args,parser):
+    loglib.set_logging(args)
+    sslpem = args.subnargs[0]
+    rustpem = args.subnargs[1]
+    sslb = fileop.read_file_bytes(sslpem)
+    rustb = fileop.read_file_bytes(rustpem)
+    sslmd5 = hashlib.md5(sslb)
+    rustmd5 = hashlib.md5(rustb)
+    if sslmd5.hexdigest() != rustmd5.hexdigest():
+        sys.stderr.write('%s %s differd\n'%(sslpem,rustpem))
+        sys.exit(1)
+    sys.exit(0)
+    return
+
+class SslDiffPemLib(object):
+    def __init__(self,outdir,ecname,partnum):
+        self.outdir = outdir
+        self.ecname = ecname
+        self.partnum = partnum
+        return
+
+    def _format_diff(self,tab,cmprtype,paramenc):
+        outs = ''
+        types = '%s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            types += '.%s'%(paramenc)
+        sslfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
+        pyfile = os.path.abspath(__file__)
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s"'%(pyfile,sslfile,rustfile))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] diff %s %s error"'%(GL_LINES,sslfile,rustfile))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_diff(tab,'compressed',None)
+        outs += self._format_diff(tab,'uncompressed',None)
+        outs += self._format_diff(tab,'hybrid',None)
+        outs += self._format_diff(tab,'compressed','explicit')
+        outs += self._format_diff(tab,'uncompressed','explicit')
+        outs += self._format_diff(tab,'hybrid','explicit')
+        return outs
+
+
+def fmtssldiff_handler(args,parser):
+    loglib.set_logging(args)
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = SslDiffPemLib(args.outpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    s += format_tab_line(0,'')
 
     for k in outexps.keys():
         e = outexps[k]
@@ -1042,6 +1127,12 @@ def main():
             "$" : 0
         },
         "fmtsslecpubload<fmtsslecpubload_handler>##to load from input and give output##" : {
+            "$" : 0
+        },
+        "diffpem<diffpem_handler>##sslpem rustpem to diff##" : {
+            "$" : 2
+        },
+        "fmtssldiff<fmtssldiff_handler>##format ssl input as rust diff##" : {
             "$" : 0
         }
     }
