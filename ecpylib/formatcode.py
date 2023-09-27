@@ -1041,6 +1041,35 @@ class SslDiffPemLib(object):
         outs += self._format_diff(tab,'hybrid','explicit')
         return outs
 
+class RustDiffPemLib(object):
+    def __init__(self,outdir,ecname,partnum):
+        self.outdir = outdir
+        self.ecname = ecname
+        self.partnum = partnum
+        return
+
+    def _format_diff(self,tab,cmprtype,paramenc):
+        outs = ''
+        types = '%s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            types += '.%s'%(paramenc)
+        sslfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
+        pyfile = os.path.abspath(__file__)
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s" || (echo "[%d]diff %s %s error" && exit /b 4)'%(pyfile,sslfile,rustfile,GL_LINES,sslfile,rustfile))
+        return outs
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_diff(tab,'compressed',None)
+        outs += self._format_diff(tab,'uncompressed',None)
+        outs += self._format_diff(tab,'hybrid',None)
+        outs += self._format_diff(tab,'compressed','explicit')
+        outs += self._format_diff(tab,'uncompressed','explicit')
+        outs += self._format_diff(tab,'hybrid','explicit')
+        return outs
+
 
 def fmtssldiff_handler(args,parser):
     loglib.set_logging(args)
@@ -1074,6 +1103,40 @@ def fmtssldiff_handler(args,parser):
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
+
+def fmtrustdiff_handler(args,parser):
+    loglib.set_logging(args)
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = RustDiffPemLib(args.rustoutpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    s = ''
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'echo off')
+
+    for k in outexps.keys():
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1133,6 +1196,9 @@ def main():
             "$" : 2
         },
         "fmtssldiff<fmtssldiff_handler>##format ssl input as rust diff##" : {
+            "$" : 0
+        },
+        "fmtrustdiff<fmtrustdiff_handler>##format ssl input as rust diff##"  : {
             "$" : 0
         }
     }
