@@ -821,6 +821,9 @@ def fmtsslecgen_handler(args,parser):
         bn = format_bn(nb)        
         inst = SslEcgenInstance(opensslbin,args.outpath,curname,bn)
         s += inst.format_code(0)
+        if idx > 0 and (idx % 50) == 0 and args.verbose == 0:
+            s += format_tab_line(0,'')
+            s += format_tab_line(0,'echo -n "."')
         idx += 1
 
     fileop.write_file(s,args.output)
