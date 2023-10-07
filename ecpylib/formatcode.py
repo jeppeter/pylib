@@ -950,7 +950,10 @@ def fmtsslecgen_handler(args,parser):
         s += inst.format_code(0)
         if idx > 0 and (idx % 50) == 0 and args.verbose == 0:
             s += format_tab_line(0,'')
-            s += format_tab_line(0,'echo -n "."')
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'echo "."')
+            else:
+                s += format_tab_line(0,'echo -n "."')
         idx += 1
 
     fileop.write_file(s,args.output)
