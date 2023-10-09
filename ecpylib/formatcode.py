@@ -794,7 +794,7 @@ class RustEcgenInstance(object):
         privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
         logfile = os.path.join(self.outdir,'rust.%s.%d.base.log'%(self.ecname,self.partnum))
         pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-        ss = '"%s" ecgen --no-sm2privformat --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
+        ss = '"%s" --no-sm2privformat ecgen --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
         ss += ' || (echo "[%d] can not format %s %s file" && exit /b 4)'%(GL_LINES,privfile,pubfile)
         rets += format_tab_line(tab,ss)
         return rets
