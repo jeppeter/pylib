@@ -794,7 +794,7 @@ class RustEcgenInstance(object):
         privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
         logfile = os.path.join(self.outdir,'rust.%s.%d.base.log'%(self.ecname,self.partnum))
         pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-        ss = '"%s" ecgen --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
+        ss = '"%s" ecgen --no-sm2privformat --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
         ss += ' || (echo "[%d] can not format %s %s file" && exit /b 4)'%(GL_LINES,privfile,pubfile)
         rets += format_tab_line(tab,ss)
         return rets
@@ -830,6 +830,58 @@ class RustEcgenInstance(object):
         outs += self._format_ecgen('compressed','explicit',tab)
         outs += self._format_ecgen('uncompressed','explicit',tab)
         outs += self._format_ecgen('hybrid','explicit',tab)
+        return outs
+
+class SslEcprivLib(object):
+    def __init__(self,opensslbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.opensslbin = opensslbin
+        self.outdir = outdir
+        return
+
+
+    def _format_base(self,tab,cmprtype,paramenc):
+        rets = ''
+        types = '%s'%(cmprtype)
+        appends = '-conv_form %s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            types += '.%s'%(paramenc)
+            appends += ' -param_enc %s'%(paramenc)
+
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+        infile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+
+        rets += format_tab_line(tab,'"%s" ec -in "%s" -out "%s" %s 2> "%s"'%(self.opensslbin,infile,privfile,appends,privlogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make privout %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2> "%s"'%(self.opensslbin,infile,pubfile,appends,publogfile))
+        rets += format_tab_line(tab,'if [ $? -ne 0 ]')
+        rets += format_tab_line(tab,'then')
+        rets += format_tab_line(tab+1,'echo "[%d] can not make pubout %s partnum %d %s error" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        rets += format_tab_line(tab+1,'exit 4')
+        rets += format_tab_line(tab,'fi')
+        return rets
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_base(tab,'compressed',None)
+        outs += self._format_base(tab,'uncompressed',None)
+        outs += self._format_base(tab,'hybrid',None)
+        outs += self._format_base(tab,'compressed','explicit')
+        outs += self._format_base(tab,'uncompressed','explicit')
+        outs += self._format_base(tab,'hybrid','explicit')
         return outs
 
 class SslSM2genInstance(object):
@@ -1273,7 +1325,7 @@ class SslDiffPemLib(object):
         if paramenc is not None and len(paramenc) > 0:
             types += '.%s'%(paramenc)
         sslfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        rustfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
         pyfile = os.path.abspath(__file__)
         outs += format_tab_line(tab,'')
         outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s"'%(pyfile,sslfile,rustfile))
@@ -1560,6 +1612,61 @@ def fmtsm2asn1_handler(args,parser):
     sys.exit(0)
     return
 
+def fmtsslecprivload_handler(args,parser):
+    loglib.set_logging(args)
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath')
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^REM TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = SslEcprivLib(opensslbin,args.outpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    idx = 0
+    random.seed(time.time())
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+
+    idx = 0
+    for k in outexps.keys():
+        idx += 1
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+        if args.verbose < 3 and (idx % 50) == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'echo "."')
+            else:
+                s += format_tab_line(0,'echo -n "."')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
