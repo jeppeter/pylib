@@ -1409,7 +1409,7 @@ def fmtssldiff_handler(args,parser):
     ins = fileop.read_file(args.input)
     sarr = re.split('\n',ins)
     lidx = 0
-    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    mexpr = re.compile('^REM TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
     outexps = dict()
     for l in sarr:
         lidx += 1
@@ -1608,6 +1608,62 @@ def fmtsm2asn1_handler(args,parser):
         e = outexps[k]
         s += format_tab_line(0,'')
         s += e.format_code(0)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+def fmtsslecprivload_handler(args,parser):
+    loglib.set_logging(args)
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath')
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^REM TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = SslEcprivLib(opensslbin,args.outpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    idx = 0
+    random.seed(time.time())
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+
+    idx = 0
+    for k in outexps.keys():
+        idx += 1
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+        if args.verbose < 3 and (idx % 50) == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'echo "."')
+            else:
+                s += format_tab_line(0,'echo -n "."')
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
