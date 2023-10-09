@@ -1429,10 +1429,17 @@ def fmtssldiff_handler(args,parser):
     s += format_tab_line(0,'#! /bin/bash')
     s += format_tab_line(0,'')
 
+    idx = 0
     for k in outexps.keys():
+        idx += 1
         e = outexps[k]
         s += format_tab_line(0,'')
         s += e.format_code(0)
+        if (idx % 50) == 0 and args.verbose == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\\n\');sys.stdout.flush();"')
+            else:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\');sys.stdout.flush();"')
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
