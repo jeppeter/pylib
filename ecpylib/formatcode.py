@@ -234,6 +234,10 @@ def format_tab_line(tab,s):
     GL_LINES += 1
     return rets
 
+def random_bytes(cnt):
+    retb = b''
+
+
 def get_bits(bn):
     s = '%x'%(bn)
     retv = 0
@@ -436,7 +440,7 @@ def getbn_handler(args,parser):
     idx = 0
     random.seed(time.time())
     while idx < bnnum:
-        nb = random.randbytes(bnsize)
+        nb = os.urandom(bnsize)
         bn = format_bn(nb)
         sys.stdout.write('%s\n'%(fileop.format_bytes(nb,'nb [%d]'%(bnsize))))
         sys.stdout.write('bn 0x%x\n'%(bn))
@@ -774,6 +778,60 @@ class SslEcgenInstance(object):
         outs += self._format_ecgen('hybrid','explicit',tab)
         return outs
 
+
+class RustEcgenInstance(object):
+    def __init__(self,rustbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.rustbin = rustbin
+        self.outdir = outdir
+        return
+
+    def _format_base(self,tab):
+        rets = ''
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'REM TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
+        privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        logfile = os.path.join(self.outdir,'rust.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        ss = '"%s" ecgen --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
+        ss += ' || (echo "[%d] can not format %s %s file" && exit /b 4)'%(GL_LINES,privfile,pubfile)
+        rets += format_tab_line(tab,ss)
+        return rets
+
+    def _format_ecgen(self,cmprtype,paramenc,tab=0):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        inprivfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        inpubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        publogfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        outs = ''
+        outs += format_tab_line(tab,'')
+        #outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
+        appends = '--eccmprtype %s'%(cmprtype)
+        if paramenc is not None:
+            appends += ' --ecparamenc %s'%(paramenc)
+        outs += format_tab_line(tab,'"%s"  ecprivload %s -o "%s" "%s" 2>"%s" || (echo "[%d] format %s => %s error" && exit /b 4)'%(self.rustbin,appends,privfile,inprivfile,privlogfile,GL_LINES,inprivfile,privfile))
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ecpubload %s -o "%s" "%s" 2>"%s" || (echo "[%d] format %s => %s error" && exit /b 4)'%(self.rustbin,appends,pubfile,inpubfile,publogfile,GL_LINES,inpubfile,pubfile))
+        return outs
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_base(tab)
+        outs += self._format_ecgen('compressed',None,tab)
+        outs += self._format_ecgen('uncompressed',None,tab)
+        outs += self._format_ecgen('hybrid',None,tab)
+        outs += self._format_ecgen('compressed','explicit',tab)
+        outs += self._format_ecgen('uncompressed','explicit',tab)
+        outs += self._format_ecgen('hybrid','explicit',tab)
+        return outs
+
 class SslSM2genInstance(object):
     def __init__(self,opensslbin,outdir,ecname,partnum):
         self.ecname = ecname
@@ -944,7 +1002,7 @@ def fmtsslecgen_handler(args,parser):
     while idx < args.cases:
         curidx = random.randrange(len(ecnames))
         curname = ecnames[curidx]
-        nb = random.randbytes(8)
+        nb = os.urandom(8)
         bn = format_bn(nb)        
         inst = SslEcgenInstance(opensslbin,args.outpath,curname,bn)
         s += inst.format_code(0)
@@ -959,6 +1017,54 @@ def fmtsslecgen_handler(args,parser):
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
+
+
+def fmtrustecgen_handler(args,parser):
+    global GL_ECC_NAMES
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = GL_ECC_NAMES
+    if len(args.subnargs) > 0:
+        ecnames = args.subnargs
+        for c in ecnames:
+            if c not in GL_ECC_NAMES:
+                raise Exception('%s not in ECC names'%(c))
+
+    if args.rustbin is None:
+        raise Exception('need rustbin')
+    if args.rustoutpath is None:
+        raise Exception('need rustoutpath')
+
+    idx = 0
+    s = ''
+    s += format_tab_line(0,'echo off')
+    s += format_tab_line(0,'if exist "%s" ('%(args.rustoutpath))    
+    s += format_tab_line(1,'echo "exist [%s]"'%(args.rustoutpath))
+    s += format_tab_line(0,') else (')
+    s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
+    s += format_tab_line(0,')')
+    s += format_tab_line(0,'')
+    if args.verbose >= 3:
+        s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+    random.seed(time.time())
+    logging.info('ecnames %s'%(ecnames))
+    while idx < args.cases:
+        idx += 1
+        curidx = random.randrange(len(ecnames))
+        ecname = ecnames[curidx]
+        nb = os.urandom(8)
+        bn = format_bn(nb)
+        curinst = RustEcgenInstance(args.rustbin,args.rustoutpath,ecname,bn)
+        s  += curinst.format_code(0)
+        if args.verbose < 3 and (idx % 50) == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\\n\');sys.stdout.flush();"')
+            else:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\');sys.stdout.flush();"')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 class RustEcprivExport(object):
     def __init__(self,rustbin,outdir,ecname,partnum):
@@ -1395,7 +1501,7 @@ def fmtsslsm2gen_handler(args,parser):
     while idx < args.cases:
         curidx = random.randrange(len(ecnames))
         curname = ecnames[curidx]
-        nb = random.randbytes(8)
+        nb = os.urandom(8)
         bn = format_bn(nb)
         inst = SslSM2genInstance(opensslbin,args.outpath,curname,bn)
         s += inst.format_code(0)
