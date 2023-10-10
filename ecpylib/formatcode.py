@@ -832,7 +832,7 @@ class RustEcgenInstance(object):
         outs += self._format_ecgen('hybrid','explicit',tab)
         return outs
 
-class SslEcprivLib(object):
+class SslEcloadLib(object):
     def __init__(self,opensslbin,outdir,ecname,partnum):
         self.ecname = ecname
         self.partnum = partnum
@@ -1619,7 +1619,7 @@ def fmtsm2asn1_handler(args,parser):
     sys.exit(0)
     return
 
-def fmtsslecprivload_handler(args,parser):
+def fmtsslecload_handler(args,parser):
     loglib.set_logging(args)
     if args.outpath is None or len(args.outpath) == 0:
         raise Exception('need outpath')
@@ -1641,7 +1641,7 @@ def fmtsslecprivload_handler(args,parser):
             logging.info('%s'%(l))
             partnum = fileop.parse_int(m[0][1])
             ecname = m[0][0]
-            ecprivexp = SslEcprivLib(opensslbin,args.outpath,ecname,partnum)
+            ecprivexp = SslEcloadLib(opensslbin,args.outpath,ecname,partnum)
             ntypes = '%s.%d'%(ecname,partnum)
             logging.info('ntype %s'%(ntypes))
             outexps[ntypes] = ecprivexp
@@ -1779,10 +1779,7 @@ def main():
         "fmtrustecgen<fmtrustecgen_handler>##ecnames ... to format ecnames ecgen##" : {
             "$" : "*"
         },
-        "fmtsslecprivload<fmtsslecprivload_handler>##to load from input and give output##" : {
-            "$" : 0
-        },
-        "fmtsslecpubload<fmtsslecpubload_handler>##to load from input and give output##" : {
+        "fmtsslecload<fmtsslecload_handler>##to load from input and give output##" : {
             "$" : 0
         },
         "diffpem<diffpem_handler>##sslpem rustpem to diff##" : {
