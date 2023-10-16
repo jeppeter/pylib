@@ -383,7 +383,7 @@ class RustInstance(object):
         s += format_tab_line(tab,'"%s" ecsignbase -o "%s" %s 0x%x 0x%x %d 2>"%s" || (echo "[%d] run ecsignbase not succ" && exit /b 4)'%(self.rustbin,self.signbin,self.ecname,self.privnum,self.hashnum,tlen,self.signlog,GL_LINES))
         s += format_tab_line(tab,'')
         s += format_tab_line(tab,'REM TESTCASE ecvfybase ecname %s privnum 0x%x hashnum 0x%x privnumshort 0x%x hashnumshort 0x%x'%(self.ecname,self.privnum,self.hashnum,self.privnumshort,self.hashnumshort))
-        s += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" 2>"%s" || (echo "[%d] run ecvfybase not succ" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubname,self.hashnum,self.signbin,self.vfylog,GL_LINES))
+        s += format_tab_line(tab,'"%s" ecvfybase %s "%s" 0x%x "%s" %d 2>"%s" || (echo "[%d] run ecvfybase not succ" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubname,self.hashnum,self.signbin,tlen,self.vfylog,GL_LINES))
         return s
 
 
@@ -468,10 +468,15 @@ class RustVerify(object):
         return
 
     def format_code(self,tab=0):
+        global GL_ECC_PARAMS
+        vs = '%x'%(self.hashnum)
+        if (len(vs) % 2) != 0:
+            vs = '0%s'%(vs)
+        tlen = len(vs) >> 1
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM TESTCASE ecvfybase ecname %s privnum 0x%x hashnum 0x%x privnumshort 0x%x hashnumshort 0x%x'%(self.ecname,self.privnum,self.hashnum,self.privnumshort,self.hashnumshort))
-        rets += format_tab_line(tab,'"%s" ecvfybase -vvvvv %s "%s" 0x%x "%s" 2>"%s" || (ECHO "[%d] error run ecvfybase" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,self.vfylog, GL_LINES))
+        rets += format_tab_line(tab,'"%s" ecvfybase -vvvvv %s "%s" 0x%x "%s" %d 2>"%s" || (ECHO "[%d] error run ecvfybase" && exit /b 4)'%(self.rustbin,self.ecname,self.ecpubbin,self.hashnum,self.signbin,tlen,self.vfylog, GL_LINES))
         return rets
 
 class SslVerify(object):
