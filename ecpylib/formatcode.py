@@ -1731,6 +1731,411 @@ def fmtsslecprivload_handler(args,parser):
     sys.exit(0)
     return
 
+class SslSignInstance(object):
+    def __init__(self,opensslbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.opensslbin = opensslbin
+        self.outdir = outdir
+        return
+
+    def _get_priv_name(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+
+    def _get_priv_log(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+
+    def _get_priv_base(self):
+        return os.path.join(self.outdir,'ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_privlog_base(self):
+        return os.path.join(self.outdir,'ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+
+    def _get_pub_name(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+
+    def _get_pub_log(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+
+    def _get_pub_base(self):
+        return os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_publog_base(self):
+        return os.path.join(self.outdir,'ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+
+    def _get_rand_name(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+
+    def _format_rand_file(self,cmprtype,paramenc,digtype,tab=0):
+        outs = ''
+        randsize = 0
+        while randsize == 0:
+            randsize = random.randrange(4096)
+        randfile = self._get_rand_name(cmprtype,paramenc,digtype)
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'python -c "import os;fh = open(\'%s\',\'w+b\');rb = os.urandom(%d);fh.write(rb);fh.close();"'%(randfile,randsize))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] format rand %s ok" >&2'%(GL_LINES,randfile))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+    def _format_pub_out(self,cmprtype,paramenc,tab=0):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        cmds = '-conv_form %s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            cmds += ' -param_enc %s'%(paramenc)
+        pubout = self._get_pub_name(cmprtype,paramenc)
+        publog = self._get_pub_log(cmprtype,paramenc)
+        infile = self._get_priv_base()
+        outs = ''
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" %s 2>"%s"'%(self.opensslbin,infile,pubout,cmds,publog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not gen pub %s %d %s ok" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+    def _format_priv_out(self,cmprtype,paramenc,tab=0):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        cmds = '-conv_form %s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            cmds += ' -param_enc %s'%(paramenc)
+        privout = self._get_priv_name(cmprtype,paramenc)
+        privlog = self._get_priv_log(cmprtype,paramenc)
+        infile = self._get_priv_base()
+        outs = ''
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -out "%s" %s 2>"%s"'%(self.opensslbin,infile,privout,cmds,privlog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not gen priv %s %d %s ok" >&2'%(GL_LINES,self.ecname,self.partnum,types))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+
+
+    def _format_pre(self,tab):
+        outs = ''
+        basepriv = self._get_priv_base()
+        basepub = self._get_pub_base()
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
+        privlog = self._get_privlog_base()
+        publog = self._get_publog_base()
+        outs += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" 2>"%s"'%(self.opensslbin,self.ecname,basepriv,privlog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not gen %s %d ok" >&2'%(GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" 2>"%s"'%(self.opensslbin,basepriv,basepub,publog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not outpub %s %d ok" >&2'%(GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+
+        outs += self._format_priv_out('compressed',None,tab)
+        outs += self._format_priv_out('uncompressed',None,tab)
+        outs += self._format_priv_out('hybrid',None,tab)
+
+        outs += self._format_priv_out('compressed','explicit',tab)
+        outs += self._format_priv_out('uncompressed','explicit',tab)
+        outs += self._format_priv_out('hybrid','explicit',tab)
+
+        outs += self._format_pub_out('compressed',None,tab)
+        outs += self._format_pub_out('uncompressed',None,tab)
+        outs += self._format_pub_out('hybrid',None,tab)
+
+        outs += self._format_pub_out('compressed','explicit',tab)
+        outs += self._format_pub_out('uncompressed','explicit',tab)
+        outs += self._format_pub_out('hybrid','explicit',tab)
+
+        outs += self._format_rand_file('compressed',None,'sha1',tab)
+        outs += self._format_rand_file('uncompressed',None,'sha1',tab)
+        outs += self._format_rand_file('hybrid',None,'sha1',tab)
+
+        outs += self._format_rand_file('compressed',None,'sha256',tab)
+        outs += self._format_rand_file('uncompressed',None,'sha256',tab)
+        outs += self._format_rand_file('hybrid',None,'sha256',tab)
+
+        outs += self._format_rand_file('compressed',None,'sha512',tab)
+        outs += self._format_rand_file('uncompressed',None,'sha512',tab)
+        outs += self._format_rand_file('hybrid',None,'sha512',tab)
+
+        outs += self._format_rand_file('compressed','explicit','sha1',tab)
+        outs += self._format_rand_file('uncompressed','explicit','sha1',tab)
+        outs += self._format_rand_file('hybrid','explicit','sha1',tab)
+
+        outs += self._format_rand_file('compressed','explicit','sha256',tab)
+        outs += self._format_rand_file('uncompressed','explicit','sha256',tab)
+        outs += self._format_rand_file('hybrid','explicit','sha256',tab)
+
+        outs += self._format_rand_file('compressed','explicit','sha512',tab)
+        outs += self._format_rand_file('uncompressed','explicit','sha512',tab)
+        outs += self._format_rand_file('hybrid','explicit','sha512',tab)
+
+        return outs
+
+    def _get_sign_name(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+
+    def _get_sign_log(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
+
+
+    def _format_sign(self,cmprtype,paramenc,digtype,tab):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        cmds = '-conv_form %s'%(cmprtype)
+        if paramenc is not None and len(paramenc) > 0:
+            cmds += ' -param_enc %s'%(paramenc)
+        signname = self._get_sign_name(cmprtype,paramenc,digtype)
+        signpem = self._get_priv_name(cmprtype,paramenc)
+        signlog = self._get_sign_log(cmprtype,paramenc,digtype)
+        randfile = self._get_rand_name(cmprtype,paramenc,digtype)
+        outs = ''
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" dgst -%s -sign "%s" "%s" > "%s" 2>"%s"'%(self.opensslbin,digtype,signpem,randfile,signname,signlog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not sign %s %d ok" >&2'%(GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_pre(tab)
+        outs += self._format_sign('compressed',None,'sha1',tab)
+        outs += self._format_sign('uncompressed',None,'sha1',tab)
+        outs += self._format_sign('hybrid',None,'sha1',tab)
+        outs += self._format_sign('compressed',None,'sha256',tab)
+        outs += self._format_sign('uncompressed',None,'sha256',tab)
+        outs += self._format_sign('hybrid',None,'sha256',tab)
+        outs += self._format_sign('compressed',None,'sha512',tab)
+        outs += self._format_sign('uncompressed',None,'sha512',tab)
+        outs += self._format_sign('hybrid',None,'sha512',tab)
+
+        outs += self._format_sign('compressed','explicit','sha1',tab)
+        outs += self._format_sign('uncompressed','explicit','sha1',tab)
+        outs += self._format_sign('hybrid','explicit','sha1',tab)
+        outs += self._format_sign('compressed','explicit','sha256',tab)
+        outs += self._format_sign('uncompressed','explicit','sha256',tab)
+        outs += self._format_sign('hybrid','explicit','sha256',tab)
+        outs += self._format_sign('compressed','explicit','sha512',tab)
+        outs += self._format_sign('uncompressed','explicit','sha512',tab)
+        outs += self._format_sign('hybrid','explicit','sha512',tab)
+        return outs
+
+
+def fmtsslsign_handler(args,parser):
+    global GL_ECC_NAMES
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = args.subnargs
+    if len(ecnames) == 0:
+        ecnames = GL_ECC_NAMES
+
+    for n in ecnames:
+        if n not in GL_ECC_NAMES:
+            raise Exception('%s not in GL_ECC_NAMES'%(n))
+
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath set')
+
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    idx = 0
+    random.seed(time.time())
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'if [ ! -d "%s" ] '%(args.outpath))
+    s += format_tab_line(0,'then')
+    s += format_tab_line(1,'mkdir -p "%s"'%(args.outpath))
+    s += format_tab_line(0,'fi')
+
+
+    idx = 0
+    while idx < args.cases:
+        curidx = random.randrange(len(ecnames))
+        curname = ecnames[curidx]
+        nb = os.urandom(8)
+        bn = format_bn(nb)        
+        inst = SslSignInstance(opensslbin,args.outpath,curname,bn)
+        s += inst.format_code(0)
+        if idx > 0 and (idx % 50) == 0 and args.verbose == 0:
+            s += format_tab_line(0,'')
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'echo "."')
+            else:
+                s += format_tab_line(0,'echo -n "."')
+        idx += 1
+
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+class RustVfyInstance(object):
+    def _format_win_path(self,*args):
+        retp = os.path.join(*args)
+        retp = retp.replace('\\','\\\\')
+        return retp
+    def __init__(self,rustbin,rustopath,ecname,partnum):
+        self.rustbin = rustbin
+        self.outdir = rustopath
+        self.ecname = ecname
+        self.partnum = partnum
+        return
+
+    def _get_pub_file(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+    def _get_rust_vfy_log(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'rust.vfy.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
+
+    def _get_sign_name(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+
+
+    def _get_rand_file(self,cmprtype,paramenc,digtype):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return os.path.join(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+
+
+    def _format_sign_code(self,cmprtype,paramenc,digtype,tab=0):
+        pubfile = self._get_pub_file(cmprtype,paramenc)
+        signbin = self._get_sign_name(cmprtype,paramenc,digtype)
+        binfile = self._get_rand_file(cmprtype,paramenc,digtype)
+        logfile = self._get_rust_vfy_log(cmprtype,paramenc,digtype)
+        outs = ''
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ecvfy --digesttype %s --ecpub "%s" --input "%s" "%s" > "%s" 2>&1 || (echo "[%d] not verify %s succ" && exit /b 4)'%(self.rustbin,digtype,pubfile,signbin,binfile,logfile,GL_LINES,binfile))
+        return outs
+
+
+    def format_code(self,tab=0):
+        rets = ''
+        rets += self._format_sign_code('compressed',None,'sha1',tab)
+        rets += self._format_sign_code('uncompressed',None,'sha1',tab)
+        rets += self._format_sign_code('hybrid',None,'sha1',tab)
+        rets += self._format_sign_code('compressed',None,'sha256',tab)
+        rets += self._format_sign_code('uncompressed',None,'sha256',tab)
+        rets += self._format_sign_code('hybrid',None,'sha256',tab)
+        rets += self._format_sign_code('compressed',None,'sha512',tab)
+        rets += self._format_sign_code('uncompressed',None,'sha512',tab)
+        rets += self._format_sign_code('hybrid',None,'sha512',tab)
+
+        rets += self._format_sign_code('compressed','explicit','sha1',tab)
+        rets += self._format_sign_code('uncompressed','explicit','sha1',tab)
+        rets += self._format_sign_code('hybrid','explicit','sha1',tab)
+        rets += self._format_sign_code('compressed','explicit','sha256',tab)
+        rets += self._format_sign_code('uncompressed','explicit','sha256',tab)
+        rets += self._format_sign_code('hybrid','explicit','sha256',tab)
+        rets += self._format_sign_code('compressed','explicit','sha512',tab)
+        rets += self._format_sign_code('uncompressed','explicit','sha512',tab)
+        rets += self._format_sign_code('hybrid','explicit','sha512',tab)
+
+        return rets
+
+def fmtrustvfy_handler(args,parser):
+    loglib.set_logging(args)
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^#TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = RustVfyInstance(args.rustbin,args.rustoutpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    s = ''
+    s += format_tab_line(0,'')
+    s += format_tab_line(0,'echo off')
+
+    idx = 0
+    for k in outexps.keys():
+        idx += 1
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+        if (idx % 50) == 0 and args.verbose == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\\n\');sys.stdout.flush();"')
+            else:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\');sys.stdout.flush();"')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -1798,6 +2203,12 @@ def main():
             "$" : 0
         },
         "fmtsm2asn1<fmtsm2asn1_handler>##format dump##" : {
+            "$" : 0
+        },
+        "fmtsslsign<fmtsslsign_handler>##ecnames ... to make ssl sign cases##" : {
+            "$" : "*"
+        },
+        "fmtrustvfy<fmtrustvfy_handler>##from input sslsign to output##" : {
             "$" : 0
         }
     }
