@@ -1883,14 +1883,13 @@ class SslSignInstance(object):
         outs += format_tab_line(tab+1,'exit 4')
         outs += format_tab_line(tab,'fi')
 
-        if self.ecname != 'SM2':
-            outs += format_tab_line(tab,'')
-            outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" 2>"%s"'%(self.opensslbin,basepriv,basepub,publog))
-            outs += format_tab_line(tab,'if [ $? -ne 0 ]')
-            outs += format_tab_line(tab,'then')
-            outs += format_tab_line(tab+1,'echo "[%d] not outpub %s %d ok" >&2'%(GL_LINES,self.ecname,self.partnum))
-            outs += format_tab_line(tab+1,'exit 4')
-            outs += format_tab_line(tab,'fi')
+        outs += format_tab_line(tab,'')
+        outs += format_tab_line(tab,'"%s" ec -in "%s" -pubout -out "%s" 2>"%s"'%(self.opensslbin,basepriv,basepub,publog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not outpub %s %d ok" >&2'%(GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
 
         outs += self._format_priv_out('compressed',None,tab)
         outs += self._format_priv_out('uncompressed',None,tab)
@@ -2193,7 +2192,7 @@ class RustVfyInstance(object):
         randfile = self._get_rand_file(None,None,None)
         sigfile = self._get_sign_name(None,None,None)
         logfile = os.path.join(self.outdir,'rust.ecvfy.%s.%d.sm3.log'%(self.ecname,self.partnum))
-        outs += format_tab_line(tab,'"%s" ecvfy --digesttype sm3 --ecpub "%s" --input "%s" "%s" 2>"%s" || (echo "[%d] verify %s %d error" >&2 && exit /b 4)'%(self.rustbin,pubbase,randfile,sigfile,logfile,GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab,'"%s" ecvfy --digesttype sm3 --ecpub "%s" --input "%s" "%s" >"%s" 2>&1 || (echo "[%d] verify %s %d error" >&2 && exit /b 4)'%(self.rustbin,pubbase,sigfile,randfile,logfile,GL_LINES,self.ecname,self.partnum))
         return outs
 
 
