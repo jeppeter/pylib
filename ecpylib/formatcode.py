@@ -2582,7 +2582,7 @@ class SslEcVerifyInstance(object):
         outs += format_tab_line(tab,'')
         signfile = self._get_sign_types(cmprtype,paramenc,dgsttype)
         randfile = self._get_rand_types(cmprtype,paramenc,dgsttype)
-        pubfile = self._get_ecpub_types(cmprtype,paramenc,dgsttype)
+        pubfile = self._get_ecpub_types(cmprtype,paramenc)
         ssllog = self._get_verify_types(cmprtype,paramenc,dgsttype)
         outs += format_tab_line(tab,'"%s" dgst -verify "%s" -%s -signature "%s" "%s" 2>"%s"'%(self.opensslbin,pubfile,dgsttype,signfile,randfile,ssllog))
         outs += format_tab_line(tab,'if [ $? -ne 0 ]')
