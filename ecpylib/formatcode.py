@@ -567,7 +567,7 @@ def fmtrustcode_handler(args,parser):
     sys.exit(0)
     return
 
-def fmtrustsign_handler(args,parser):
+def fmtrustsignbase_handler(args,parser):
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = GL_ECC_NAMES
@@ -608,7 +608,7 @@ def fmtrustsign_handler(args,parser):
     sys.exit(0)
     return
 
-def fmtsslvfy_handler(args,parser):
+def fmtsslvfybase_handler(args,parser):
     loglib.set_logging(args)
     if args.sslbin is None or len(args.sslbin) == 0:
         raise Exception('need sslbin set')
@@ -2262,6 +2262,262 @@ def fmtrustvfy_handler(args,parser):
     sys.exit(0)
     return
 
+class RustSignInstance(object):
+    def __init__(self,rustbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.rustbin = rustbin
+        self.outdir = outdir
+        return
+
+    def _get_base_ecpriv(self):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_base_ecpub(self):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_base_ecpriv_log(self):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+
+    def _get_base_ecpub_log(self):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+
+
+    def _get_types(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return types
+
+    def _get_rust_param(self,cmprtype,paramenc):
+        outs = '--eccmprtype %s'%(cmprtype)
+        if paramenc is not None:
+            outs += ' --ecparamenc %s'%(paramenc)
+        return outs
+
+    def _get_ecpriv_types(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+    def _get_ecpriv_types_log(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+
+    def _get_ecpub_types(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+    def _get_ecpub_types_log(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+
+    def _get_rand_types(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+    def _get_sign_types(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+
+    def _get_sign_types_log(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+
+    def _get_rand_sm3(self):
+        return os.path.join(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+
+    def _get_sign_sm3(self):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+
+    def _get_sign_sm3_log(self):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.log'%(self.ecname,self.partnum))
+
+    def _format_ecpub_out(self,cmprtype,paramenc,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        ecprivfile = self._get_ecpriv_types(cmprtype,paramenc)
+        ecprivlog = self._get_ecpriv_types_log(cmprtype,paramenc)
+        rustparam = self._get_rust_param(cmprtype,paramenc)
+        baseecpriv = self._get_base_ecpriv()
+        outs += format_tab_line(tab,'"%s" ecprivload  "%s" -o "%s" %s 2>"%s" || ( echo "[%d] not format %s error" && exit /b 4 )'%(self.rustbin,baseecpriv,ecprivfile,rustparam,ecprivlog,GL_LINES,ecprivfile))
+        return outs
+
+    def _format_slash_win(self,ins):
+        outs = ins.replace('\\','\\\\')
+        return outs
+
+
+    def _format_ecpriv_out(self,cmprtype,paramenc,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        ecpubfile = self._get_ecpub_types(cmprtype,paramenc)
+        ecpublog = self._get_ecpub_types_log(cmprtype,paramenc)
+        rustparam = self._get_rust_param(cmprtype,paramenc)
+        baseecpub = self._get_base_ecpub()
+        outs += format_tab_line(tab,'"%s" ecpubload  "%s" -o "%s" %s 2>"%s" || ( echo "[%d] not format %s error" && exit /b 4 )'%(self.rustbin,baseecpub,ecpubfile,rustparam,ecpublog,GL_LINES,ecpubfile))
+        return outs
+
+
+    def _format_generate_pems(self,cmprtype,paramenc,tab=0):
+        outs = ''
+        outs += self._format_ecpriv_out(cmprtype,paramenc,tab)
+        outs += self._format_ecpub_out(cmprtype,paramenc,tab)
+        return outs
+
+    def _format_rand_bin(self,cmprtype,paramenc,dgsttype,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        randfile = self._format_slash_win(self._get_rand_types(cmprtype,paramenc,dgsttype))
+        randsize = 0
+        while randsize == 0:
+            randsize = random.randrange(4096)
+        outs += format_tab_line(tab,'python -c "import os;fh = open(\'%s\',\'w+b\');rb = os.urandom(%d);fh.write(rb);fh.close();" || (echo "[%d] can not format %s" && exit /b 4)'%(randfile,randsize,GL_LINES,randfile))
+        return outs
+
+    def _format_rand_sm3(self,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        randfile = self._format_slash_win(self._get_rand_sm3())
+        randsize = 0
+        while randsize == 0:
+            randsize = random.randrange(4096)
+        outs += format_tab_line(tab,'python -c "import os;fh = open(\'%s\',\'w+b\');rb = os.urandom(%d);fh.write(rb);fh.close();" || (echo "[%d] can not format %s" && exit /b 4)'%(randfile,randsize,GL_LINES,randfile))
+        return outs
+
+
+    def _format_pre(self,tab=0):
+        rets = ''
+        rets += format_tab_line(tab,'')
+        rets += format_tab_line(tab,'REM TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
+        logfile = self._get_base_ecpriv_log()
+        pubfile = self._get_base_ecpub()
+        privfile = self._get_base_ecpriv()
+        ss = '"%s" --no-sm2privformat ecgen --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
+        ss += ' || (echo "[%d] can not format %s %s file" && exit /b 4)'%(GL_LINES,privfile,pubfile)
+        rets += format_tab_line(tab,ss)
+        if self.ecname != 'SM2':
+            rets += self._format_generate_pems('compressed',None,tab)
+            rets += self._format_generate_pems('uncompressed',None,tab)
+            rets += self._format_generate_pems('hybrid',None,tab)
+            rets += self._format_generate_pems('compressed','explicit',tab)
+            rets += self._format_generate_pems('uncompressed','explicit',tab)
+            rets += self._format_generate_pems('hybrid','explicit',tab)
+
+            rets += self._format_rand_bin('compressed',None,'sha1',tab)
+            rets += self._format_rand_bin('uncompressed',None,'sha1',tab)
+            rets += self._format_rand_bin('hybrid',None,'sha1',tab)
+            rets += self._format_rand_bin('compressed',None,'sha256',tab)
+            rets += self._format_rand_bin('uncompressed',None,'sha256',tab)
+            rets += self._format_rand_bin('hybrid',None,'sha256',tab)
+            rets += self._format_rand_bin('compressed',None,'sha512',tab)
+            rets += self._format_rand_bin('uncompressed',None,'sha512',tab)
+            rets += self._format_rand_bin('hybrid',None,'sha512',tab)
+
+            rets += self._format_rand_bin('compressed','explicit','sha1',tab)
+            rets += self._format_rand_bin('uncompressed','explicit','sha1',tab)
+            rets += self._format_rand_bin('hybrid','explicit','sha1',tab)
+            rets += self._format_rand_bin('compressed','explicit','sha256',tab)
+            rets += self._format_rand_bin('uncompressed','explicit','sha256',tab)
+            rets += self._format_rand_bin('hybrid','explicit','sha256',tab)
+            rets += self._format_rand_bin('compressed','explicit','sha512',tab)
+            rets += self._format_rand_bin('uncompressed','explicit','sha512',tab)
+            rets += self._format_rand_bin('hybrid','explicit','sha512',tab)
+        else:
+            rets += self._format_rand_sm3(tab)
+
+        return rets
+
+    def _format_sign_types(self,cmprtype,paramenc,dgsttype,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        ecprivfile = self._get_ecpriv_types(cmprtype,paramenc)
+        signlog = self._get_sign_types_log(cmprtype,paramenc,dgsttype)
+        randbin = self._get_rand_types(cmprtype,paramenc,dgsttype)
+        signbin = self._get_sign_types(cmprtype,paramenc,dgsttype)
+        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --out "%s" --digesttype %s "%s" 2>"%s" || (echo "[%d] can not sign %s" >&2 && exit /b 4)'%(self.rustbin,ecprivfile,signbin,dgsttype,randbin,signlog,GL_LINES,signbin))
+        return outs
+
+    def _format_sign_sm3(self,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        signfile = self._get_sign_sm3()
+        signlog = self._get_sign_sm3_log()
+        ecprivbase = self._get_base_ecpriv()
+        randbin = self._get_rand_sm3()
+        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --digesttype sm3 --output "%s" --input "%s" 2>"%s" || (echo "[%d] can not sign %s" && exit /b 4)'%(self.rustbin,ecprivbase,signfile,randbin,signlog,GL_LINES,signfile))
+        return outs
+
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        outs += self._format_pre(tab)
+        if self.ecname != 'SM2':
+            outs += self._format_sign_types('compressed',None,'sha1',tab)
+            outs += self._format_sign_types('uncompressed',None,'sha1',tab)
+            outs += self._format_sign_types('hybrid',None,'sha1',tab)
+            outs += self._format_sign_types('compressed',None,'sha256',tab)
+            outs += self._format_sign_types('uncompressed',None,'sha256',tab)
+            outs += self._format_sign_types('hybrid',None,'sha256',tab)
+            outs += self._format_sign_types('compressed',None,'sha512',tab)
+            outs += self._format_sign_types('uncompressed',None,'sha512',tab)
+            outs += self._format_sign_types('hybrid',None,'sha512',tab)
+
+            outs += self._format_sign_types('compressed','explicit','sha1',tab)
+            outs += self._format_sign_types('uncompressed','explicit','sha1',tab)
+            outs += self._format_sign_types('hybrid','explicit','sha1',tab)
+            outs += self._format_sign_types('compressed','explicit','sha256',tab)
+            outs += self._format_sign_types('uncompressed','explicit','sha256',tab)
+            outs += self._format_sign_types('hybrid','explicit','sha256',tab)
+            outs += self._format_sign_types('compressed','explicit','sha512',tab)
+            outs += self._format_sign_types('uncompressed','explicit','sha512',tab)
+            outs += self._format_sign_types('hybrid','explicit','sha512',tab)
+        else:
+            outs += self._format_sign_sm3(tab)
+        return outs
+
+
+def fmtrustsign_handler(args,parser):
+    global GL_ECC_NAMES
+    loglib.set_logging(args)
+    init_ecc_params()
+    ecnames = GL_ECC_NAMES
+    if len(args.subnargs) > 0:
+        ecnames = args.subnargs
+        for c in ecnames:
+            if c not in GL_ECC_NAMES:
+                raise Exception('%s not in ECC names'%(c))
+
+    if args.rustbin is None:
+        raise Exception('need rustbin')
+    if args.rustoutpath is None:
+        raise Exception('need rustoutpath')
+
+    idx = 0
+    s = ''
+    s += format_tab_line(0,'echo off')
+    s += format_tab_line(0,'if exist "%s" ('%(args.rustoutpath))    
+    s += format_tab_line(1,'echo "exist [%s]"'%(args.rustoutpath))
+    s += format_tab_line(0,') else (')
+    s += format_tab_line(1,'md "%s"'%(args.rustoutpath))
+    s += format_tab_line(0,')')
+    s += format_tab_line(0,'')
+    if args.verbose >= 3:
+        s += format_tab_line(0,'set ECSIMPLE_LEVEL=50')
+    random.seed(time.time())
+    logging.info('ecnames %s'%(ecnames))
+    while idx < args.cases:
+        idx += 1
+        curidx = random.randrange(len(ecnames))
+        ecname = ecnames[curidx]
+        nb = os.urandom(8)
+        bn = format_bn(nb)
+        curinst = RustSignInstance(args.rustbin,args.rustoutpath,ecname,bn)
+        s  += curinst.format_code(0)
+        if args.verbose < 3 and (idx % 50) == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\\n\');sys.stdout.flush();"')
+            else:
+                s += format_tab_line(0,'python -c "import sys;sys.stdout.write(\'.\');sys.stdout.flush();"')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -2289,10 +2545,10 @@ def main():
         "fmtrustcode<fmtrustcode_handler>##to format rust code##" : {
             "$" : 0
         },
-        "fmtrustsign<fmtrustsign_handler>##to format rust sign code##" : {
+        "fmtrustsignbase<fmtrustsignbase_handler>##to format rust sign code##" : {
             "$" : "*"
         },
-        "fmtsslvfy<fmtsslvfy_handler>##to format ssl run code##" : {
+        "fmtsslvfybase<fmtsslvfybase_handler>##to format ssl run code##" : {
             "$" : 0
         },
         "fmtsslsingle<fmtsslsingle_handler>##to format ssl single##" : {
@@ -2338,6 +2594,12 @@ def main():
             "$" : 0
         },
         "fmtrustvfy<fmtrustvfy_handler>##from input sslsign to output##" : {
+            "$" : 0
+        },
+        "fmtrustsign<fmtrustsign_handler>##[ecnames]... to make rust sign cases##" : {
+            "$" : "*"
+        },
+        "fmtsslvfy<fmtsslvfy_handler>##to translate rust sign file into ssl verify cases##" : {
             "$" : 0
         }
     }
