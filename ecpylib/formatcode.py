@@ -2428,7 +2428,7 @@ class RustSignInstance(object):
         signlog = self._get_sign_types_log(cmprtype,paramenc,dgsttype)
         randbin = self._get_rand_types(cmprtype,paramenc,dgsttype)
         signbin = self._get_sign_types(cmprtype,paramenc,dgsttype)
-        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --out "%s" --digesttype %s "%s" 2>"%s" || (echo "[%d] can not sign %s" >&2 && exit /b 4)'%(self.rustbin,ecprivfile,signbin,dgsttype,randbin,signlog,GL_LINES,signbin))
+        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --output "%s" --digesttype %s "%s" 2>"%s" || (echo "[%d] can not sign %s" >&2 && exit /b 4)'%(self.rustbin,ecprivfile,signbin,dgsttype,randbin,signlog,GL_LINES,signbin))
         return outs
 
     def _format_sign_sm3(self,tab=0):
@@ -2438,7 +2438,7 @@ class RustSignInstance(object):
         signlog = self._get_sign_sm3_log()
         ecprivbase = self._get_base_ecpriv()
         randbin = self._get_rand_sm3()
-        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --digesttype sm3 --output "%s" --input "%s" 2>"%s" || (echo "[%d] can not sign %s" && exit /b 4)'%(self.rustbin,ecprivbase,signfile,randbin,signlog,GL_LINES,signfile))
+        outs += format_tab_line(tab,'"%s" ecsign --ecpriv "%s" --digesttype sm3 --output "%s" "%s" 2>"%s" || (echo "[%d] can not sign %s" && exit /b 4)'%(self.rustbin,ecprivbase,signfile,randbin,signlog,GL_LINES,signfile))
         return outs
 
 
@@ -2517,6 +2517,181 @@ def fmtrustsign_handler(args,parser):
     fileop.write_file(s,args.output)
     sys.exit(0)
     return
+
+class SslEcVerifyInstance(object):
+    def __init__(self,opensslbin,outdir,ecname,partnum):
+        self.ecname = ecname
+        self.partnum = partnum
+        self.opensslbin = opensslbin
+        self.outdir = outdir
+        return
+
+    def _get_base_ecpriv(self):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_base_ecpub(self):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+
+    def _get_base_ecpriv_log(self):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+
+    def _get_base_ecpub_log(self):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+
+
+    def _get_types(self,cmprtype,paramenc):
+        types = '%s'%(cmprtype)
+        if paramenc is not None:
+            types += '.%s'%(paramenc)
+        return types
+
+    def _get_ssl_param(self,cmprtype,paramenc):
+        outs = '-conv_form %s'%(cmprtype)
+        if paramenc is not None:
+            outs += ' -paramenc %s'%(paramenc)
+        return outs
+
+    def _get_ecpriv_types(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+
+    def _get_ecpub_types(self,cmprtype,paramenc):
+        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+
+
+    def _get_rand_types(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+
+    def _get_sign_types(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+
+    def _get_rand_sm3(self):
+        return os.path.join(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+
+    def _get_sign_sm3(self):
+        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+
+    def _get_verify_types(self,cmprtype,paramenc,dgsttype):
+        return os.path.join(self.outdir,'ssl.%s.%d.%s.%s.verify.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+    def _get_verify_sm3(self):
+        return os.path.join(self.outdir,'ssl.%s.%d.sm3.verify.log'%(self.ecname,self.partnum))
+
+
+    def _format_verify_code(self,cmprtype,paramenc,dgsttype,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        signfile = self._get_sign_types(cmprtype,paramenc,dgsttype)
+        randfile = self._get_rand_types(cmprtype,paramenc,dgsttype)
+        pubfile = self._get_ecpub_types(cmprtype,paramenc,dgsttype)
+        ssllog = self._get_verify_types(cmprtype,paramenc,dgsttype)
+        outs += format_tab_line(tab,'"%s" dgst -verify "%s" -%s -signature "%s" "%s" 2>"%s"'%(self.opensslbin,pubfile,dgsttype,signfile,randfile,ssllog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not verify %s %d %s ok" >&2'%(GL_LINES,self.ecname,self.partnum,dgsttype))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+    def _format_verify_sm3(self,tab=0):
+        outs = ''
+        outs += format_tab_line(tab,'')
+        signfile = self._get_sign_sm3()
+        randfile = self._get_rand_sm3()
+        pubfile = self._get_base_ecpub()
+        ssllog = self._get_verify_sm3()
+        outs += format_tab_line(tab,'"%s" dgst -verify "%s" -sm3 -signature "%s" "%s" >"%s" 2>&1'%(self.opensslbin,pubfile,signfile,randfile,ssllog))
+        outs += format_tab_line(tab,'if [ $? -ne 0 ]')
+        outs += format_tab_line(tab,'then')
+        outs += format_tab_line(tab+1,'echo "[%d] not verify %s %d sm3 ok" >&2'%(GL_LINES,self.ecname,self.partnum))
+        outs += format_tab_line(tab+1,'exit 4')
+        outs += format_tab_line(tab,'fi')
+        return outs
+
+
+
+    def format_code(self,tab):
+        outs = ''
+        if self.ecname != 'SM2':
+            outs += self._format_verify_code('compressed',None,'sha1',tab)
+            outs += self._format_verify_code('uncompressed',None,'sha1',tab)
+            outs += self._format_verify_code('hybrid',None,'sha1',tab)
+            outs += self._format_verify_code('compressed',None,'sha256',tab)
+            outs += self._format_verify_code('uncompressed',None,'sha256',tab)
+            outs += self._format_verify_code('hybrid',None,'sha256',tab)
+            outs += self._format_verify_code('compressed',None,'sha512',tab)
+            outs += self._format_verify_code('uncompressed',None,'sha512',tab)
+            outs += self._format_verify_code('hybrid',None,'sha512',tab)
+
+            outs += self._format_verify_code('compressed','explicit','sha1',tab)
+            outs += self._format_verify_code('uncompressed','explicit','sha1',tab)
+            outs += self._format_verify_code('hybrid','explicit','sha1',tab)
+            outs += self._format_verify_code('compressed','explicit','sha256',tab)
+            outs += self._format_verify_code('uncompressed','explicit','sha256',tab)
+            outs += self._format_verify_code('hybrid','explicit','sha256',tab)
+            outs += self._format_verify_code('compressed','explicit','sha512',tab)
+            outs += self._format_verify_code('uncompressed','explicit','sha512',tab)
+            outs += self._format_verify_code('hybrid','explicit','sha512',tab)
+        else:
+            outs += self._format_verify_sm3(tab)
+        return outs
+
+
+def fmtsslvfy_handler(args,parser):
+    loglib.set_logging(args)
+    if args.outpath is None or len(args.outpath) == 0:
+        raise Exception('need outpath')
+    opensslbin = args.opensslbin
+    if opensslbin is None or len(opensslbin) == 0:
+        opensslbin = 'openssl'
+    ins = fileop.read_file(args.input)
+    sarr = re.split('\n',ins)
+    lidx = 0
+    mexpr = re.compile('^REM TESTCASE\\s+ecname\\s+([^\\s]+)\\s+partnum\\s+([0-9]+)')
+    outexps = dict()
+    for l in sarr:
+        lidx += 1
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            logging.info('%s'%(l))
+            partnum = fileop.parse_int(m[0][1])
+            ecname = m[0][0]
+            ecprivexp = SslEcVerifyInstance(opensslbin,args.outpath,ecname,partnum)
+            ntypes = '%s.%d'%(ecname,partnum)
+            logging.info('ntype %s'%(ntypes))
+            outexps[ntypes] = ecprivexp
+    idx = 0
+    random.seed(time.time())
+    s = ''
+    s += format_tab_line(0,'#! /bin/bash')
+    if len(args.sslsopath) > 0:
+        sopaths = ''
+
+        for f in args.sslsopath:
+            if len(sopaths) > 0:
+                sopaths += ':%s'%(f)
+            else:
+                sopaths = 'export LD_LIBRARY_PATH=%s'%(f)
+        s += format_tab_line(0,'')
+        s += format_tab_line(0,'%s'%(sopaths))
+
+    idx = 0
+    for k in outexps.keys():
+        idx += 1
+        e = outexps[k]
+        s += format_tab_line(0,'')
+        s += e.format_code(0)
+        if args.verbose < 3 and (idx % 50) == 0:
+            if (idx % 500) == 0:
+                s += format_tab_line(0,'echo "."')
+            else:
+                s += format_tab_line(0,'echo -n "."')
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
