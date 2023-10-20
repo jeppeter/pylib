@@ -1234,6 +1234,20 @@ def runtime_handler(args,parser):
     sys.exit(0)
     return
 
+def rustdoc_handler(args,parser):
+    set_logging(args)
+    outs = format_tab_line(args.tab,'//!    ```rust')
+    for f in args.subnargs:
+        ins = read_file(f)
+        sarr = re.split('\n',ins)
+        for l in sarr:
+            l = l.rstrip('\r')
+            outs += format_tab_line(args.tab,'//!    %s'%(l))
+    outs += format_tab_line(args.tab,'//!   ```')
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1244,6 +1258,7 @@ def main():
         "srcdir|s" : null,
         "dstdir|d" : null,
         "shellmode|S" : false,
+        "tab|T" : 0,
         "xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
             "$" : "+"
         },
@@ -1326,6 +1341,9 @@ def main():
             "$" : 2
         },
         "runtime<runtime_handler>##cmds ... to run time##" : {
+            "$" : "+"
+        },
+        "rustdoc<rustdoc_handler>##infile ... to make rust doc examples  ##" : {
             "$" : "+"
         }
     }
