@@ -2702,7 +2702,7 @@ def main():
         "sslrand" : null,
         "opensslbin" : "/home/bt/source/openssl/apps/openssl",
         "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
-        "rustbin" : "X:\\\\ecsimple\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
+        "rustbin" : "X:\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
         "asn1parsebin" : "X:\\\\ssllib-rs\\\\utest\\\\utest\\\\target\\\\release\\\\utest.exe",
         "sslsopath" : ["/mnt/zdisk/clibs/dynamiclib","/home/bt/source/openssl"],
         "outpath" : "/mnt/zdisk/ssllogs",
