@@ -1236,14 +1236,28 @@ def runtime_handler(args,parser):
 
 def rustdoc_handler(args,parser):
     set_logging(args)
-    outs = format_tab_line(args.tab,'//!    ```rust')
+    outs = format_tab_line(args.tab,'//!    ```%s'%(args.mdnote))
     for f in args.subnargs:
         ins = read_file(f)
         sarr = re.split('\n',ins)
         for l in sarr:
             l = l.rstrip('\r')
             outs += format_tab_line(args.tab,'//!    %s'%(l))
-    outs += format_tab_line(args.tab,'//!   ```')
+    outs += format_tab_line(args.tab,'//!    ```')
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
+def mdrustdoc_handler(args,parser):
+    set_logging(args)
+    outs = format_tab_line(args.tab,'```%s'%(args.mdnote))
+    for f in args.subnargs:
+        ins = read_file(f)
+        sarr = re.split('\n',ins)
+        for l in sarr:
+            l = l.rstrip('\r')
+            outs += format_tab_line(args.tab,'%s'%(l))
+    outs += format_tab_line(args.tab,'```')
     write_file(outs,args.output)
     sys.exit(0)
     return
@@ -1258,6 +1272,7 @@ def main():
         "srcdir|s" : null,
         "dstdir|d" : null,
         "shellmode|S" : false,
+        "mdnote" : "rust",
         "tab|T" : 0,
         "xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
             "$" : "+"
@@ -1344,6 +1359,9 @@ def main():
             "$" : "+"
         },
         "rustdoc<rustdoc_handler>##infile ... to make rust doc examples  ##" : {
+            "$" : "+"
+        },
+        "mdrustdoc<mdrustdoc_handler>##infile ... to make rust doc in markdown##" : {
             "$" : "+"
         }
     }
