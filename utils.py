@@ -1262,6 +1262,19 @@ def mdrustdoc_handler(args,parser):
     sys.exit(0)
     return
 
+def gotestdoc_handler(args,parser):
+    set_logging(args)
+    outs = format_tab_line(args.tab,'// Output:')
+    for f in args.subnargs:
+        ins = read_file(f)
+        sarr = re.split('\n',ins)
+        for l in sarr:
+            l = l.rstrip('\r')
+            outs += format_tab_line(args.tab,'// %s'%(l))
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1362,6 +1375,9 @@ def main():
             "$" : "+"
         },
         "mdrustdoc<mdrustdoc_handler>##infile ... to make rust doc in markdown##" : {
+            "$" : "+"
+        },
+        "gotestdoc<gotestdoc_handler>##infile ... to make go test doc ##" : {
             "$" : "+"
         }
     }
