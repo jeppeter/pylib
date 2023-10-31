@@ -5,15 +5,35 @@ import sys
 import extargsparse
 import logging
 import serial
+import select
+
 
 def pipe_file_size(infh,outfh,size=1024):
     retv = 0
+    try:
+        infd = infh.fd
+    except:
+        infd = infh.fileno()
+    try:
+        outfd = outfh.fd
+    except:
+        outfd = outfh.fileno()
     while retv < size:
         curlen = (size - retv)
         if curlen > (1024* 64):
             curlen = 1024 * 64
+        rdset = [infd]
+        wrset = [outfd]
+        retrds,_,_ = select.select(rdset,[],[],10.0)
+        if len(retrds) == 0:
+            logging.info('read empty')
+            continue
         logging.info('will read %d'%(curlen))
         retb = infh.read(curlen)
+        _, retwrs,_ = select.select([],wrset,[],10.0)
+        if len(retwrs) == 0:
+            logging.info('miss write')
+            continue
         wlen = outfh.write(retb)
         retv += wlen
         logging.info('total write %d'%(retv))
@@ -48,6 +68,7 @@ def load_log_commandline(parser):
     '''
     parser.load_command_line_string(logcommand)
     return parser
+
 
 def open_serial(serialname,args):
     return serial.Serial(serialname,baudrate=args.baudrate,
@@ -131,7 +152,7 @@ def main():
         "output|o" : null,
         "baudrate" : 115200,
         "bytesize" : 8,
-        "parity" : "None",
+        "parity" : "N",
         "stopbits" : 1,
         "xonxoff" : false,
         "rtscts" : false,
