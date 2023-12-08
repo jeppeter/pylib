@@ -13,6 +13,7 @@ import inspect
 import json
 import subprocess
 import traceback
+import math
 
 
 def set_logging(args):
@@ -1275,6 +1276,35 @@ def gotestdoc_handler(args,parser):
     sys.exit(0)
     return
 
+def outwr_handler(args,parser):
+    set_logging(args)
+    for f in args.subnargs:
+        ins = read_file(f)
+        sarr = re.split('\n',ins)
+        idx = 0
+        for l in sarr:
+            idx += 1
+            l = l.rstrip('\r')
+            sys.stdout.write('%s\n'%(l))
+            sys.stdout.flush()
+            logging.info('write [%d][%s]'%(idx,l))
+            if math.fabs(args.timeout - 0.0) >= 0.1:
+                time.sleep(args.timeout)
+    sys.exit(0)
+    return
+
+def inrd_handler(args,parser):
+    set_logging(args)
+    idx = 0
+    for l in sys.stdin:
+        idx += 1
+        l = l.rstrip('\r\n')
+        logging.info('read [%d][%s]'%(idx,l))
+        if math.fabs(args.timeout - 0.0) >= 0.1:
+            time.sleep(args.timeout)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1286,6 +1316,7 @@ def main():
         "dstdir|d" : null,
         "shellmode|S" : false,
         "mdnote" : "rust",
+        "timeout" : 0.0,
         "tab|T" : 0,
         "xcopy<xcopy_handler>## dstd [srcd] to copy file from input from srcd to dstd srcd default .##" : {
             "$" : "+"
@@ -1379,6 +1410,12 @@ def main():
         },
         "gotestdoc<gotestdoc_handler>##infile ... to make go test doc ##" : {
             "$" : "+"
+        },
+        "outwr<outwr_handler>##file ... to out##" : {
+            "$" : "+"
+        },
+        "inrd<inrd_handler>##to read stdin##" : {
+            "$" : 0
         }
     }
     '''
