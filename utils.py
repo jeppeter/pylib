@@ -1284,12 +1284,12 @@ def outwr_handler(args,parser):
         idx = 0
         for l in sarr:
             idx += 1
+            if math.fabs(args.timeout - 0.0) >= 0.1:
+                time.sleep(args.timeout)
             l = l.rstrip('\r')
             sys.stdout.write('%s\n'%(l))
             sys.stdout.flush()
             logging.info('write [%d][%s]'%(idx,l))
-            if math.fabs(args.timeout - 0.0) >= 0.1:
-                time.sleep(args.timeout)
     sys.exit(0)
     return
 
@@ -1298,10 +1298,10 @@ def inrd_handler(args,parser):
     idx = 0
     for l in sys.stdin:
         idx += 1
-        l = l.rstrip('\r\n')
-        logging.info('read [%d][%s]'%(idx,l))
         if math.fabs(args.timeout - 0.0) >= 0.1:
             time.sleep(args.timeout)
+        l = l.rstrip('\r\n')
+        logging.info('read [%d][%s]'%(idx,l))
     sys.exit(0)
     return
 
