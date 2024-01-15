@@ -100,6 +100,38 @@ def chatcli_handler(args,parser):
 	return
 
 
+def chatsvr_handler(args,parser):
+    set_logging(args)
+    port = int(args.subnargs[0])
+    host = ''
+    if len(args.subnargs) > 1:
+        host = args.subnargs[1]
+
+    svr = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    svr.setsockopt( socket.SOL_SOCKET, socket.SO_REUSEADDR, 1 )
+    svr.bind((host,port))
+    svr.listen(5)
+    logging.info('listen on %s:%d'%(host,port))
+    try:
+        while True:
+            conn,addr = svr.accept()
+            logging.info('accept %s %s'%(repr(conn),repr(addr)))
+            while True:
+                rd = conn.recv(2045)
+                if len(rd) == 0:
+                    logging.info('%s closed'%(repr(addr)))
+                    conn.close()
+                    conn= None
+                    break
+                logging.info('rd %s'%(rd))
+                conn.send(rd)
+    except KeyboardInterrupt:
+        pass
+    svr.close()
+    svr = None
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -107,6 +139,9 @@ def main():
         "output|o" : null,
         "chatcli<chatcli_handler>##ip:port to connect##" : {
         	"$" : "+"
+        },
+        "chatsvr<chatsvr_handler>##port to listen##" : {
+            "$" : "+"
         }
     }
     '''
