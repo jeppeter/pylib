@@ -10,6 +10,7 @@ macro_rules! %RUST_NAME%_error_class {
 		msg :String,		
 	}
 
+	#[allow(dead_code)]
 	impl $type {
 		fn create(c :&str) -> $type {
 			$type {msg : format!("{}",c)}
