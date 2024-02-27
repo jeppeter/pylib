@@ -13,10 +13,6 @@ import fileop
 import logop
 import extargsparse
 
-if sys.hexversion < 0x03000000:
-    mapper= itertools.imap # 2.4 ≤ Python < 3
-else:
-    mapper= map # Python ≥ 3
 
 def sort_uniq(sequence):
     retv = sorted(sequence)
@@ -28,6 +24,13 @@ def sort_uniq(sequence):
         if retv[idx] != retv[idx+1]:
             reto.append(retv[idx+1])
         idx += 1
+    return reto
+
+def filter_name(seq,k):
+    reto = []
+    for v in seq:
+        if v != k:
+            reto.append(v)
     return reto
 
 class Maxsize:
@@ -151,7 +154,7 @@ class AccessMap(object):
                     cont = True
                     retval.extend(nval)
                     retval = sort_uniq(retval)
-
+        retval = filter_name(retval,k)
         return retval
 
 
