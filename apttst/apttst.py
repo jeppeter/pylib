@@ -46,13 +46,6 @@ def depmap_handler(args,parser):
     logop.set_logging(args)
     depmap = dict()
     rdepmap = dict()
-    depfile = None
-    rdepfile = None
-    if len(args.subnargs) > 0:
-        depfile = args.subnargs[0]
-    if len(args.subnargs) > 1:
-        rdepfile = args.subnargs[1]
-
 
     cache = apt.Cache()
     for p in cache:
@@ -94,9 +87,9 @@ def depmap_handler(args,parser):
         rdepmap[k] = v
 
     s = json.dumps(depmap,indent=4)
-    fileop.write_file(s,depfile)
+    fileop.write_file(s,args.depmap)
     s = json.dumps(rdepmap,indent=4)
-    fileop.write_file(s,rdepfile)
+    fileop.write_file(s,args.rdepmap)
     sys.exit(0)
     return
 
@@ -219,8 +212,8 @@ def main():
         "output|o" : null,
         "depmap|D" : null,
         "rdepmap|R" : null,
-        "depmap<depmap_handler>## [depmapfile] [rdepmapfile] to format dep map##" : {
-            "$" : "+"
+        "depmap<depmap_handler>## to format dep map out depmap to depmap rdepmap to rdepmap##" : {
+            "$" : 0
         },
         "depends<depends_handler>##pkgnames ... to give depends##" : {
             "$" : "+"
