@@ -14,25 +14,32 @@ import logop
 
 
 def cachelist_handler(args,parser):
-	logop.set_logging(args)
-	cache = apt.Cache()
-	for p in cache:
-		sys.stdout.write('%s %s\ncandidate\ndependencies\n'%(p,dir(p),dir(p.candidate)))
-	sys.exit(0)
-	return
+    logop.set_logging(args)
+    cache = apt.Cache()
+    for p in cache:
+        sys.stdout.write('%s %s\ncandidate\ndependencies\n'%(p,dir(p),dir(p.candidate)))
+    sys.exit(0)
+    return
 
 def depmap_handler(args,parser):
-	logop.set_logging(args)
-	depmap = dict()
-	rdepmap = dict()
-	cache = apt.Cache()
-	for p in cache:
-		if 'dependencies' in dir(p.candidate):
-			sys.stdout.write('%s deps %s\n'%(p,p.candidate.dependencies))
-		else:
-			sys.stdout.write('%s candidate\n%s\n'%(p,dir(p.candidate)))
-	sys.exit(0)
-	return
+    logop.set_logging(args)
+    depmap = dict()
+    rdepmap = dict()
+    cache = apt.Cache()
+    for p in cache:
+        if not hasattr(p, 'candidate'):
+            sys.stdout.write('%s no candidate\n%s\n'%(p,dir(p)))
+        else:
+            if hasattr(p.candidate, 'dependencies'):
+                sys.stdout.write('%s dependency\n'%(p))
+                for dps in p.candidate.dependencies:
+                    for dp in dps:
+                        sys.stdout.write('    %s type %s\n'%(dp.name,dp.rawtype))
+                #sys.stdout.write('%s dependencies\n%s\n'%(p,p.candidate.dependencies))
+            else:
+                sys.stdout.write('%s no candidate.dependencies\n%s\n'%(p,dir(p.candidate)))
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
@@ -43,7 +50,7 @@ def main():
             "$" : 0
         },
         "depmap<depmap_handler>##to format dep map##" : {
-        	"$" : 0
+            "$" : 0
         }
     }
     '''
