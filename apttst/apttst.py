@@ -49,7 +49,19 @@ def get_depmap_rdepmap_inner():
     rdepmap = dict()
 
     cache = apt.Cache()
+    pidx = 0
+    outs = ''
+    totallen = len(cache)
     for p in cache:
+        pidx += 1
+        if (pidx % 100 ) == 0:
+            cidx = 0
+            while cidx < len(outs):
+                sys.stdout.write('\b')
+                cidx += 1
+            outs = '%d/%d'%(pidx,totallen)
+            sys.stdout.write('%s'%(outs))
+            sys.stdout.flush()
         k = '%s'%(p)
         if not hasattr(p, 'candidate'):
             logging.debug('%s no candidate\n%s'%(p,dir(p)))
@@ -63,6 +75,8 @@ def get_depmap_rdepmap_inner():
                             depmap[k] = []
                         if dp.rawtype == 'Depends':
                             depmap[k].append(dp.name)
+                        elif dp.rawtype == 'PreDepends':
+                            pass
                         else:
                             logging.info('%s dp [%s] rawtype [%s]'%(k,dp.name,dp.rawtype))
             else:
@@ -255,6 +269,128 @@ def rdepends_handler(args,parser):
     sys.exit(0)
     return
 
+def unicode_to_str(s):
+    rets = s
+    if sys.version[0] == '2':
+        rets = s.encode('utf8')
+    return rets
+
+def array_unicode_to_str(sarr):
+    retarr = []
+    for s in sarr:
+        retarr.append(unicode_to_str(s))
+    return retarr
+
+def get_filelist_inner():
+    filemap = dict()
+
+    cache = apt.Cache()
+    for p in cache:
+        k = '%s'%(p.name)
+        #logging.info('[%s]\n%s'%(k,dir(p)))
+        if p.installed:
+            instfiles = array_unicode_to_str(p.installed_files)
+            logging.info('[%s] installed_files\n%s'%(k,instfiles))
+            filemap[k] = instfiles
+
+    return filemap
+
+
+def formfilelist_handler(args,parser):
+    logop.set_logging(args)
+    fmap = get_filelist_inner()
+    s = json.dumps(fmap,indent=4)
+    fileop.write_file(s,args.output)
+    sys.exit(0)
+    return
+
+def filelist_handler(args,parser):
+    logop.set_logging(args)
+    cache = apt.Cache()
+    retval = True
+    for f in args.subnargs:
+        try:
+            p = cache[f]
+            if p.installed:
+                files = array_unicode_to_str(p.installed_files)
+                msize = Maxsize()
+                for cf in files:
+                    msize.set_max_length(cf)
+                sys.stdout.write('%s installed files'%(f))
+                idx = 0
+                while idx < len(files):
+                    if (idx % 3) == 0:
+                        sys.stdout.write('\n   ')
+                    sys.stdout.write(' %-*s'%(msize.maxsize,files[idx]))
+                    idx += 1
+                sys.stdout.write('\n')
+        except:
+            retval = False
+            sys.stdout.write('no %s package in cache\n'%(f))
+    if not retval:
+        sys.exit(5)
+    sys.exit(0)
+    return
+
+
+def dpkgcp_handler(args,parser):
+    logop.set_logging(args)
+    if args.dest is None:
+        raise Exception('must set --dest')
+    depjson = get_depmap(args.depmap)
+    depmap = AccessMap(depjson)
+    if len(args.subnargs) > 0 :
+        s = fileop.read_file(args.subnargs[0])
+    else:
+        s = fileop.read_file(None)
+    sarr = re.split('\n',s)
+    pkgs = []
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        if len(l) == 0:
+            continue
+        pkgs.extend(depmap.get_map(l,True))
+        pkgs = sort_uniq(pkgs)
+
+    cache = apt.Cache()
+    retval = True
+    for f in pkgs:
+        try:
+            p = cache[f]
+            if p.installed:
+                files = array_unicode_to_str(p.installed_files)
+                for sf in files:
+                    if  not os.path.exists(sf)  or os.path.isdir(sf):
+                        continue
+                    dstf = os.path.abspath(os.path.join(args.dest,sf))
+                    srcf = sf
+                    if not os.path.exists(dstf) or args.force:
+                        dstd = os.path.dirname(dstf)
+                        if not os.path.isdir(dstd):
+                            os.makedirs(dstd)
+                        if os.path.isfile(sf):
+                            shutil.copyfile(srcf,dstf)
+                        elif os.path.islink(sf):
+                            if os.path.exists(dstf):
+                                os.unlink(dstf)
+                            srclink = os.readlink(sf)
+                            os.link(srclink,dstf)
+                        else:
+                            logging.error('%s not recognize'%(srcf))
+            else:
+                sys.stderr.write('[%s] not installed\n')
+                retval = False
+                break
+        except:
+            sys.stderr.write('can not get [%s] package\n'%(f))
+            retval = False
+
+    if not retval:
+        sys.exit(5)
+
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -263,6 +399,8 @@ def main():
         "output|o" : null,
         "depmap|D" : null,
         "rdepmap|R" : null,
+        "dest|d" : null,
+        "force|F" : false,
         "depmap<depmap_handler>## to format dep map out depmap to depmap rdepmap to rdepmap##" : {
             "$" : 0
         },
@@ -271,6 +409,15 @@ def main():
         },
         "rdepends<rdepends_handler>##pkgname ... to give rdepends##" : {
             "$" : "+"
+        },
+        "formfilelist<formfilelist_handler>##to list file to installed##" : {
+            "$" : 0
+        },
+        "filelist<filelist_handler>##pkgnames ... to list installed files##" : {
+            "$" : "+"
+        },
+        "dpkgcp<dpkgcp_handler>##[pkgfile] to copy to dest of pkgs##" : {
+            "$" : "?"
         }
     }
     '''
