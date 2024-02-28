@@ -5,7 +5,7 @@ import sys
 import os
 import apt
 import json
-import itertools, operator
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'pythonlib')))
@@ -44,9 +44,7 @@ class Maxsize:
         return
 
 
-
-def depmap_handler(args,parser):
-    logop.set_logging(args)
+def get_depmap_rdepmap_inner():
     depmap = dict()
     rdepmap = dict()
 
@@ -54,12 +52,11 @@ def depmap_handler(args,parser):
     for p in cache:
         k = '%s'%(p)
         if not hasattr(p, 'candidate'):
-            sys.stderr.write('%s no candidate\n%s\n'%(p,dir(p)))
+            logging.debug('%s no candidate\n%s'%(p,dir(p)))
             if k not in depmap.keys():
                 depmap[k] = []
         else:
             if hasattr(p.candidate, 'dependencies'):
-                #sys.stdout.write('%s dependency\n'%(p))
                 for dps in p.candidate.dependencies:
                     for dp in dps:
                         if k not in depmap.keys():
@@ -68,12 +65,10 @@ def depmap_handler(args,parser):
                             depmap[k].append(dp.name)
                         else:
                             logging.info('%s dp [%s] rawtype [%s]'%(k,dp.name,dp.rawtype))
-                        #sys.stdout.write('    %s type %s\n'%(dp.name,dp.rawtype))
-                #sys.stdout.write('%s dependencies\n%s\n'%(p,p.candidate.dependencies))
             else:
                 if k not in depmap.keys():
                     depmap[k] = []
-                sys.stderr.write('%s no candidate.dependencies\n%s\n'%(p,dir(p.candidate)))
+                logging.debug('%s no candidate.dependencies\n%s'%(p,dir(p.candidate)))
 
     for k in depmap.keys():
         v = sort_uniq(depmap[k])
@@ -88,13 +83,35 @@ def depmap_handler(args,parser):
     for k in rdepmap.keys():
         v = sort_uniq(rdepmap[k])
         rdepmap[k] = v
+    return depmap,rdepmap
 
+
+def depmap_handler(args,parser):
+    logop.set_logging(args)
+    depmap, rdepmap = get_depmap_rdepmap_inner()
     s = json.dumps(depmap,indent=4)
     fileop.write_file(s,args.depmap)
     s = json.dumps(rdepmap,indent=4)
     fileop.write_file(s,args.rdepmap)
     sys.exit(0)
     return
+
+def get_depmap(depfile):
+    if depfile  is not None:
+        ds = fileop.read_file(depfile)
+        depmap = json.loads(ds)
+    else:
+        depmap,_ = get_depmap_rdepmap_inner()
+    return depmap
+
+def get_rdepmap(rdepfile):
+    if rdepfile is not None:
+        rs = fileop.read_file(rdepfile)
+        rdepmap = json.loads(rs)
+    else:
+        _ , rdepmap = get_depmap_rdepmap_inner()
+    return rdepmap
+
 
 class AccessMap(object):
     def __init__(self,rdict):
@@ -121,6 +138,26 @@ class AccessMap(object):
         if k in self.__accessmap.keys():
             self.__accessmap[k] = True
         return
+
+    def get_keys(self,k):
+        retval = []
+        kexpr = re.compile('%s.*'%(k))
+        matchedkey = False
+        for k1 in self.__map.keys():
+            if k1 == k:
+                retval.append(k1)
+                matchedkey = True
+            elif kexpr.match(k1):
+                retval.append(k1)
+        if matchedkey:
+            # if we matched ,so we should give this only one
+            retval = sorted(retval)
+            nv = []
+            nv.append(retval[0])
+            retval = []
+            retval.extend(nv)
+
+        return retval
 
     def _get_map(self,k):
         retval = []
@@ -163,15 +200,18 @@ class AccessMap(object):
 
 def depends_handler(args,parser):
     logop.set_logging(args)
-    ds = fileop.read_file(args.depmap)
-    depjson = json.loads(ds)
+    depjson = get_depmap(args.depmap)
     depmap = AccessMap(depjson)
-    for k in args.subnargs:
+    for k1 in args.subnargs:
+        karr = depmap.get_keys(k1)
+        if len(karr) != 1:
+            raise Exception('%s matches %s not 1 key'%(k1,karr))
+        k = karr[0]
         deps = depmap.get_map(k,True)
         msize = Maxsize()
         for v in deps:
             msize.set_max_length(v)
-        sys.stdout.write('%s deps'%(k))
+        sys.stdout.write('[%s]%s deps'%(k1,k))
         idx = 0
         while idx < len(deps):
             if (idx % 5) == 0:
@@ -186,15 +226,23 @@ def depends_handler(args,parser):
 
 def rdepends_handler(args,parser):
     logop.set_logging(args)
-    rs = fileop.read_file(args.rdepmap)
-    rdepjson = json.loads(rs)
+    rdepjson = get_rdepmap(args.rdepmap)
     rdepmap = AccessMap(rdepjson)
-    for k in args.subnargs:
-        rdeps = rdepmap.get_map(k,True)
+    for k1 in args.subnargs:
+        karr = rdepmap.get_keys(k1)
+        if len(karr) > 1:
+            raise Exception('%s matches %s not 1 key'%(k1,karr))
+        elif len(karr) == 1:
+            k = karr[0]
+            rdeps = rdepmap.get_map(k,True)
+        else:
+            k = k1
+            # we used zero length
+            rdeps = []
         msize = Maxsize()
         for v in rdeps:
             msize.set_max_length(v)
-        sys.stdout.write('%s rdeps'%(k))
+        sys.stdout.write('[%s]%s rdeps'%(k1,k))
         idx = 0
         while idx < len(rdeps):
             if (idx % 5) == 0:
