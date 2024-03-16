@@ -67,13 +67,13 @@ def get_grant(filedir):
 		raise Exception('can not get %s icacls'%(abspath))
 	logging.info('retlines %d'%(len(retlines)))
 	i = 0
-	patexpr = re.compile('\(([^\)]+)\)')
+	patexpr = re.compile('\\(([^\\)]+)\\)')
 	while i < (len(retlines) - 1):
 		l = retlines[i]
 		i += 1
 		l = l.rstrip('\r\n')
 		l = l.replace(abspath,'',1)
-		l = re.sub('^\s+','',l)
+		l = re.sub('^\\s+','',l)
 		sarr = re.split(':',l)
 		if len(sarr) < 2:
 			logging.error('can not get for (%s)'%(l))
