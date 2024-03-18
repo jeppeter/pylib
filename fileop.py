@@ -1,7 +1,6 @@
 #! /usr/bin/env
 
 
-import extargsparse
 import sys
 import os
 import logging
@@ -10,6 +9,51 @@ import platform
 import struct
 import random
 import time
+import math
+
+sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
+import extargsparse
+
+
+class Utf8Encode(object):
+    def __dict_utf8(self,val):
+        newdict =dict()
+        for k in val.keys():
+            newk = self.__encode_utf8(k)
+            newv = self.__encode_utf8(val[k])
+            newdict[newk] = newv
+        return newdict
+
+    def __list_utf8(self,val):
+        newlist = []
+        for k in val:
+            newk = self.__encode_utf8(k)
+            newlist.append(newk)
+        return newlist
+
+    def __encode_utf8(self,val):
+        retval = val
+
+        if sys.version[0]=='2' and isinstance(val,unicode):
+            retval = val.encode('utf8')
+        elif isinstance(val,dict):
+            retval = self.__dict_utf8(val)
+        elif isinstance(val,list):
+            retval = self.__list_utf8(val)
+        return retval
+
+    def __init__(self,val):
+        self.__val = self.__encode_utf8(val)
+        return
+
+    def __str__(self):
+        return self.__val
+
+    def __repr__(self):
+        return self.__val
+    def get_val(self):
+        return self.__val
+
 
 def init_random():
     random.seed(int(time.time()))
@@ -223,6 +267,39 @@ def write_file_bytes(sarr,outfile=None):
         fout.close()
     fout = None
     return 
+
+def get_file_md5(infile=None):
+    retval = ''
+    if infile is not None:
+        md5chk = hashlib.md5()
+        with open(infile,'rb') as fin:
+            while True:
+                bs = fin.read(1024 * 64)
+                if bs is None or len(bs) == 0:
+                    break
+                md5chk.update(bs)
+        retval = md5chk.hexdigest().lower()
+    else:
+        bs = read_file_bytes(infile)
+        md5chk = hashlib.md5()
+        md5chk.update(bs)
+        retval = md5chk.hexdigest().lower()
+    return retval
+
+def make_dir_safe(basedir,throwexp=True):
+    retval = False
+    err = ''
+    try:
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+        retval = True
+    except:
+        retval = False
+        err = '%s'%(traceback.format_exc())
+        logging.error('%s'%(err))
+    if not retval and throwexp:
+        raise Exception('%s'%(err))
+    return retval
 
 def display_file(f,c):
     sys.stdout.write('[%s] ----------\n'%(f))
@@ -610,10 +687,17 @@ def padpkcs_handler(args,parser):
     return
 
 
+def md5_handler(args,parser):
+    set_logging(args)
+    for f in args.subnargs:
+        m = get_file_md5(f)
+        sys.stdout.write('%s %s\n'%(f,m))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
-        "verbose|v" : "+",
         "input|i" : null,
         "output|o" : null,
         "read<read_handler>" : {
@@ -636,10 +720,14 @@ def main():
         },
         "padpkcs<padpkcs_handler>##[align] to padd for align##" : {
             "$" : "?"
+        },
+        "md5<md5_handler>##file ... to get file md5##" : {
+            "$" : "+"
         }
     }
     '''
     parser = extargsparse.ExtArgsParse()
+    load_log_commandline(parser)
     parser.load_command_line_string(commandline)
     parser.parse_command_line(None,parser)
     raise Exception('can not here for no command handle')
