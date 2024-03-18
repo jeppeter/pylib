@@ -114,9 +114,6 @@ int %LOGGER_NAME%_back_trace(int level,char* file, int lineno,const char* fmt,..
 }
 
 
-
-/* @param flag bit0= do not complain loudly if no wather is active
-*/
 int %LOGGER_NAME%_log(int level,const char* file,int lineno, const char* fmt,...)
 {
 	va_list ap;
@@ -236,6 +233,10 @@ LOG_H_CODE='''
 #define %LOGGER_UPPER_NAME%_TRACE(...)       %LOGGER_NAME%_log(%LOGGER_UPPER_NAME%_LOG_TRACE,__FILE__,__LINE__,__VA_ARGS__);
 #define %LOGGER_UPPER_NAME%_BUFFER_TRACE(ptr,size,...)  %LOGGER_NAME%_buffer_log(%LOGGER_UPPER_NAME%_LOG_TRACE,__FILE__,__LINE__,(void*)(ptr),(int)(size),__VA_ARGS__);
 
+
+int %LOGGER_NAME%_back_trace(int level,char* file, int lineno,const char* fmt,...);
+int %LOGGER_NAME%_log(int level,const char* file,int lineno, const char* fmt,...);
+int %LOGGER_NAME%_buffer_log(int level, const char* file,int lineno,void* pbuf,int size,const char* fmt,...);
 
 #endif /* %HEADER_GUIDED% */
 
