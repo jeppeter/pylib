@@ -2,6 +2,11 @@
 
 LOG_C_CODE='''
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <execinfo.h>
+
 int get_%LOGGER_NAME%_level()
 {
 	static int st_%LOGGER_NAME%_level = %LOGGER_UPPER_NAME%_LOG_ERROR;
@@ -14,7 +19,7 @@ int get_%LOGGER_NAME%_level()
 
 	envstr = getenv("%LOGGER_UPPER_NAME%_LOG_LEVEL");
 	if (envstr != NULL) {
-		st_xo_level = atoi(envstr);
+		st_%LOGGER_NAME%_level = atoi(envstr);
 	}
 	st_%LOGGER_NAME%_inited = 1;
 	return st_%LOGGER_NAME%_level;
@@ -83,7 +88,7 @@ int %LOGGER_NAME%_back_trace(int level,char* file, int lineno,const char* fmt,..
 			break;
 		}
 
-		retlen += fprintf(stderr,"[%s:%d] SYMBOLSFUNC <%s> ",file,lineno,format_xo_level(level));
+		retlen += fprintf(stderr,"[%s:%d] SYMBOLSFUNC <%s> ",file,lineno,format_%LOGGER_NAME%_level(level));
 		if (fmt != NULL) {
 			va_start(ap,fmt);
 			vfprintf(stderr,fmt,ap);
@@ -122,7 +127,7 @@ int %LOGGER_NAME%_log(int level,const char* file,int lineno, const char* fmt,...
 		return retlen;
 	}
 
-	retlen += fprintf(stderr,"[%s:%d] <%s> ",file,lineno,format_xo_level(level));
+	retlen += fprintf(stderr,"[%s:%d] <%s> ",file,lineno,format_%LOGGER_NAME%_level(level));
 	va_start(ap,fmt);
 	retlen += vfprintf(stderr,fmt,ap);
 	retlen += fprintf(stderr,"%LINE_RETURN%");
@@ -143,7 +148,7 @@ int %LOGGER_NAME%_buffer_log(int level, const char* file,int lineno,void* pbuf,i
 		return retlen;
 	}
 
-	retlen += fprintf(stderr,"[%s:%d] <%s> [%p] size[%d:0x%x]", file,lineno,format_xo_level(level),ptr,size,size);
+	retlen += fprintf(stderr,"[%s:%d] <%s> [%p] size[%d:0x%x]", file,lineno,format_%LOGGER_NAME%_level(level),ptr,size,size);
 	va_start(ap,fmt);
 	retlen += vfprintf(stderr,fmt,ap);
 
