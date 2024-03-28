@@ -61,6 +61,31 @@ def init_random():
 def get_random_int(maxnum):
     return random.randint(0,maxnum)
 
+
+def make_directory_safe(dname,mode=0o755):
+    retval = True
+    try:
+        if dname is not None:
+            os.makedirs(dname,mode=mode,exist_ok=True)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        retval = False
+    return retval
+
+
+def mktemp_dir(ind=None):
+    tempd = None
+    try:
+        if ind is None:
+            ind = os.getcwd()
+        retval = make_directory_safe(ind)
+        if not retval:
+            return None
+        tempd = tempfile.mkdtemp(dir=ind)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+    return tempd
+
 def load_log_commandline(parser):
     logcommand = '''
     {
@@ -209,14 +234,26 @@ def set_logging(args):
 def read_file(infile=None):
     fin = sys.stdin
     if infile is not None:
-        fin = open(infile,'r+b')
+        fin = open(infile,'rb')
     rets = ''
-    for l in fin:
-        s = l
-        if 'b' in fin.mode:
-            if sys.version[0] == '3':
-                s = l.decode('utf-8')
-        rets += s
+    if 'b' in fin.mode:
+        rdata = b''
+        while True:
+            try:
+                l = fin.read(64 * 1024)
+                if l is None or len(l) == 0:
+                    break
+                rdata += l
+            except:
+                break
+        if sys.version[0] == '3':
+            rets = rdata.decode('utf-8')
+        else:
+            rets = rdata
+    else:        
+        for l in fin:
+            s = l
+            rets += s
 
     if fin != sys.stdin:
         fin.close()
