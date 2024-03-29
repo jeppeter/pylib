@@ -18,15 +18,6 @@ public:
 	virtual void hello(char* name);
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus*/
-
-Base* new_Base();
-
-#ifdef __cplusplus
-};
-#endif /* __cplusplus*/
 
 
 #endif /* __BASE_H_BB6B074E61D5FBB26BAD655BBC36D9F3__ */

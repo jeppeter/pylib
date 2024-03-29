@@ -20,7 +20,3 @@ void Derive::hello(char* name)
 	return;
 }
 
-Derive* new_Derive()
-{
-	return new Derive();
-}

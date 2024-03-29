@@ -12,14 +12,4 @@ public:
 };
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus*/
-
-Derive* new_Derive();
-
-#ifdef __cplusplus
-};
-#endif /* __cplusplus*/
-
 #endif /* __DERIVE_H_8668D0FE443A0FFB609BCA79C150618C__ */
