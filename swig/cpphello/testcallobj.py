@@ -7,3 +7,5 @@ import callobj
 
 c = callobj.Base()
 c.hello('ok')
+b = callobj.Derive()
+b.hello('world')

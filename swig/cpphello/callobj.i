@@ -1,4 +1,5 @@
 %module callobj
+
 %{
 #include "base.h"
 #include "derive.h"
