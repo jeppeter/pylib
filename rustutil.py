@@ -89,7 +89,7 @@ macro_rules! %RUST_NAME%_new_error {
 			let types = format!("{}",stringify!($type));
 			let mut c :String= format!("");
 			c.push_str(&(format!($($a),*)[..]));
-			return Err(Box::new(<$type>::create(&fname,lienno,&types,c.as_str())));
+			return Err(Box::new(<$type>::create(&fname,lineno,&types,c.as_str())));
 		}
 	};
 }
