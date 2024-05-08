@@ -1305,6 +1305,27 @@ def inrd_handler(args,parser):
     sys.exit(0)
     return
 
+def bintojsonarray_handler(args,parser):
+    set_logging(args)
+    inb = read_file_bytes(args.input)
+    outs = ''
+    if len(args.subnargs) > 0 :
+        outs += '"%s" :'%(args.subnargs[0])
+    outs += '['
+    idx = 0
+    for b in inb:
+        if idx > 0:
+            outs += ','
+        if (idx % 16) == 0:
+            outs += '\n    '        
+        outs += '%d'%(b)
+        idx += 1
+
+    outs += '\n]'
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1416,6 +1437,9 @@ def main():
         },
         "inrd<inrd_handler>##to read stdin##" : {
             "$" : 0
+        },
+        "bintojsonarray<bintojsonarray_handler>## [key] from input to output##" : {
+            "$" : "?"
         }
     }
     '''
