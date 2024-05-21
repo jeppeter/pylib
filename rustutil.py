@@ -28,7 +28,7 @@ macro_rules! %RUST_NAME%_error_class {
 		impl std::fmt::Display for $type {
 			fn fmt(&self,f :&mut std::fmt::Formatter) -> std::fmt::Result {
 				let mut errdisplay : bool =false;
-				match std::env::var("ERROR_LEVEL") {
+				match std::env::var("%RUST_NAME_UPPER%_ERROR_LEVEL") {
 					Ok(vs) => {
 						match vs.parse::<i32>() {
 							Ok(v) => {
@@ -54,7 +54,7 @@ macro_rules! %RUST_NAME%_error_class {
 		impl std::fmt::Debug for $type {
 			fn fmt(&self,f :&mut std::fmt::Formatter) -> std::fmt::Result {
 				let mut errdisplay : bool =false;
-				match std::env::var("ERROR_LEVEL") {
+				match std::env::var("%RUST_NAME_UPPER%_ERROR_LEVEL") {
 					Ok(vs) => {
 						match vs.parse::<i32>() {
 							Ok(v) => {
@@ -254,7 +254,7 @@ pub (crate) fn %RUST_NAME%_log_get_timestamp() -> String {
 #[macro_export]
 macro_rules! %RUST_NAME%_log_error {
 	($($arg:tt)+) => {
-		let mut c :String= format!("[ECSIMPLE]<ERROR>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		let mut c :String= format!("[%RUST_NAME_UPPER%]<ERROR>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
 		c.push_str(&(format!($($arg)+)[..]));
 		%RUST_NAME%_debug_out(0,&c);
 	}
@@ -263,7 +263,7 @@ macro_rules! %RUST_NAME%_log_error {
 #[macro_export]
 macro_rules! %RUST_NAME%_log_warn {
 	($($arg:tt)+) => {
-		let mut c :String= format!("[ECSIMPLE]<WARN>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		let mut c :String= format!("[%RUST_NAME_UPPER%]<WARN>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
 		c.push_str(&(format!($($arg)+)[..]));
 		%RUST_NAME%_debug_out(10,&c);
 	}
@@ -273,7 +273,7 @@ macro_rules! %RUST_NAME%_log_warn {
 #[macro_export]
 macro_rules! %RUST_NAME%_log_info {
 	($($arg:tt)+) => {
-		let mut c :String= format!("[ECSIMPLE]<INFO>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		let mut c :String= format!("[%RUST_NAME_UPPER%]<INFO>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
 		c.push_str(&(format!($($arg)+)[..]));
 		%RUST_NAME%_debug_out(20,&c);
 	}
@@ -283,7 +283,7 @@ macro_rules! %RUST_NAME%_log_info {
 #[macro_export]
 macro_rules! %RUST_NAME%_log_trace {
 	($($arg:tt)+) => {
-		let mut _c :String= format!("[ECSIMPLE]<TRACE>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		let mut _c :String= format!("[%RUST_NAME_UPPER%]<TRACE>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
 		_c.push_str(&(format!($($arg)+)[..]));
 		%RUST_NAME%_debug_out(40, &_c);
 	}
@@ -300,7 +300,7 @@ macro_rules! %RUST_NAME%_log_trace {
 macro_rules! %RUST_NAME%_assert {
 	($v:expr , $($arg:tt)+) => {
 		if !($v) {
-			let mut _c :String= format!("[ECSIMPLE][{}:{}] ",file!(),line!());
+			let mut _c :String= format!("[%RUST_NAME_UPPER%][{}:{}] ",file!(),line!());
 			_c.push_str(&(format!($($arg)+)[..]));
 			panic!("{}", _c);
 		}
@@ -311,7 +311,7 @@ macro_rules! %RUST_NAME%_assert {
 #[macro_export]
 macro_rules! %RUST_NAME%_format_buffer_log {
 	($buf:expr,$len:expr,$info:tt,$iv:expr,$($arg:tt)+) => {
-		let mut c :String = format!("[ECSIMPLE][{}:{}]",file!(),line!());
+		let mut c :String = format!("[%RUST_NAME_UPPER%][{}:{}]",file!(),line!());
 		c.push_str(&format!("{} ",$info));
 		c.push_str(&%RUST_NAME%_log_get_timestamp());
 		c.push_str(": ");
@@ -490,7 +490,10 @@ def parse_int(v):
 
 def errorsfmt_handler(args,parser):
 	set_logging(args)
-	s = RUST_ERRORS_FORMAT.replace('%RUST_NAME%',args.subnargs[0])
+	name = args.subnargs[0]
+	nameupper = '%s'%(name.upper())
+	s1 = RUST_ERRORS_FORMAT.replace('%RUST_NAME%',name)
+	s = s1.replace('%RUST_NAME_UPPER%',nameupper)
 	fileop.write_file(s,args.output)
 	sys.exit(0)
 	return
