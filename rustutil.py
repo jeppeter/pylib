@@ -2,11 +2,12 @@
 
 RUST_ERRORS_FORMAT = '''
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_error_class {
 	($type:ident) => {
 		#[derive(Clone)]
-		pub struct $type {
+		struct $type {
 			msg :String,
 			fname :String,
 			lineno :u32,
@@ -80,7 +81,8 @@ macro_rules! %RUST_NAME%_error_class {
 	};
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_new_error {
 	($type:ty,$($a:expr),*) => {
 		{
@@ -95,7 +97,8 @@ macro_rules! %RUST_NAME%_new_error {
 }
 
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_error_create {
 	($type:ty,$($a:expr),*) => {
 		{
@@ -251,7 +254,8 @@ pub (crate) fn %RUST_NAME%_log_get_timestamp() -> String {
 	return format!("{}/{}/{} {}:{}:{}",now.year(),now.month(),now.day(),now.hour(),now.minute(),now.second());
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_log_error {
 	($($arg:tt)+) => {
 		let mut c :String= format!("[%RUST_NAME_UPPER%]<ERROR>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
@@ -260,7 +264,8 @@ macro_rules! %RUST_NAME%_log_error {
 	}
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_log_warn {
 	($($arg:tt)+) => {
 		let mut c :String= format!("[%RUST_NAME_UPPER%]<WARN>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
@@ -270,7 +275,8 @@ macro_rules! %RUST_NAME%_log_warn {
 }
 
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_log_info {
 	($($arg:tt)+) => {
 		let mut c :String= format!("[%RUST_NAME_UPPER%]<INFO>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
@@ -279,24 +285,10 @@ macro_rules! %RUST_NAME%_log_info {
 	}
 }
 
-#[cfg(feature="debug_mode")]
-#[macro_export]
-macro_rules! %RUST_NAME%_log_trace {
-	($($arg:tt)+) => {
-		let mut _c :String= format!("[%RUST_NAME_UPPER%]<TRACE>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
-		_c.push_str(&(format!($($arg)+)[..]));
-		%RUST_NAME%_debug_out(40, &_c);
-	}
-}
-
-#[cfg(not(feature="debug_mode"))]
-#[macro_export]
-macro_rules! %RUST_NAME%_log_trace {
-	($($arg:tt)+) => {}
-}
 
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_assert {
 	($v:expr , $($arg:tt)+) => {
 		if !($v) {
@@ -308,7 +300,8 @@ macro_rules! %RUST_NAME%_assert {
 }
 
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_format_buffer_log {
 	($buf:expr,$len:expr,$info:tt,$iv:expr,$($arg:tt)+) => {
 		let mut c :String = format!("[%RUST_NAME_UPPER%][{}:{}]",file!(),line!());
@@ -370,48 +363,99 @@ macro_rules! %RUST_NAME%_format_buffer_log {
 	}
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_debug_buffer_error {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
 		%RUST_NAME%_format_buffer_log!($buf,$len,"<ERROR>",0,$($arg)+);
 	}
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_debug_buffer_warn {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
 		%RUST_NAME%_format_buffer_log!($buf,$len,"<WARN>",10,$($arg)+);
 	}
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_debug_buffer_info {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
 		%RUST_NAME%_format_buffer_log!($buf,$len,"<INFO>",20,$($arg)+);
 	}
 }
 
-#[macro_export]
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_debug_buffer_debug {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
 		%RUST_NAME%_format_buffer_log!($buf,$len,"<DEBUG>",30,$($arg)+);
 	}
 }
 
-#[cfg(feature="debug_mode")]
-#[macro_export]
+
+'''
+
+RUST_LOGGER_NO_DEBUG_MODE = '''
+%MACRO_EXPORT%
+#[allow(unused_macros)]
+macro_rules! %RUST_NAME%_log_trace {
+	($($arg:tt)+) => {
+		let mut _c :String= format!("[%RUST_NAME_UPPER%]<TRACE>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		_c.push_str(&(format!($($arg)+)[..]));
+		%RUST_NAME%_debug_out(40, &_c);
+	}
+}
+
+
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 macro_rules! %RUST_NAME%_debug_buffer_trace {
 	($buf:expr,$len:expr,$($arg:tt)+) => {
 		%RUST_NAME%_format_buffer_log!($buf,$len,"<TRACE>",40,$($arg)+);
 	}
 }
 
+'''
+
+
+RUST_LOGGER_DEBUG_MODE = '''
+%MACRO_EXPORT%
+#[allow(unused_macros)]
+#[cfg(feature="debug_mode")]
+macro_rules! %RUST_NAME%_log_trace {
+	($($arg:tt)+) => {
+		let mut _c :String= format!("[%RUST_NAME_UPPER%]<TRACE>{}[{}:{}]  ",%RUST_NAME%_log_get_timestamp(),file!(),line!());
+		_c.push_str(&(format!($($arg)+)[..]));
+		%RUST_NAME%_debug_out(40, &_c);
+	}
+}
+
+%MACRO_EXPORT%
+#[allow(unused_macros)]
 #[cfg(not(feature="debug_mode"))]
-#[macro_export]
+macro_rules! %RUST_NAME%_log_trace {
+	($($arg:tt)+) => {}
+}
+
+
+%MACRO_EXPORT%
+#[allow(unused_macros)]
+#[cfg(feature="debug_mode")]
+macro_rules! %RUST_NAME%_debug_buffer_trace {
+	($buf:expr,$len:expr,$($arg:tt)+) => {
+		%RUST_NAME%_format_buffer_log!($buf,$len,"<TRACE>",40,$($arg)+);
+	}
+}
+
+%MACRO_EXPORT%
+#[allow(unused_macros)]
+#[cfg(not(feature="debug_mode"))]
 macro_rules! %RUST_NAME%_debug_buffer_trace {
 	($buf:expr,$len:expr,$($arg:tt)+) => {}
 }
-
 '''
 
 
@@ -491,23 +535,41 @@ def parse_int(v):
 def errorsfmt_handler(args,parser):
 	set_logging(args)
 	name = args.subnargs[0]
+	if args.exportmacro:
+		macro = '#[macro_export]'
+	else:
+		macro = ''
 	nameupper = '%s'%(name.upper())
 	s1 = RUST_ERRORS_FORMAT.replace('%RUST_NAME%',name)
-	s = s1.replace('%RUST_NAME_UPPER%',nameupper)
+	s2 = s1.replace('%MACRO_EXPORT%',macro)
+	s = s2.replace('%RUST_NAME_UPPER%',nameupper)
 	fileop.write_file(s,args.output)
 	sys.exit(0)
 	return
 
 def loggerfmt_handler(args,parser):
 	set_logging(args)
+	if args.exportmacro:
+		macro = '#[macro_export]'
+	else:
+		macro = ''
 	name = args.subnargs[0]
 	nameref = '%sref'%(name.lower())
 	nameupper = '%s'%(name.upper())
 	s = RUST_LOGGER_FORMAT.replace('%RUST_NAME%',name)
+	s = s.replace('%MACRO_EXPORT%',macro)
 	s = s.replace('%RUST_REFERENCE%',nameref)
 	s = s.replace('%RUST_NAME_UPPER%',nameupper)
-	s = s.replace('%LINE_RETURN%','\\n')
-	fileop.write_file(s,args.output)
+	outs = s.replace('%LINE_RETURN%','\\n')
+	if args.debugmode:
+		s = RUST_LOGGER_DEBUG_MODE.replace('%RUST_NAME%',name)
+	else:
+		s = RUST_LOGGER_NO_DEBUG_MODE.replace('%RUST_NAME%',name)
+	s = s.replace('%MACRO_EXPORT%',macro)
+	s = s.replace('%RUST_REFERENCE%',nameref)
+	s = s.replace('%RUST_NAME_UPPER%',nameupper)
+	outs += s.replace('%LINE_RETURN%','\\n')
+	fileop.write_file(outs,args.output)
 	sys.exit(0)
 	return
 
@@ -517,6 +579,8 @@ def main():
     {
         "input|i" : null,
         "output|o" : null,
+        "exportmacro|M": true,
+        "debugmode|D":true,
         "fmterrors<errorsfmt_handler>##nameprefix to replace name prefix##" : {
         	"$" : 1
         },
