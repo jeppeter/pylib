@@ -1,0 +1,498 @@
+#! /usr/bin/env python
+
+import argparse
+import os
+import sys
+import logging
+import tempfile
+import traceback
+import zipfile
+import shutil
+import subprocess
+import re
+import json
+import base64
+import math
+import time
+
+
+UPDATE_DATA = '''
+UPDATE_DATA_BASE64
+'''
+
+############################################
+#  {
+#	  "bakfiles" : ["%instdir%/self.info","%instdir%/self.conf"],
+#     "bakdirs" : ["%instdir%/self.dir"]
+#     ""
+#  }
+#  
+#
+#
+#
+#
+#
+#
+#
+#
+############################################
+UPDATE_CONFIG=%UPDATE_CONFIG%
+
+############################################
+#
+#
+#
+#
+############################################
+
+def preuninstall_routine(instdir,zipdir):
+	return
+def postuninstall_routine(instdir,zipdir):
+	return
+def preinstall_routine(instdir,zipdir):
+	return
+def postinstall_routine(instdir,zipdir):
+	return
+
+
+%UPDATE_CODE%
+
+
+
+
+class NameSpaceEx(object):
+	def __init__(self,jsonstr):
+		self.__setdict = dict()
+		try:
+			d = json.loads(jsonstr)
+			for k in d.keys():
+				self.__setdict[k]=d[k]
+		except:
+			pass
+		return
+
+	def __getattr__(self,k):
+		if k in self.__setdict.keys():
+			return self.__setdict[k]
+		if k in self.__dict__.keys():
+			return self.__dict__[k]
+		return None
+
+	def __setattr__(self,k,v):
+		if not k.startswith('_'):
+			self.__setdict[k] = v
+			return
+		self.__dict__[k] = v
+		return
+
+	def __str__(self):
+		return json.dumps(self.__setdict,indent=4)
+
+	def __repr__(self):
+		return json.dumps(self.__setdict,indent=4)
+
+def set_logging(args):
+	loglvl= logging.ERROR
+	if args.verbose >= 3:
+		loglvl = logging.DEBUG
+	elif args.verbose >= 2:
+		loglvl = logging.INFO
+	if logging.root is not None and len(logging.root.handlers) > 0:
+		logging.root.handlers = []
+	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+	return
+
+def read_file(infile=None):
+	fin = sys.stdin
+	if infile is not None:
+		fin = open(infile,'r+b')
+	rets = ''
+	for l in fin:
+		s = l
+		if 'b' in fin.mode:
+			if sys.version[0] == '3':
+				s = l.decode('utf-8')
+		rets += s
+
+	if fin != sys.stdin:
+		fin.close()
+	fin = None
+	return rets
+
+def write_file(s,outfile=None):
+	fout = sys.stdout
+	if outfile is not None:
+		fout = open(outfile, 'w+b')
+	outs = s
+	if 'b' in fout.mode:
+		outs = s.encode('utf-8')
+	fout.write(outs)
+	if fout != sys.stdout:
+		fout.close()
+	fout = None
+	return 
+
+def make_directory_safe(dname,mode=0o755):
+    retval = True
+    try:
+        if dname is not None and len(dname) > 0 and not os.path.exists(dname):
+            os.makedirs(dname,mode=mode,exist_ok=True)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        retval = False
+    return retval
+
+
+def copy_tempfile(srcfile,tempd=None):
+    tempf = None
+    fd = None
+    try:
+        if tempd is None:
+            tempd = os.path.dirname(__file__)
+            if len(tempd) == 0:
+            	tempd = os.getcwd()
+        retval = make_directory_safe(tempd)
+        if not retval:
+            return None
+        fd ,tempf = tempfile.mkstemp(suffix='.bak',dir=tempd)
+        logging.info('fd %s tempf [%s]'%(fd,tempf))
+        os.close(fd)
+        fd = None
+        shutil.copyfile(srcfile,tempf)
+        return tempf
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if fd is not None:
+            os.close(fd)
+        if tempf is not None and os.path.exists(tempf):
+            os.remove(tempf)
+        tempf = None
+    return None
+
+def copy_tempdir(srcfile,ind=None):
+    tempd = None
+    try:
+        if ind is None:
+            ind = os.path.dirname(__file__)
+        retval = make_directory_safe(ind)
+        if not retval:
+            return None
+        tempd = tempfile.mkdtemp(dir=ind)
+        ndir = os.path.join(tempd,'d')
+        shutil.copytree(srcfile,ndir)
+        return ndir
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if tempd is not None and os.path.exists(tempd):
+            shutil.rmtree(tempd,ignore_errors=True)
+        tempd = None
+    return None
+
+def extract_dir(inputdata,reserved=False,note=''):
+	tempf = None
+	tempd = None
+	zipf = None
+	zobj = None
+	try:
+		tempf = tempfile.NamedTemporaryFile(delete=False,suffix='.b64')
+		if sys.version[0]=='3':
+			inputdata = inputdata.encode('utf-8')
+		tempf.write(inputdata)
+		tempf.close()
+		if reserved:
+			sys.stdout.write('tempf [%s]'%(tempf.name))
+		zipf = tempfile.NamedTemporaryFile(delete=False,suffix='.zip')
+		fin = open(tempf.name,'r+b')
+		base64.decode(fin,zipf)
+		fin.close()
+		fin = None
+		zipf.close()
+		tempd = tempfile.mkdtemp()
+		zobj = zipfile.ZipFile(zipf.name,'r')
+		zobj.extractall(path=tempd)
+		zobj.close()
+		zobj = None
+		if not reserved:
+			os.remove(tempf.name)
+			os.remove(zipf.name)
+		else:
+			sys.stdout.write('[%s] [%s]\n'%(note,zipf.name))
+			sys.stdout.write('[%s] [%s]\n'%(note,tempf.name))
+		tempf = None
+		zipf = None
+		if reserved:
+			sys.stdout.write('[%s] [%s]'%(note,tempd))
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		if zobj is not None:
+			zobj.close()
+			zobj = None
+		if fin is not None:
+			fin.close()
+			fin = None
+		if zipf is not None:
+			zipf.close()
+			if os.path.exists(zipf.name) and not reserved:
+				os.remove(zipf.name)
+			zipf = None
+		if tempf is not None and not reserved:
+			tempf.close()
+			if os.path.exists(tempf.name):
+				os.remove(tempf.name)
+		tempf = None
+		if tempd is not None and not reserved:
+			shutil.rmtree(tempd,ignore_errors=True)
+		tempd = None
+	return tempd
+
+
+def move_directory_not_empty(srcdir,dstdir):
+	bname = os.path.basename(srcdir)
+	if os.path.exists(srcdir):
+		hasv = False
+		for d,sdirs,fnames in os.walk(srcdir):
+			if len(sdirs) == 0 and len(fnames) == 0:
+				continue
+			hasv = True
+		if hasv:
+			d = os.path.join(dstdir,'%s.bak'%(bname))
+			try:
+				if os.path.exists(d):
+					logging.debug('rmdir [%s]'%(d))
+					shutil.rmtree(d,ignore_errors=True)
+				logging.debug('move [%s] => [%s]'%(srcdir,d))
+				shutil.move(srcdir,d)
+				logging.debug('mkdir [%s]'%(srcdir))
+				os.mkdir(srcdir,0o755)
+			except:
+				logging.error('%s'%(traceback.format_exc()))
+				return False
+	return True
+
+def copy_dir_safe(srcd,dstd):
+	try:
+		if os.path.exists(srcd) and os.path.exists(dstd):
+			shutil.rmtree(dstd)
+		if os.path.exists(srcd):
+			logging.info('restore [%s] => [%s]'%(srcd,dstd))
+			shutil.copytree(srcd,dstd)
+		return True
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+
+
+def delete_dir_safe(dstd):
+	try:
+		if os.path.exists(dstd):
+			logging.info('delete %s'%(dstd))
+			shutil.rmtree(dstd)
+		return True
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+
+def copy_file_safe(srcf,dstf):
+	try:
+		if os.path.exists(srcf) and os.path.exists(dstf):
+			os.remove(dstf)
+		if os.path.exists(srcf):
+			logging.info('restore [%s] => [%s]'%(srcf,dstf))
+			shutil.copyfile(srcf,dstf)
+		return True
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+
+def delete_file_safe(dstf):
+	try:
+		if os.path.exists(dstf):
+			logging.info('delete %s'%(dstf))
+			os.remove(dstf)
+		return True
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+
+def back_file_safe(srcf,dstf,reserved=False):
+	allret = True
+	if srcf is not None and dstf is not None:
+		retval = copy_file_safe(srcf,dstf)
+		if not retval:
+			allret = False
+	if srcf is not None and not reserved:		
+		retval = delete_file_safe(srcf)
+		if not retval:
+			allret = False
+	return allret
+
+def back_dir_safe(srcd,dstd,reserved=False):
+	allret = True
+	if srcd is not None and dstd is not None:
+		retval = copy_dir_safe(srcd,dstd)
+		if not retval:
+			allret = False
+	if srcd is not None and not reserved:
+		logging.info('delete %s'%(srcd))
+		retval = delete_dir_safe(srcd)
+		if not retval:
+			allret = False
+	return allret
+
+def back_on_old_or_delete_none_safe(srcd,dstd,reserved=False):
+	allret = True
+	logging.info('srcd [%s] dstd [%s]'%(srcd,dstd))
+	if srcd is not None and dstd is not None:
+		retval = copy_dir_safe(srcd,dstd)
+		if not retval :
+			allret = False
+	elif srcd is None and dstd is not None:
+		retval = delete_dir_safe(dstd)
+		if not retval:
+			allret = False
+	if srcd is not None and not reserved:
+		logging.info('delete %s'%(srcd))
+		retval = delete_dir_safe(srcd)
+		if not retval:
+			allret = False
+	return allret
+
+def backup_files_dir():
+	global UPDATE_CONFIG
+	ns = NameSpaceEx()
+	if 'bakfiles' in UPDATE_CONFIG.keys():
+		for f in UPDATE_CONFIG['bakfiles']:
+			if os.path.exists(f):
+				bakf = copy_tempfile(f)
+				ns.__setattr__(f,bakf)
+
+	if 'bakdirs' in UPDATE_CONFIG.keys():
+		for d in UPDATE_CONFIG['bakdirs']:
+			if os.path.exists(d):
+				bakd = copy_tempdir(d)
+				ns.__setattr__(d,bakd)
+	return ns
+
+def restore_files_dir(ns,reserved=False):
+	global UPDATE_CONFIG
+	allret = True
+	if 'bakfiles' in UPDATE_CONFIG.keys():
+		for f in UPDATE_CONFIG['bakfiles']:
+			bakf = ns.__getattr__(f)
+			retval = back_file_safe(bakf,f,reserved)
+			if not retval:
+				allret = False
+
+	if 'bakdirs' in UPDATE_CONFIG.keys():
+		for d in UPDATE_CONFIG['bakdirs']:
+			bakd = ns.__getattr__(d)
+			retval = back_dir_safe(bakd,d,reserved)
+			if not retval:
+				allret = False
+	return
+
+
+
+
+def update_inner(args):
+	updatedata = UPDATE_DATA.replace('\n','')
+	nullout = open(os.devnull,'w')
+	try:
+		# first to move daily
+		#retval = move_daily_cron('/home/%s'%(args.username))
+		#if not retval:
+		#	return False
+
+		bakns = backup_files_dir()
+		updatetempd = None
+
+
+		if len(updatedata) > 0:
+			updatetempd = extract_dir(updatedata,args.reserved,'updatetempd')
+			if updatetempd is None:
+				return False
+			logging.debug('updatetempd directory [%s]'%(updatetempd))
+			zipdir = os.path.join(updatetempd,btipmizipdir)
+			logging.debug('zipdir [%s]'%(zipdir))
+		if updatetempd is not None:
+			updateuninst = os.path.join(update,btipmizipdir,'uninst.sh')
+			updateinst = os.path.join(btipmitempd,btipmizipdir,'inst.sh')
+
+
+
+			logging.debug('preuninstall_routine')
+			preuninstall_routine(btipmi_instdir,zipdir)
+			# to call uninstall
+			btipmiuninst = os.path.join(btipmi_instdir,'uninst.sh')
+			if os.path.exists(btipmiuninst):
+				subprocess.check_call(['/bin/bash',btipmiuninst],stderr=nullout)
+			logging.debug('postuninstall_routine')
+			postuninstall_routine(btipmi_instdir,zipdir)
+		logging.debug('preinstall_routine')
+		preinstall_routine(btipmi_instdir,zipdir)
+		if btipmitempd is not None:
+			subprocess.check_call(['/bin/bash',btipmiinst,btipmi_instdir,btipmi_listenport])
+
+		if cpbakcfgserver is not None:
+			shutil.copyfile(cpbakcfgserver,cfgbakserver)
+		if cpsysinfojson is not None:
+			shutil.copyfile(cpsysinfojson,cfgsysorig)
+		if cpcfgserver is not None:
+			shutil.copyfile(cpcfgserver,cfgserver)
+		if cpcfgipmi is not None:
+			shutil.copyfile(cpcfgipmi,cfgipmi)
+		if cphwcoding is not None:
+			shutil.copyfile(cphwcoding,hwcoding)
+
+
+		logging.debug('postinstall_routine')
+		postinstall_routine(btipmi_instdir,zipdir)
+
+
+		retval = restore_web_files(bkfiles,args.reserved)
+		if not retval:
+			return False
+
+		if btipmitempd is not None:
+			if not args.reserved:
+				shutil.rmtree(btipmitempd,ignore_errors=True)
+			btipmitempd = None
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+	finally:
+		if btipmitempd is not None and not args.reserved:
+			shutil.rmtree(btipmitempd,ignore_errors=True)
+		btipmitempd = None
+		if nullout is not None:
+			nullout.close()
+		nullout = None
+		if cpcfgipmi is not None:
+			if not args.reserved:
+				if os.path.exists(cpcfgipmi):
+					os.remove(cpcfgipmi)
+			else:
+				logging.info('cfgipmi %s'%(cpcfgipmi))
+			cpcfgipmi = None
+		if cpcfgserver is not None:
+			if not args.reserved:
+				if os.path.exists(cpcfgserver):
+					os.remove(cpcfgserver)
+			else:
+				logging.info('cfgserver %s'%(cpcfgserver))
+			cpcfgserver = None
+		if cpsysinfojson is not None:
+			if not args.reserved:
+				if os.path.exists(cpsysinfojson):
+					os.remove(cpsysinfojson)
+			else:
+				logging.info('cfgsysinfojson %s'%(cpsysinfojson))
+			cpsysinfojson = None
+		if cphwcoding is not None:
+			if not args.reserved:
+				if os.path.exists(cphwcoding):
+					os.remove(cphwcoding)
+			else:
+				logging.info('cphwcoding %s'%(cphwcoding))
+			cphwcoding = None
+	return True
