@@ -509,3 +509,94 @@ def check_updatesvc_dir(ip,username,password,args):
 	except:
 		return False
 	return retval
+
+def run_sshpass_cmds(password,sshcmd,cmds):
+	runcmds = ['/usr/bin/sshpass','-p',password,sshcmd,'-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null']
+	runcmds.extend(cmds)
+	logging.info('run %s'%(runcmds))
+	subprocess.check_call(runcmds)
+	return
+
+
+def update_start_run(ip,username,password,args):
+	try:
+		uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
+		run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
+		run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
+		run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"'%s' '%s' -r startupdate"%(sys.executable,uploadfile)])
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+	return True
+
+
+def upload_handler(args):
+	set_logging(args)
+	totalret = True
+	if len(args.subnargs) == 0:
+		logging.error('need at 1 ipfile')
+		return False
+	ipfile = args.subnargs[0]
+	s = read_file(ipfile)
+	sarr = re.split('\n',s)
+	try:
+		#subprocess.check_call(['/usr/bin/sudo','-A','/bin/ls'])
+		#subprocess.check_call(['/usr/bin/sudo','-A','apt-get','install','-y','sshpass'])
+		pass
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+
+	resips = dict()
+
+	for l in sarr:
+		l = l.rstrip('\r\n')
+		if len(l) == 0 or l.startswith('#'):
+			continue
+		username = args.username
+		password = args.password
+		carr = re.split('\\|',l)
+		if len(carr) >=3 :
+			username = carr[1]
+			password = carr[2]
+		ip = carr[0]
+		if args.verbose == 0:
+			sys.stdout.write('%s   '%(ip))
+			sys.stdout.flush()
+		retval = update_start_run(ip,username,password)
+		if not retval:
+			totalret = False
+			if args.verbose == 0:
+				sys.stdout.write('failed\n')
+		else:
+			if args.verbose == 0:
+				sys.stdout.write('waiting\n')
+			resips[ip] = dict()
+			resips[ip]['stime'] = time.time()
+			resips[ip]['username'] = username
+			resips[ip]['password'] = password
+	while True:
+		keys = resips.keys()
+		if len(keys) == 0:
+			break
+		deleteone = False
+		for k in keys:
+			ctime = time.time()
+			if math.fabs(resips[k]['stime'] - ctime) >= args.maxtimeout:
+				totalret = False
+				if args.verbose == 0:
+					sys.stdout.write('%s   expired\n'%(ip))
+				del resips[k]
+				deleteone = True
+				break
+			retval = check_updatesvc_dir(k,resips[k]['username'],resips[k]['password'])
+			if retval:
+				if args.verbose == 0:
+					#sys.stdout.write('%s %ssuccess%s\n'%(ip,ECHO_GREEN,ECHO_NC))
+					sys.stdout.write('%s   success\n'%(ip))
+				del resips[k]
+				deleteone = True
+				break
+		if not deleteone:
+			time.sleep(1.0)
+	return totalret
