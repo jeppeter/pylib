@@ -392,11 +392,41 @@ def restore_files_dir(ns,reserved=False):
 	return
 
 
+def reserve_or_delete_files_dir(ns,reserved=False):
+	global UPDATE_CONFIG
+	if ns is None:
+		return True
+	allret = True
+	if 'bakfiles' in UPDATE_CONFIG.keys():
+		for f in UPDATE_CONFIG['bakfiles']:
+			bakf = ns.__getattr__(f)
+			if bakf is not None:
+				if reserved:
+					logging.info('reserve [%s] for [%s]'%(bakf,f))
+				else:
+					retval = delete_file_safe(bakf)
+					if not retval:
+						allret = False
+
+	if 'bakdirs' in UPDATE_CONFIG.keys():
+		for d in UPDATE_CONFIG['bakdirs']:
+			bakd = ns.__getattr__(d)
+			if bakd is not None:
+				if reserved:
+					logging.info('reserve [%s] for [%s]'%(bakd,d))
+				else:
+					retval = delete_dir_safe(bakd)
+					if not retval:
+						allret = False
+	return allret
+
+
 
 
 def update_inner(args):
 	updatedata = UPDATE_DATA.replace('\n','')
 	nullout = open(os.devnull,'w')
+	bakns = None
 	try:
 		# first to move daily
 		#retval = move_daily_cron('/home/%s'%(args.username))
@@ -408,91 +438,74 @@ def update_inner(args):
 
 
 		if len(updatedata) > 0:
-			updatetempd = extract_dir(updatedata,args.reserved,'updatetempd')
+			updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
 			if updatetempd is None:
 				return False
 			logging.debug('updatetempd directory [%s]'%(updatetempd))
-			zipdir = os.path.join(updatetempd,btipmizipdir)
+			zipdir = os.path.join(updatetempd,args.tempdname)
 			logging.debug('zipdir [%s]'%(zipdir))
 		if updatetempd is not None:
-			updateuninst = os.path.join(update,btipmizipdir,'uninst.sh')
-			updateinst = os.path.join(btipmitempd,btipmizipdir,'inst.sh')
+			updateuninst = os.path.join(updatetempd,args.tempdname,args.uninstname)
+			updateinst = os.path.join(updatetempd,args.tempdname,args.instname)
 
 
 
 			logging.debug('preuninstall_routine')
-			preuninstall_routine(btipmi_instdir,zipdir)
+			preuninstall_routine(args.instdir,zipdir)
 			# to call uninstall
-			btipmiuninst = os.path.join(btipmi_instdir,'uninst.sh')
-			if os.path.exists(btipmiuninst):
-				subprocess.check_call(['/bin/bash',btipmiuninst],stderr=nullout)
+			origuninst = os.path.join(args.instdir,args.uninstname)
+			if os.path.exists(origuninst):
+				subprocess.check_call(['/bin/bash',origuninst],stderr=nullout)
 			logging.debug('postuninstall_routine')
-			postuninstall_routine(btipmi_instdir,zipdir)
+			postuninstall_routine(args.instdir,zipdir)
 		logging.debug('preinstall_routine')
-		preinstall_routine(btipmi_instdir,zipdir)
-		if btipmitempd is not None:
-			subprocess.check_call(['/bin/bash',btipmiinst,btipmi_instdir,btipmi_listenport])
-
-		if cpbakcfgserver is not None:
-			shutil.copyfile(cpbakcfgserver,cfgbakserver)
-		if cpsysinfojson is not None:
-			shutil.copyfile(cpsysinfojson,cfgsysorig)
-		if cpcfgserver is not None:
-			shutil.copyfile(cpcfgserver,cfgserver)
-		if cpcfgipmi is not None:
-			shutil.copyfile(cpcfgipmi,cfgipmi)
-		if cphwcoding is not None:
-			shutil.copyfile(cphwcoding,hwcoding)
-
-
+		preinstall_routine(args.instdir,zipdir)
+		if updatetempd is not None:
+			subprocess.check_call(['/bin/bash',updateinst,args.instdir])
 		logging.debug('postinstall_routine')
-		postinstall_routine(btipmi_instdir,zipdir)
+		postinstall_routine(args.instdir,zipdir)
 
-
-		retval = restore_web_files(bkfiles,args.reserved)
+		retval = restore_files_dir(bakns,args.reserved)
 		if not retval:
 			return False
 
-		if btipmitempd is not None:
+		if updatetempd is not None:
 			if not args.reserved:
-				shutil.rmtree(btipmitempd,ignore_errors=True)
-			btipmitempd = None
+				shutil.rmtree(updatetempd,ignore_errors=True)
+			updatetempd = None
 	except:
 		logging.error('%s'%(traceback.format_exc()))
 		return False
 	finally:
-		if btipmitempd is not None and not args.reserved:
-			shutil.rmtree(btipmitempd,ignore_errors=True)
-		btipmitempd = None
+		if updatetempd is not None and not args.reserved:
+			shutil.rmtree(updatetempd,ignore_errors=True)
+		updatetempd = None
 		if nullout is not None:
 			nullout.close()
 		nullout = None
-		if cpcfgipmi is not None:
-			if not args.reserved:
-				if os.path.exists(cpcfgipmi):
-					os.remove(cpcfgipmi)
-			else:
-				logging.info('cfgipmi %s'%(cpcfgipmi))
-			cpcfgipmi = None
-		if cpcfgserver is not None:
-			if not args.reserved:
-				if os.path.exists(cpcfgserver):
-					os.remove(cpcfgserver)
-			else:
-				logging.info('cfgserver %s'%(cpcfgserver))
-			cpcfgserver = None
-		if cpsysinfojson is not None:
-			if not args.reserved:
-				if os.path.exists(cpsysinfojson):
-					os.remove(cpsysinfojson)
-			else:
-				logging.info('cfgsysinfojson %s'%(cpsysinfojson))
-			cpsysinfojson = None
-		if cphwcoding is not None:
-			if not args.reserved:
-				if os.path.exists(cphwcoding):
-					os.remove(cphwcoding)
-			else:
-				logging.info('cphwcoding %s'%(cphwcoding))
-			cphwcoding = None
+		reserve_or_delete_files_dir(bakns,args.reserve)
 	return True
+
+def update_handler(args):
+	set_logging(args)
+	logging.info('args %s'%(args))
+	retval = update_inner(args)
+	if retval :
+		if len(sys.argv) == 1 or args.reboot:
+			logging.debug('will call reboot')
+			# we call use
+			nullout = open(os.devnull,'w')
+			subprocess.check_call(['/sbin/reboot'],stderr=nullout)
+	return retval
+
+
+def check_updatesvc_dir(ip,username,password,args):
+	retval = False
+	try:
+		# check the btipmi_update_service_dir not exist so success
+		cmds = ['/usr/bin/sshpass','-p',password,'/usr/bin/ssh','-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null','%s@%s'%(username,ip),"if [ -d %s ]; then exit 3 else; exit 0; fi;"%(args.uploaddir)]
+		subprocess.check_call(cmds)
+		retval = True
+	except:
+		return False
+	return retval
