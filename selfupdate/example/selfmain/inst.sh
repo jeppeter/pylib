@@ -31,10 +31,10 @@ then
 	chmod +x $instdir/selfsvc
 fi
 
-echo "python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc -vvvv $instdir/selfsvc"
-python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc -vvvv $instdir/selfsvc
-python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/default.target.wants/selfsvc.service outsvc -vvvv $instdir/selfsvc
+#echo "python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc -vvvv $instdir/selfsvc"
+python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc $instdir/selfsvc
 
 systemctl --no-ask-password daemon-reload
+systemctl --no-ask-password enable selfsvc.service
 exit 0
 

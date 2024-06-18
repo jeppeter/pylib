@@ -13,16 +13,17 @@
 
 stop_fn()
 {
+	echo "stop selfsvc";
 }
 
 start_fn()
 {
-	/usr/bin/python3 /usr/bin/selfsvc/selfmain
+	/usr/bin/python3 /usr/bin/selfsvc/selfmain svcmain
 }
 
 status_fn()
 {
-	_cnt=`ps -ef | grep -e 'python3' | grep selfmain | grep -v sudo | grep -v grep | wc -l`
+	_cnt=`ps -ef | grep -e 'python3' | grep selfmain | grep -e ' svcmain ' | grep -v sudo | grep -v grep | wc -l`
 	if [ $_cnt -eq 0 ]
 		then
 		echo "stopped"

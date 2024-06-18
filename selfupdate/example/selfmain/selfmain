@@ -56,7 +56,7 @@ def svcmain_handler(args,parser):
     dname = os.path.abspath(os.path.dirname(__file__))
     config = os.path.join(dname,'config.json')
     s = read_file(config)
-    sys.stdout.write('read [%s]\n%s'%(config.s))
+    sys.stdout.write('read [%s]\n%s'%(config,s))
     sys.exit(0)
     return
 
@@ -91,7 +91,7 @@ def main():
     parser = extargsparse.ExtArgsParse()
     parser.load_command_line_string(commandline)
     parser.parse_command_line(None,parser)
-    raise dbgexp.DebugException(dbgexp.COMMAND_EXCEPTION,'can not reach here')
+    raise Exception('can not reach here')
     return
     return
 
