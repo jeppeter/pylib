@@ -34,7 +34,7 @@ fi
 #echo "python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc -vvvv $instdir/selfsvc"
 python3 $instdir/selfmain -i $instdir/selfsvc.service.tmpl -o /etc/systemd/system/selfsvc.service outsvc $instdir/selfsvc
 
-systemctl --no-ask-password daemon-reload
 systemctl --no-ask-password enable selfsvc.service
+systemctl --no-ask-password daemon-reload
 exit 0
 

@@ -30,7 +30,7 @@ UPDATE_DATA_BASE64
 UPDATE_CONFIG=%UPDATE_CONFIG%
 
 
-def stop_main_svc(args):
+def disable_main_svc(args):
 	return True
 
 def inst_update_svc(args):
@@ -667,7 +667,7 @@ def extract_handler(args):
 
 def stopservice_handler(args):
 	set_logging(args)
-	retval = stop_main_svc(args)
+	retval = disable_main_svc(args)
 	if not retval:
 		sys.exit(5)
 	return True
@@ -683,7 +683,7 @@ def startupdate_handler(args):
 		retval = inst_update_svc(args)
 		if not retval:
 			return False
-		retval = stop_main_svc(args)
+		retval = disable_main_svc(args)
 		if not retval:
 			remove_update_svc(args)
 			return False

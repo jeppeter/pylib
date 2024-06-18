@@ -1,0 +1,271 @@
+#! /usr/bin/env python
+
+import sys
+import os
+import re
+import logging
+import extargsparse
+import traceback
+import tempfile
+import zipfile
+import base64
+
+
+def set_logging_args(parser):
+    cmdline='''
+    {
+        "verbose|v" : "+",
+        "logstderr" : true,
+        "logapps" : [],
+        "logfiles" : [],
+        "logmaxsize" : -1,
+        "logfatals" : []
+    }
+    '''
+    parser.load_command_line_string(cmdline)
+    return parser
+
+
+def set_logging(args):
+    loglvl= logging.ERROR
+    if args.verbose >= 3:
+        loglvl = logging.DEBUG
+    elif args.verbose >= 2:
+        loglvl = logging.INFO
+    if logging.root is not None and len(logging.root.handlers) > 0:
+        logging.root.handlers = []
+
+    cformat = '%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s'
+    basicfmt = logging.Formatter(cformat)
+
+    logging.basicConfig(level=loglvl,format=cformat)
+    if not args.logstderr:
+        logging.root.handlers = []
+
+    for f in args.logapps:
+        if args.logmaxsize > 0:
+            apphdl = RotatingFileHandler(f,mode='a',backupCount=1,maxBytes=args.logmaxsize)
+        else:
+            apphdl = RotatingFileHandler(f,mode='a')
+        apphdl.setFormatter(basicfmt)
+        apphdl.setLevel(loglvl)
+        logging.root.addHandler(apphdl)
+    for f in args.logfiles:
+        if args.logmaxsize > 0:
+            loghdl = RotatingFileHandler(f,mode='w',backupCount=1,maxBytes=args.logmaxsize)
+        else:
+            loghdl = RotatingFileHandler(f,mode='w')
+        loghdl.setFormatter(basicfmt)
+        loghdl.setLevel(loglvl)
+        logging.root.addHandler(loghdl)
+
+    for f in args.logfatals:
+        try:
+            fsize = os.path.getsize(f)
+            if fsize > 0x100000:
+                os.remove(f)
+        except:
+            pass
+        loghdl = logging.FileHandler(f,mode='a')
+        loghdl.setFormatter(basicfmt)
+        loghdl.setLevel(logging.FATAL)
+        logging.root.addHandler(loghdl)
+
+    return
+
+def read_file(infile=None):
+    fin = sys.stdin
+    if infile is not None:
+        fin = open(infile,'r+b')
+    rets = ''
+    for l in fin:
+        s = l
+        if 'b' in fin.mode:
+            if sys.version[0] == '3':
+                s = l.decode('utf-8')
+        rets += s
+
+    if fin != sys.stdin:
+        fin.close()
+    fin = None
+    return rets
+
+def write_file(s,outfile=None):
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'w+b')
+    outs = s
+    if 'b' in fout.mode:
+        outs = s.encode('utf-8')
+    fout.write(outs)
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    return 
+
+def zip_dir(d):
+    tempout = None
+    curdir = None
+    partname = None
+    try:
+        curdir = os.getcwd()
+        partd = os.path.basename(os.path.abspath(d))
+        os.chdir(os.path.dirname(os.path.abspath(d)))
+        tempout = tempfile.NamedTemporaryFile(delete=False,suffix='.zip')
+        tempout.close()
+        with zipfile.ZipFile(tempout.name,'w') as zobj:
+            for dname,sdirs,fnames in os.walk(partd):
+                for f in fnames:
+                    logging.debug('dname [%s] f[%s]'%(dname,f))
+                    curf = os.path.join(dname,f)
+                    zobj.write(curf)
+        os.chdir(curdir)
+        curdir = None
+        return tempout.name
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if curdir is not None:
+            os.chdir(curdir)
+            curdir = None
+        return None
+
+def zip_to_base64(zipfile,reserved=False):
+    fin = None
+    fout = None
+    retval = True
+    tempname = None
+    rets = None
+    try:
+        tempname = tempfile.NamedTemporaryFile(delete=False,suffix='.b64')
+        fin = open(zipfile,'r+b')
+        base64.encode(fin,tempname)
+        fin.close()
+        fin = None
+        tempname.close()
+        rets = common_util.read_file(tempname.name)
+        if not reserved:
+            os.remove(tempname.name)
+        tempname = None
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if fin is not None:
+            fin.close()
+        fin = None
+        if tempname is not None:
+            tempname.close()
+        if not reserved and tempname is not None:
+            os.remove(tempname.name)
+        tempname = None
+        return None
+    return rets
+
+
+def zip_replace_keyword(zipd,fin,keyword,fout,reserved=False):
+    retval = True
+    # now to give the zipfile
+    tempname = None
+    zobj = None
+    zfname = None
+    try:
+        if zipd is not None:
+            logging.info('zipd [%s]'%(zipd))
+            zfname = zip_dir(zipd)
+            logging.info('zip [%s]'%(zfname))
+            if zfname is None:
+                return False
+            s = zip_to_base64(zfname)       
+            if s is None:
+                raise Exception('%s'%(traceback.format_exc()))
+            logging.info('compress base64 zfname [%s]'%(zfname))
+        else:
+            s = ''
+        for l in fin:
+            l = l.rstrip('\r\n')
+            logging.info('[%s]'%(l))
+            if l == keyword:
+                l = s
+            fout.write('%s\n'%(l))
+        if not reserved and zfname is not None:
+            os.remove(zfname)
+        zfname = None
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if zfname is not None:
+            if os.path.exists(zfname) and not reserved:
+                os.remove(zfname)
+            zfname = None
+        retval = False
+    return retval
+
+
+def zip64_handler(args,parser):
+    set_logging(args)
+    keyword = args.subnargs[0]
+    if len(args.subnargs) > 1:
+        zipdir = args.subnargs[1]
+    else:
+        zipdir = None
+    logging.info('keyword [%s] zipdir [%s]'%(keyword,zipdir))
+    fin = sys.stdin
+    fout = sys.stdout
+    if args.input is not None:
+        fin = open(args.input,'r')
+    if args.output is not None:
+        fout = open(args.output,'w')
+    retval = zip_replace_keyword(zipdir,fin,keyword,fout,args.reserved)
+    if fin != sys.stdin:
+        fin.close()
+    fin = None
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    if not retval :
+        sys.exit(4)
+    sys.exit(0)
+    return
+
+def replcode_handler(args,parser):
+    set_logging(args)
+    keyword = args.subnargs[0]
+    repls = ''
+    if len(args.subnargs) > 1:
+        infile = args.subnargs[1]
+        repls = read_file(infile)
+    ins = read_file(args.input)
+    outs = ''
+    sarr = re.split('\n',ins)
+    for l in sarr:
+        l = l.rstrip('\r')
+        l = l.replace('%%%s%%'%(keyword),repls,-1)
+        outs += '%s\n'%(l)
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
+
+def main():
+    commandline='''
+    {
+        "input|i" : null,
+        "output|o" : null,
+        "zipdir" : null,
+        "reserved|R" : false,
+        "zip64<zip64_handler>##keyword to make replace ##" : {
+            "$" : "+"
+        },
+        "replcode<replcode_handler>##keyword [file] to replace code in file##" : {
+            "$" : "+"
+        }
+    }
+    '''
+    parser = extargsparse.ExtArgsParse()
+    parser.load_command_line_string(commandline)
+    parser = set_logging_args(parser)
+    parser.parse_command_line(None,parser)
+    raise Exception('can not reach here')
+    return
+
+
+
+if __name__ == '__main__':
+    main()
