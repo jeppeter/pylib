@@ -142,7 +142,7 @@ def zip_to_base64(zipfile,reserved=False):
         fin.close()
         fin = None
         tempname.close()
-        rets = common_util.read_file(tempname.name)
+        rets = read_file(tempname.name)
         if not reserved:
             os.remove(tempname.name)
         tempname = None

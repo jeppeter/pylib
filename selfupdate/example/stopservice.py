@@ -5,6 +5,7 @@ def disable_main_svc(args):
 	try:
 		cmds = ['systemctl','disable','selfsvc.service']
 		nret = subprocess.call(cmds)
+		logging.info('run %s nret %s'%(cmds,nret))
 		retval = True
 	except:
 		logging.error('%s'%(traceback.format_exc()))
