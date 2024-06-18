@@ -399,6 +399,7 @@ def restore_files_dir(ns,reserved=False):
 				retval = back_dir_safe(bakd,d,reserved)
 				if not retval:
 					allret = False
+	logging.info('restore allret %s'%(allret))
 	return
 
 
@@ -496,6 +497,7 @@ def update_inner(args):
 			nullout.close()
 		nullout = None
 		reserve_or_delete_files_dir(bakns,args.reserved)
+		logging.info('all reserve_or_delete_files_dir')
 	return True
 
 def update_handler(args):
@@ -681,7 +683,7 @@ def startupdate_handler(args):
 		outfile = os.path.join(args.svcdir,bfile)
 		if not os.path.exists(args.svcdir):
 			os.mkdir(args.svcdir,0o755)
-		shutil.copyfile(__file__,destfile)
+		shutil.copyfile(__file__,outfile)
 		retval = inst_update_svc(args)
 		if not retval:
 			return False
@@ -716,13 +718,13 @@ def updatesvc_handler(args):
 			remove_self_service(args,2.0)
 			return True
 		retval = update_inner(args)
+		if retval:
+			retval = remove_self_service(args,2.0)
 		if retval and args.reboot:
 			logging.debug('will call reboot')
 			# we call use
 			nullout = open(os.devnull,'w')
 			subprocess.check_call(['/sbin/reboot'],stderr=nullout)
-		if retval:
-			retval = remove_self_service(args,2.0)
 	except:
 		logging.error('%s'%(traceback.format_exc()))
 		return False

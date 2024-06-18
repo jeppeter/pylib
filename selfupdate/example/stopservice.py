@@ -6,7 +6,13 @@ def disable_main_svc(args):
 		cmds = ['systemctl','disable','selfsvc.service']
 		nret = subprocess.call(cmds)
 		logging.info('run %s nret %s'%(cmds,nret))
-		retval = True
+		if nret != 0:
+			retval = False
+			return retval
+		else:
+			retval = True
+		svcfile = '/etc/systemd/system/selfsvc.service'
+		os.remove(svcfile)		
 	except:
 		logging.error('%s'%(traceback.format_exc()))
 		retval = False
@@ -33,7 +39,9 @@ def inst_update_svc(args):
 	retval = False
 	bfile = os.path.basename(__file__)
 	outf = os.path.join(args.svcdir,bfile)
-	outs = UPDATE_SVC_FILE.replace('%%UPDATE_FILE%%',outf,-1)
+	logging.info('outf [%s]'%(outf))
+	outs = UPDATE_SVC_FILE.replace('%UPDATE_FILE%',outf,-1)
+	logging.info('outs\n%s'%(outs))
 	svcfile = '/etc/systemd/system/selfupdate.service'
 	try:
 		write_file(outs,svcfile)
@@ -61,7 +69,6 @@ def remove_update_svc(args):
 		nret = subprocess.call(cmds)
 		logging.info('call %s nret [%s]'%(cmds,nret))
 		retval = True
-
 	except:
 		logging.error('%s'%(traceback.format_exc()))
 		retval = False
