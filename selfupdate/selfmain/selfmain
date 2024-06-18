@@ -1,0 +1,101 @@
+#! /usr/bin/env python
+
+import sys
+import os
+import extargsparse
+import re
+import logging
+
+
+def read_file(infile=None):
+    fin = sys.stdin
+    if infile is not None:
+        fin = open(infile,'r+b')
+    rets = ''
+    for l in fin:
+        s = l
+        if 'b' in fin.mode:
+            if sys.version[0] == '3':
+                s = l.decode('utf-8')
+        rets += s
+
+    if fin != sys.stdin:
+        fin.close()
+    logging.info('read [%s]\n%s'%(infile,rets))
+    fin = None
+    return rets
+
+def set_logging(args):
+    loglvl= logging.ERROR
+    if args.verbose >= 3:
+        loglvl = logging.DEBUG
+    elif args.verbose >= 2:
+        loglvl = logging.INFO
+    if logging.root is not None and len(logging.root.handlers) > 0:
+        logging.root.handlers = []
+    logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+    return
+
+def write_file(s,outfile=None):
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'w+b')
+    outs = s
+    if 'b' in fout.mode:
+        outs = s.encode('utf-8')
+    fout.write(outs)
+    if fout != sys.stdout:
+        fout.close()
+    logging.info('out %s\n%s'%(outfile,s))
+    fout = None
+    return 
+
+
+def svcmain_handler(args,parser):
+    set_logging(args)
+    dname = os.path.abspath(os.path.dirname(__file__))
+    config = os.path.join(dname,'config.json')
+    s = read_file(config)
+    sys.stdout.write('read [%s]\n%s'%(config.s))
+    sys.exit(0)
+    return
+
+def outsvc_handler(args,parser):
+    set_logging(args)
+    scriptname = args.subnargs[0]
+    ins = read_file(args.input)
+    sarr = re.split('\n',ins)
+    outs = ''
+    for l in sarr:
+        l = l.rstrip('\r')
+        l = re.sub('%SVC_SCRIPT%',scriptname,l)
+        outs += '%s\n'%(l)
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
+def main():
+    commandline='''
+    {
+        "verbose|v" : "+",
+        "input|i" : null,
+        "output|o" : null,
+        "svcmain<svcmain_handler>##the main service#" : {
+            "$" : 0
+        },
+        "outsvc<outsvc_handler>##scriptname to output the service##" : {
+            "$" : 1
+        }
+    }
+    '''
+    parser = extargsparse.ExtArgsParse()
+    parser.load_command_line_string(commandline)
+    parser.parse_command_line(None,parser)
+    raise dbgexp.DebugException(dbgexp.COMMAND_EXCEPTION,'can not reach here')
+    return
+    return
+
+if __name__ == '__main__':
+    main()
+
+

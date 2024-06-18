@@ -1,0 +1,54 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          selfsvc
+# Required-Start:    
+# Required-Stop:    
+# Default-Start:     2 3 4 5
+# Default-Stop:      2 3 4 5
+# Short-Description: self service
+# Description:       selfsvc service
+### END INIT INFO
+
+
+
+stop_fn()
+{
+}
+
+start_fn()
+{
+	/usr/bin/python3 /usr/bin/selfsvc/selfmain
+}
+
+status_fn()
+{
+	_cnt=`ps -ef | grep -e 'python3' | grep selfmain | grep -v sudo | grep -v grep | wc -l`
+	if [ $_cnt -eq 0 ]
+		then
+		echo "stopped"
+	elif [ $_cnt -eq 1 ]
+		then
+		echo "running"
+	else
+		echo "error cnt[$_cnt]"
+	fi
+}
+
+
+case "$1" in
+	start)
+	stop_fn
+	start_fn
+	;;
+	stop)
+	stop_fn
+	;;
+	restart)
+	stop_fn
+	start_fn
+	;;
+	status)
+	status_fn
+	;;
+esac
+exit 0

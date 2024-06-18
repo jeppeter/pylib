@@ -22,21 +22,28 @@ UPDATE_DATA_BASE64
 
 ############################################
 #  {
-#	  "bakfiles" : ["%instdir%/self.info","%instdir%/self.conf"],
-#     "bakdirs" : ["%instdir%/self.dir"]
-#     ""
+#	  "bakfiles" : ["/usr/bin/selfupdate/self.info","/usr/bin/selfupdate/self.conf"],
+#     "bakdirs" : ["/usr/bin/selfupdate/self.dir"]
+#     "version" : "1.0.1"
 #  }
-#  
-#
-#
-#
-#
-#
-#
-#
-#
 ############################################
 UPDATE_CONFIG=%UPDATE_CONFIG%
+
+
+def stop_main_svc(args):
+	return True
+
+def inst_update_svc(args):
+	return True
+
+def remove_update_svc(args):
+	return True
+
+def check_main_svc(args):
+	return False
+
+%STOP_SERVICE_CODE%
+
 
 ############################################
 #
@@ -379,16 +386,18 @@ def restore_files_dir(ns,reserved=False):
 	if 'bakfiles' in UPDATE_CONFIG.keys():
 		for f in UPDATE_CONFIG['bakfiles']:
 			bakf = ns.__getattr__(f)
-			retval = back_file_safe(bakf,f,reserved)
-			if not retval:
-				allret = False
+			if bakf is not None:
+				retval = back_file_safe(bakf,f,reserved)
+				if not retval:
+					allret = False
 
 	if 'bakdirs' in UPDATE_CONFIG.keys():
 		for d in UPDATE_CONFIG['bakdirs']:
 			bakd = ns.__getattr__(d)
-			retval = back_dir_safe(bakd,d,reserved)
-			if not retval:
-				allret = False
+			if bakd is not None:
+				retval = back_dir_safe(bakd,d,reserved)
+				if not retval:
+					allret = False
 	return
 
 
@@ -424,6 +433,7 @@ def reserve_or_delete_files_dir(ns,reserved=False):
 
 
 def update_inner(args):
+	global UPDATE_DATA
 	updatedata = UPDATE_DATA.replace('\n','')
 	nullout = open(os.devnull,'w')
 	bakns = None
@@ -563,7 +573,7 @@ def upload_handler(args):
 		if args.verbose == 0:
 			sys.stdout.write('%s   '%(ip))
 			sys.stdout.flush()
-		retval = update_start_run(ip,username,password)
+		retval = update_start_run(ip,username,password,args)
 		if not retval:
 			totalret = False
 			if args.verbose == 0:
@@ -600,3 +610,206 @@ def upload_handler(args):
 		if not deleteone:
 			time.sleep(1.0)
 	return totalret
+
+
+def uploadstart_handler(args):
+	set_logging(args)
+	totalret = True
+	if len(args.subnargs) == 0:
+		logging.error('need at 1 ipfile')
+		return False
+	ipfile = args.subnargs[0]
+	s = read_file(ipfile)
+	sarr = re.split('\n',s)
+
+	for l in sarr:
+		l = l.rstrip('\r\n')
+		if len(l) == 0 or l.startswith('#'):
+			continue
+		username = args.username
+		password = args.password
+		carr = re.split('\\|',l)
+		logging.info('carr %s'%(carr))
+		if len(carr) >=3 :
+			username = carr[1]
+			password = carr[2]
+		ip = carr[0]
+		logging.info('ip %s'%(ip))
+		if args.verbose == 0:
+			sys.stdout.write('%s   '%(ip))
+			sys.stdout.flush()
+		retval = update_start_run(ip,username,password,args)
+		if not retval:
+			totalret = False
+			if args.verbose == 0:
+				sys.stdout.write('failed\n')
+		else:
+			if args.verbose == 0:
+				sys.stdout.write('succ\n')
+	return totalret
+
+
+def version_handler(args):
+	global UPDATE_CONFIG
+	if 'version' in UPDATE_CONFIG.keys():
+		sys.stdout.write('%s\n'%(UPDATE_CONFIG['version']))
+	else:
+		sys.stdout.write('0.0.1\n')
+	return True
+
+
+def extract_handler(args):
+	set_logging(args)
+	updatedata = UPDATE_DATA.replace('\n','')
+	updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
+	return True
+
+
+def stopservice_handler(args):
+	set_logging(args)
+	retval = stop_main_svc(args)
+	if not retval:
+		sys.exit(5)
+	return True
+
+def startupdate_handler(args):
+	set_logging(args)	
+	bfile = os.path.basename(__file__)
+	try:
+		outfile = os.path.join(args.svcdir,bfile)
+		if not os.path.exists(args.svcdir):
+			os.mkdir(args.svcdir,0o755)
+		shutil.copyfile(__file__,destfile)
+		retval = inst_update_svc(args)
+		if not retval:
+			return False
+		retval = stop_main_svc(args)
+		if not retval:
+			remove_update_svc(args)
+			return False
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+	return True
+
+def remove_self_service(args,timeval=2.0):
+	retval = remove_update_svc(args)
+	if not retval:
+		return False
+	pid = os.fork()
+	if pid == 0:
+		# we call this for last time
+		cmd = 'import shutil;import time;time.sleep(%s);shutil.rmtree("%s")'%(timeval,args.svcdir)
+		logging.info('cmd [%s]'%(cmd))
+		os.execlp(sys.executable,sys.executable,'-c',cmd)
+	return True
+
+
+def updatesvc_handler(args):
+	set_logging(args)
+	retval = False
+	try:
+		retval = check_main_svc(args)
+		if retval:
+			remove_self_service(args,2.0)
+			return True
+		retval = update_inner(args)
+		if retval and args.reboot:
+			logging.debug('will call reboot')
+			# we call use
+			nullout = open(os.devnull,'w')
+			subprocess.check_call(['/sbin/reboot'],stderr=nullout)
+		if retval:
+			retval = remove_self_service(args,2.0)
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+	return retval
+
+def make_default_args():
+	js = '''
+	{
+		"verbose" : 0,
+		"reserved" : false,
+		"username" : "pyuser",
+		"password" : "pyuser",
+		"reboot" : false,
+		"svcdir" : "/usr/bin/updatesvc",
+		"instdir" : "/usr/bin/selfsvc",
+		"tempfname" : "selfupdate",
+		"uploaddir" : "/usr/bin/uploadsvc",
+		"tempdname" : "/tmp",
+		"uninstname" : "uninst.sh",
+		"instname" : "inst.sh"
+	}
+	'''
+	args = NameSpaceEx(js)
+	return args
+
+
+def new_args_parser():
+	parser = argparse.ArgumentParser(prog=os.path.basename(os.path.abspath(__file__)).replace('.py',''))
+	parser.add_argument('-v', '--verbose', action='count', default=0)
+	parser.add_argument('-R','--reserved',action='store_true',default=False)
+	parser.add_argument('-r','--reboot',action='store_true',default=False)
+	parser.add_argument('--username',action='store',default='pyuser')
+	parser.add_argument('--password',action='store',default='pyuser')
+	parser.add_argument('--svcdir',action='store',default='/usr/bin/updatesvc')
+	parser.add_argument('--instdir',action='store',default='/usr/bin/selfsvc')
+	parser.add_argument('--tempfname',action='store',default='selfupdate')
+	parser.add_argument('--tempdname',action='store',default='/tmp')
+	parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
+	parser.add_argument('--uninstname',action='store',default='uninst.sh')
+	parser.add_argument('--instname',action='store',default='inst.sh')
+	return parser
+
+%COMMAND_PARSER_CODE%
+
+def add_parser_handlers(parser):
+	subparsers = parser.add_subparsers()
+	update_group = subparsers.add_parser('update')
+	upload_group = subparsers.add_parser('upload')
+	version_group = subparsers.add_parser('version')
+	extract_group = subparsers.add_parser('extract')
+	stopservice_group = subparsers.add_parser('stopservice')
+	startupdate_group = subparsers.add_parser('startupdate')
+	updatesvc_group = subparsers.add_parser('updatesvc')
+	uploadstart_group = subparsers.add_parser('uploadstart')
+	update_group.add_argument('subnargs',type=str,nargs="*")
+	update_group.set_defaults(func=update_handler)
+	upload_group.add_argument('subnargs',type=str,nargs="*")
+	upload_group.set_defaults(func=upload_handler)
+	version_group.add_argument('subnargs',type=str,nargs="*")
+	version_group.set_defaults(func=version_handler)
+	extract_group.add_argument('subnargs',type=str,nargs="*")
+	extract_group.set_defaults(func=extract_handler)
+	stopservice_group.add_argument('subnargs',type=str,nargs="*")
+	stopservice_group.set_defaults(func=stopservice_handler)
+	startupdate_group.add_argument('subnargs',type=str,nargs="*")
+	startupdate_group.set_defaults(func=startupdate_handler)
+	updatesvc_group.add_argument('subnargs',type=str,nargs="*")
+	updatesvc_group.set_defaults(func=updatesvc_handler)
+	uploadstart_group.add_argument('subnargs',type=str,nargs="*")
+	uploadstart_group.set_defaults(func=uploadstart_handler)
+	return parser
+
+def main():
+	if len(sys.argv) == 1:
+		args = make_default_args()
+		retval = update_handler(args)
+		if retval:
+			sys.exit(0)
+		sys.exit(4)
+	parser = new_args_parser()
+	parser = add_parser_handlers(parser)
+	args = parser.parse_args()
+	retval = args.func(args)
+	if not retval :
+		sys.exit(4)
+	sys.exit(0)
+
+if __name__ == '__main__':
+	main()
+
+
+

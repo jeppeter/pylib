@@ -1,0 +1,12 @@
+[Unit]
+Description=self  service
+After=network.target
+Requires=
+
+[Service]
+ExecStart=/bin/bash %SVC_SCRIPT% start
+ExecStop=/bin/bash %SVC_SCRIPT% stop
+Type=forking
+
+[Install]
+WantedBy=default.target
