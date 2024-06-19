@@ -2,7 +2,7 @@
 
 fname=`readlink -f $0`
 dname=`dirname $0`
-instdir=/usr/bin/selfsvc
+instdir=/userdata/media/selfsvc
 if [ $# -gt 0 ]
 then
 	instdir=$1
@@ -19,7 +19,6 @@ then
 	fi
 	# now to copy 
 	cp -f $dname/uninst.sh $instdir/
-	cp -f $dname/selfsvc.service.tmpl $instdir/
 	cp -f $dname/inst.sh $instdir/
 	cp -f $dname/selfmain $instdir/
 	cp -f $dname/config.json $instdir/
@@ -29,10 +28,11 @@ then
 	fi
 	cp -r $dname/pythonlib $instdir/
 
-	chmod +x $instdir/uninst.sh
-	chmod +x $instdir/selfmain
-	chmod +x $instdir/inst.sh
 fi
+
+chmod +x $instdir/uninst.sh
+chmod +x $instdir/selfmain
+chmod +x $instdir/inst.sh
 
 python $instdir/selfmain outsvc -i $dname/selfsvc.tmpl  -o $instdir/selfsvc -vvvv
 chmod +x $instdir/selfsvc

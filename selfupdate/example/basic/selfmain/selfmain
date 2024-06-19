@@ -5,7 +5,7 @@ import os
 import re
 import logging
 
-sys.path.append(os.path.abspath(os.path.dirname(__file__),'pythonlib'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'pythonlib')))
 import extargsparse
 
 def read_file(infile=None):
@@ -82,7 +82,7 @@ def add_code_start(cfile,scriptn,startcode='SELFMAIN'):
     sarr = re.split('\n',s)
     outs = ''
     startnote = '##%sBEGIN'%(startcode)
-    endnote = '###%sEND'%(startcode)
+    endnote = '##%sEND'%(startcode)
     inserted = False
     started = False
     for l in sarr:
@@ -107,7 +107,7 @@ def add_code_stop(cfile,scriptn,startcode='SELFMAIN'):
     sarr = re.split('\n',s)
     outs = ''
     startnote = '##%sBEGIN'%(startcode)
-    endnote = '###%sEND'%(startcode)
+    endnote = '##%sEND'%(startcode)
     inserted = False
     idx = 0
     for l in sarr:
@@ -117,9 +117,9 @@ def add_code_stop(cfile,scriptn,startcode='SELFMAIN'):
             continue
 
         if idx > 1 and not inserted:
-            outs += '%s\n'%(startcode)
+            outs += '%s\n'%(startnote)
             outs += '%s stop\n'%(scriptn)
-            outs += '%s\n'%(endcode)
+            outs += '%s\n'%(endnote)
             inserted = True
         outs += '%s\n'%(l)
     write_file(outs,cfile)
@@ -131,16 +131,20 @@ def remove_code_start(cfile,startcode='SELFMAIN'):
     sarr = re.split('\n',s)
     outs = ''
     startnote = '##%sBEGIN'%(startcode)
-    endnote = '###%sEND'%(startcode)
+    endnote = '##%sEND'%(startcode)
     inserted = False
     started = False
+    idx = 0
     for l in sarr:
+        idx += 1
         l = l.rstrip('\r')
         if not started and l.startswith(startnote):
+            logging.info('at [%d] [%s]'%(idx,l))
             started = True
         if not started:
             outs += '%s\n'%(l)
         if started and l.startswith(endnote):
+            logging.info('at end [%d] [%s]'%(idx,l))
             started = False
 
     write_file(outs,cfile)
@@ -151,16 +155,20 @@ def remove_code_stop(cfile,startcode='SELFMAIN'):
     sarr = re.split('\n',s)
     outs = ''
     startnote = '##%sBEGIN'%(startcode)
-    endnote = '###%sEND'%(startcode)
+    endnote = '##%sEND'%(startcode)
     removed = False
     started = False
+    idx = 0
     for l in sarr:
+        idx += 1
         l = l.rstrip('\r')
         if not started and l.startswith(startnote):
+            logging.info('at [%d] [%s]'%(idx,l))
             started = True
         if not started:
             outs += '%s\n'%(l)
         if started and l.startswith(endnote):
+            logging.info('at end [%d] [%s]'%(idx,l))
             started = False
             removed = True
 
@@ -173,8 +181,8 @@ def addcode_handler(args,parser):
     set_logging(args)
     bname = os.path.dirname(__file__)
     scriptn = os.path.join(bname,'selfsvc')
-    add_code_start('/oem/btlunch.sh')
-    add_code_stop('/oem/btstop.sh')
+    add_code_start('/oem/btlunch.sh',scriptn)
+    add_code_stop('/oem/btstop.sh',scriptn)
     sys.exit(0)
     return
 
