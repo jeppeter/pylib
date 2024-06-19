@@ -253,7 +253,7 @@ import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import fileop
 import logop
-import strutils
+import strop
 
 
 def logc_handler(args,parser):

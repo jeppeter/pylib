@@ -13,6 +13,8 @@ import math
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 import extargsparse
+from loglib import set_logging,load_log_commandline
+from strop import parse_int
 
 
 class Utf8Encode(object):
@@ -86,32 +88,7 @@ def mktemp_dir(ind=None):
         logging.error('%s'%(traceback.format_exc()))
     return tempd
 
-def load_log_commandline(parser):
-    logcommand = '''
-    {
-        "verbose|v" : "+",
-        "logname" : "root",
-        "logfiles" : [],
-        "logappends" : [],
-        "logrotate" : true,
-        "logmaxbytes" : 10000000,
-        "logbackupcnt" : 2,
-        "lognostderr" : false
-    }
-    '''
-    parser.load_command_line_string(logcommand)
-    return parser
 
-def parse_int(v):
-    c = v
-    base = 10
-    if c.startswith('0x') or c.startswith('0X') :
-        base = 16
-        c = c[2:]
-    elif c.startswith('x') or c.startswith('X'):
-        base = 16
-        c = c[1:]
-    return int(c,base)
 
 
 def format_bytes(inb,note=''):
