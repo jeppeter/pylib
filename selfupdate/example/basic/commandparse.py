@@ -7,10 +7,10 @@ def make_default_args():
 		"username" : "pyuser",
 		"password" : "pyuser",
 		"reboot" : false,
-		"svcdir" : "/usr/bin/selfupdate",
-		"instdir" : "/usr/bin/selfsvc",
-		"tempfname" : "selfupdate",
-		"uploaddir" : "/usr/bin/uploadsvc",
+		"svcdir" : "/userdata/media/onlyforupdate",
+		"instdir" : "/userdata/media/selfsvc",
+		"tempfname" : "updatebasic",
+		"uploaddir" : "/userdata/media/onlyforupdate",
 		"tempdname" : "selfmain",
 		"uninstname" : "uninst.sh",
 		"instname" : "inst.sh"
@@ -27,11 +27,11 @@ def new_args_parser():
 	parser.add_argument('-r','--reboot',action='store_true',default=False)
 	parser.add_argument('--username',action='store',default='pyuser')
 	parser.add_argument('--password',action='store',default='pyuser')
-	parser.add_argument('--svcdir',action='store',default='/usr/bin/selfupdate')
-	parser.add_argument('--instdir',action='store',default='/usr/bin/selfsvc')
-	parser.add_argument('--tempfname',action='store',default='selfupdate')
+	parser.add_argument('--svcdir',action='store',default='/userdata/media/onlyforupdate')
+	parser.add_argument('--instdir',action='store',default='/userdata/media/selfsvc')
+	parser.add_argument('--tempfname',action='store',default='updatebasic')
 	parser.add_argument('--tempdname',action='store',default='selfmain')
-	parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
+	parser.add_argument('--uploaddir',action='store',default='/userdata/media/onlyforupdate')
 	parser.add_argument('--uninstname',action='store',default='uninst.sh')
 	parser.add_argument('--instname',action='store',default='inst.sh')
 	return parser

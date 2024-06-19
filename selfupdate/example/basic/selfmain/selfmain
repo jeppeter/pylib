@@ -69,15 +69,15 @@ def outsvc_handler(args,parser):
     bname = os.path.dirname(__file__)
     for l in sarr:
         l = l.rstrip('\r')
-        l = re.sub('%SCRIPT_FILE%',__file__,l)
-        l = re.sub('%SCRITP_DIR%',bname,l)
+        l = l.replace('%SCRIPT_FILE%',__file__,-1)
+        l = l.replace('%SCRIPT_DIR%',bname,-1)
         outs += '%s\n'%(l)
     write_file(outs,args.output)
     sys.exit(0)
     return
 
 
-def add_code_start(cfile,scriptn,startcode='SELFMAIN'):
+def _inner_add_code(cfile,lines,startcode='SELFMAIN',headed=False):
     s = read_file(cfile)
     sarr = re.split('\n',s)
     outs = ''
@@ -85,48 +85,39 @@ def add_code_start(cfile,scriptn,startcode='SELFMAIN'):
     endnote = '##%sEND'%(startcode)
     inserted = False
     started = False
-    for l in sarr:
-        l = l.rstrip('\r')
-        if len(l) == 0:
-            continue
-        if not started and l.startswith(startnote):
-            started = True
-        elif started and l.startswith(endnote):
-            started = False
-            inserted = True
-        outs += '%s\n'%(l)
-    if not inserted:
-        outs += '%s\n'%(startnote)
-        outs += '%s start\n'%(scriptn)
-        outs += '%s\n'%(endnote)
-    write_file(outs,cfile)
-    return True
-
-def add_code_stop(cfile,scriptn,startcode='SELFMAIN'):
-    s = read_file(cfile)
-    sarr = re.split('\n',s)
-    outs = ''
-    startnote = '##%sBEGIN'%(startcode)
-    endnote = '##%sEND'%(startcode)
-    inserted = False
     idx = 0
     for l in sarr:
         idx += 1
         l = l.rstrip('\r')
-        if len(l) == 0:
-            continue
-
-        if idx > 1 and not inserted:
+        outs += '%s\n'%(l)
+        if headed and not inserted:
             outs += '%s\n'%(startnote)
-            outs += '%s stop\n'%(scriptn)
+            outs += '%s\n'%(lines)
             outs += '%s\n'%(endnote)
             inserted = True
-        outs += '%s\n'%(l)
-    write_file(outs,cfile)
+    if not inserted:
+        outs += '%s\n'%(startnote)
+        outs += '%s\n'%(lines)
+        outs += '%s\n'%(endnote)
+    nsarr = re.split('\n',outs)
+    nouts = ''
+    for l in nsarr:
+        l = l.rstrip('\r')
+        if len(l) == 0:
+            continue
+        nouts += '%s\n'%(l)
+    write_file(nouts,cfile)
     return True
 
 
-def remove_code_start(cfile,startcode='SELFMAIN'):
+
+def main_add_code_start(cfile,scriptn,startcode='SELFMAIN'):
+    return _inner_add_code(cfile,'%s start'%(scriptn),startcode,False)
+
+def main_add_code_stop(cfile,scriptn,startcode='SELFMAIN'):
+    return _inner_add_code(cfile,'%s stop'%(scriptn),startcode,True)
+
+def _inner_remove_code(cfile,startcode='SELFMAIN'):
     s = read_file(cfile)
     sarr = re.split('\n',s)
     outs = ''
@@ -150,30 +141,11 @@ def remove_code_start(cfile,startcode='SELFMAIN'):
     write_file(outs,cfile)
     return True
 
-def remove_code_stop(cfile,startcode='SELFMAIN'):
-    s = read_file(cfile)
-    sarr = re.split('\n',s)
-    outs = ''
-    startnote = '##%sBEGIN'%(startcode)
-    endnote = '##%sEND'%(startcode)
-    removed = False
-    started = False
-    idx = 0
-    for l in sarr:
-        idx += 1
-        l = l.rstrip('\r')
-        if not started and l.startswith(startnote):
-            logging.info('at [%d] [%s]'%(idx,l))
-            started = True
-        if not started:
-            outs += '%s\n'%(l)
-        if started and l.startswith(endnote):
-            logging.info('at end [%d] [%s]'%(idx,l))
-            started = False
-            removed = True
+def main_remove_code_stop(cfile,startcode='SELFMAIN'):
+    return _inner_remove_code(cfile,startcode)
 
-    write_file(outs,cfile)
-    return True
+def main_remove_code_start(cfile,startcode='SELFMAIN'):
+    return _inner_remove_code(cfile,startcode)
 
 
 
@@ -181,8 +153,8 @@ def addcode_handler(args,parser):
     set_logging(args)
     bname = os.path.dirname(__file__)
     scriptn = os.path.join(bname,'selfsvc')
-    add_code_start('/oem/btlunch.sh',scriptn)
-    add_code_stop('/oem/btstop.sh',scriptn)
+    main_add_code_start('/oem/btlunch.sh',scriptn)
+    main_add_code_stop('/oem/btstop.sh',scriptn)
     sys.exit(0)
     return
 
@@ -190,8 +162,8 @@ def removecode_handler(args,parser):
     set_logging(args)
     bname = os.path.dirname(__file__)
     scriptn = os.path.join(bname,'selfsvc')
-    remove_code_start('/oem/btlunch.sh')
-    remove_code_stop('/oem/btstop.sh')
+    main_remove_code_start('/oem/btlunch.sh')
+    main_remove_code_stop('/oem/btstop.sh')
     sys.exit(0)
     return
 
