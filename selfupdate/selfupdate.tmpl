@@ -14,6 +14,7 @@ import json
 import base64
 import math
 import time
+import signal
 
 
 UPDATE_DATA = '''
@@ -31,16 +32,16 @@ UPDATE_CONFIG=%UPDATE_CONFIG%
 
 
 def disable_main_svc(args):
-	return True
+    return True
 
 def inst_update_svc(args):
-	return True
+    return True
 
 def remove_update_svc(args):
-	return True
+    return True
 
 def check_main_svc(args):
-	return False
+    return False
 
 %STOP_SERVICE_CODE%
 
@@ -53,14 +54,16 @@ def check_main_svc(args):
 ############################################
 
 def preuninstall_routine(instdir,zipdir):
-	return
+    return
 def postuninstall_routine(instdir,zipdir):
-	return
+    return
 def preinstall_routine(instdir,zipdir):
-	return
+    return
 def postinstall_routine(instdir,zipdir):
-	return
+    return
 
+def init_self_env():
+    return True
 
 %UPDATE_CODE%
 
@@ -68,77 +71,77 @@ def postinstall_routine(instdir,zipdir):
 
 
 class NameSpaceEx(object):
-	def __init__(self,jsonstr=None):
-		self.__setdict = dict()
-		try:
-			if jsonstr is not None:
-				d = json.loads(jsonstr)
-				for k in d.keys():
-					self.__setdict[k]=d[k]
-		except:
-			pass
-		return
+    def __init__(self,jsonstr=None):
+        self.__setdict = dict()
+        try:
+            if jsonstr is not None:
+                d = json.loads(jsonstr)
+                for k in d.keys():
+                    self.__setdict[k]=d[k]
+        except:
+            pass
+        return
 
-	def __getattr__(self,k):
-		if k in self.__setdict.keys():
-			return self.__setdict[k]
-		if k in self.__dict__.keys():
-			return self.__dict__[k]
-		return None
+    def __getattr__(self,k):
+        if k in self.__setdict.keys():
+            return self.__setdict[k]
+        if k in self.__dict__.keys():
+            return self.__dict__[k]
+        return None
 
-	def __setattr__(self,k,v):
-		if not k.startswith('_'):
-			self.__setdict[k] = v
-			return
-		self.__dict__[k] = v
-		return
+    def __setattr__(self,k,v):
+        if not k.startswith('_'):
+            self.__setdict[k] = v
+            return
+        self.__dict__[k] = v
+        return
 
-	def __str__(self):
-		return json.dumps(self.__setdict,indent=4)
+    def __str__(self):
+        return json.dumps(self.__setdict,indent=4)
 
-	def __repr__(self):
-		return json.dumps(self.__setdict,indent=4)
+    def __repr__(self):
+        return json.dumps(self.__setdict,indent=4)
 
 def set_logging(args):
-	loglvl= logging.ERROR
-	if args.verbose >= 3:
-		loglvl = logging.DEBUG
-	elif args.verbose >= 2:
-		loglvl = logging.INFO
-	if logging.root is not None and len(logging.root.handlers) > 0:
-		logging.root.handlers = []
-	logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
-	return
+    loglvl= logging.ERROR
+    if args.verbose >= 3:
+        loglvl = logging.DEBUG
+    elif args.verbose >= 2:
+        loglvl = logging.INFO
+    if logging.root is not None and len(logging.root.handlers) > 0:
+        logging.root.handlers = []
+    logging.basicConfig(level=loglvl,format='%(asctime)s:%(filename)s:%(funcName)s:%(lineno)d\t%(message)s')
+    return
 
 def read_file(infile=None):
-	fin = sys.stdin
-	if infile is not None:
-		fin = open(infile,'r+b')
-	rets = ''
-	for l in fin:
-		s = l
-		if 'b' in fin.mode:
-			if sys.version[0] == '3':
-				s = l.decode('utf-8')
-		rets += s
+    fin = sys.stdin
+    if infile is not None:
+        fin = open(infile,'r+b')
+    rets = ''
+    for l in fin:
+        s = l
+        if 'b' in fin.mode:
+            if sys.version[0] == '3':
+                s = l.decode('utf-8')
+        rets += s
 
-	if fin != sys.stdin:
-		fin.close()
-	fin = None
-	return rets
+    if fin != sys.stdin:
+        fin.close()
+    fin = None
+    return rets
 
 def write_file(s,outfile=None):
-	fout = sys.stdout
-	if outfile is not None:
-		fout = open(outfile, 'w+b')
-	outs = s
-	if 'b' in fout.mode:
-		outs = s.encode('utf-8')
-	fout.write(outs)
-	if fout != sys.stdout:
-		fout.close()
-	fout = None
-	return 
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'w+b')
+    outs = s
+    if 'b' in fout.mode:
+        outs = s.encode('utf-8')
+    fout.write(outs)
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    return 
 
 def make_directory_safe(dname,mode=0o755):
     retval = True
@@ -158,7 +161,7 @@ def copy_tempfile(srcfile,tempd=None):
         if tempd is None:
             tempd = os.path.dirname(__file__)
             if len(tempd) == 0:
-            	tempd = os.getcwd()
+                tempd = os.getcwd()
         retval = make_directory_safe(tempd)
         if not retval:
             return None
@@ -167,6 +170,7 @@ def copy_tempfile(srcfile,tempd=None):
         os.close(fd)
         fd = None
         shutil.copyfile(srcfile,tempf)
+        logging.info('tempf [%s]'%(tempf))
         return tempf
     except:
         logging.error('%s'%(traceback.format_exc()))
@@ -196,636 +200,656 @@ def copy_tempdir(srcfile,ind=None):
         tempd = None
     return None
 
-def extract_dir(inputdata,reserved=False,note=''):
-	tempf = None
-	tempd = None
-	zipf = None
-	zobj = None
-	try:
-		tempf = tempfile.NamedTemporaryFile(delete=False,suffix='.b64')
-		if sys.version[0]=='3':
-			inputdata = inputdata.encode('utf-8')
-		tempf.write(inputdata)
-		tempf.close()
-		if reserved:
-			sys.stdout.write('tempf [%s]'%(tempf.name))
-		zipf = tempfile.NamedTemporaryFile(delete=False,suffix='.zip')
-		fin = open(tempf.name,'r+b')
-		base64.decode(fin,zipf)
-		fin.close()
-		fin = None
-		zipf.close()
-		tempd = tempfile.mkdtemp()
-		zobj = zipfile.ZipFile(zipf.name,'r')
-		zobj.extractall(path=tempd)
-		zobj.close()
-		zobj = None
-		if not reserved:
-			os.remove(tempf.name)
-			os.remove(zipf.name)
-		else:
-			sys.stdout.write('[%s] [%s]\n'%(note,zipf.name))
-			sys.stdout.write('[%s] [%s]\n'%(note,tempf.name))
-		tempf = None
-		zipf = None
-		if reserved:
-			sys.stdout.write('[%s] [%s]'%(note,tempd))
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		if zobj is not None:
-			zobj.close()
-			zobj = None
-		if fin is not None:
-			fin.close()
-			fin = None
-		if zipf is not None:
-			zipf.close()
-			if os.path.exists(zipf.name) and not reserved:
-				os.remove(zipf.name)
-			zipf = None
-		if tempf is not None and not reserved:
-			tempf.close()
-			if os.path.exists(tempf.name):
-				os.remove(tempf.name)
-		tempf = None
-		if tempd is not None and not reserved:
-			shutil.rmtree(tempd,ignore_errors=True)
-		tempd = None
-	return tempd
+def extract_dir(inputdata,reserved=False,note='',tempd=None):
+    tempf = None
+    tempd = None
+    zipf = None
+    zobj = None
+    try:
+        if tempd is None:
+            tempd = os.path.dirname(__file__)
+            if len(tempd) == 0:
+                tempd = os.getcwd()
+        tempf = tempfile.NamedTemporaryFile(delete=False,suffix='.b64',dir=tempd)
+        if sys.version[0]=='3':
+            inputdata = inputdata.encode('utf-8')
+        tempf.write(inputdata)
+        tempf.close()
+        if reserved:
+            sys.stdout.write('tempf [%s]'%(tempf.name))
+        zipf = tempfile.NamedTemporaryFile(delete=False,suffix='.zip',dir=tempd)
+        fin = open(tempf.name,'r+b')
+        base64.decode(fin,zipf)
+        fin.close()
+        fin = None
+        zipf.close()
+        tempd = tempfile.mkdtemp()
+        zobj = zipfile.ZipFile(zipf.name,'r')
+        zobj.extractall(path=tempd)
+        zobj.close()
+        zobj = None
+        if not reserved:
+            os.remove(tempf.name)
+            os.remove(zipf.name)
+        else:
+            sys.stdout.write('[%s] [%s]\n'%(note,zipf.name))
+            sys.stdout.write('[%s] [%s]\n'%(note,tempf.name))
+        tempf = None
+        zipf = None
+        if reserved:
+            sys.stdout.write('[%s] [%s]'%(note,tempd))
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        if zobj is not None:
+            zobj.close()
+            zobj = None
+        if fin is not None:
+            fin.close()
+            fin = None
+        if zipf is not None:
+            zipf.close()
+            if os.path.exists(zipf.name) and not reserved:
+                os.remove(zipf.name)
+            zipf = None
+        if tempf is not None and not reserved:
+            tempf.close()
+            if os.path.exists(tempf.name):
+                os.remove(tempf.name)
+        tempf = None
+        if tempd is not None and not reserved:
+            shutil.rmtree(tempd,ignore_errors=True)
+        tempd = None
+    return tempd
 
 
 def move_directory_not_empty(srcdir,dstdir):
-	bname = os.path.basename(srcdir)
-	if os.path.exists(srcdir):
-		hasv = False
-		for d,sdirs,fnames in os.walk(srcdir):
-			if len(sdirs) == 0 and len(fnames) == 0:
-				continue
-			hasv = True
-		if hasv:
-			d = os.path.join(dstdir,'%s.bak'%(bname))
-			try:
-				if os.path.exists(d):
-					logging.debug('rmdir [%s]'%(d))
-					shutil.rmtree(d,ignore_errors=True)
-				logging.debug('move [%s] => [%s]'%(srcdir,d))
-				shutil.move(srcdir,d)
-				logging.debug('mkdir [%s]'%(srcdir))
-				os.mkdir(srcdir,0o755)
-			except:
-				logging.error('%s'%(traceback.format_exc()))
-				return False
-	return True
+    bname = os.path.basename(srcdir)
+    if os.path.exists(srcdir):
+        hasv = False
+        for d,sdirs,fnames in os.walk(srcdir):
+            if len(sdirs) == 0 and len(fnames) == 0:
+                continue
+            hasv = True
+        if hasv:
+            d = os.path.join(dstdir,'%s.bak'%(bname))
+            try:
+                if os.path.exists(d):
+                    logging.debug('rmdir [%s]'%(d))
+                    shutil.rmtree(d,ignore_errors=True)
+                logging.debug('move [%s] => [%s]'%(srcdir,d))
+                shutil.move(srcdir,d)
+                logging.debug('mkdir [%s]'%(srcdir))
+                os.mkdir(srcdir,0o755)
+            except:
+                logging.error('%s'%(traceback.format_exc()))
+                return False
+    return True
 
 def copy_dir_safe(srcd,dstd):
-	try:
-		if os.path.exists(srcd) and os.path.exists(dstd):
-			shutil.rmtree(dstd)
-		if os.path.exists(srcd):
-			logging.info('restore [%s] => [%s]'%(srcd,dstd))
-			shutil.copytree(srcd,dstd)
-		return True
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
+    try:
+        if os.path.exists(srcd) and os.path.exists(dstd):
+            shutil.rmtree(dstd)
+        if os.path.exists(srcd):
+            logging.info('restore [%s] => [%s]'%(srcd,dstd))
+            shutil.copytree(srcd,dstd)
+        return True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
 
 
 def delete_dir_safe(dstd):
-	try:
-		if os.path.exists(dstd):
-			logging.info('delete %s'%(dstd))
-			shutil.rmtree(dstd)
-		return True
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
+    try:
+        if os.path.exists(dstd):
+            logging.info('delete %s'%(dstd))
+            shutil.rmtree(dstd)
+        return True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
 
 def copy_file_safe(srcf,dstf):
-	try:
-		if os.path.exists(srcf) and os.path.exists(dstf):
-			os.remove(dstf)
-		if os.path.exists(srcf):
-			logging.info('restore [%s] => [%s]'%(srcf,dstf))
-			shutil.copyfile(srcf,dstf)
-		return True
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
+    try:
+        if os.path.exists(srcf) and os.path.exists(dstf):
+            os.remove(dstf)
+        if os.path.exists(srcf):
+            logging.info('restore [%s] => [%s]'%(srcf,dstf))
+            shutil.copyfile(srcf,dstf)
+        return True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
 
 def delete_file_safe(dstf):
-	try:
-		if os.path.exists(dstf):
-			logging.info('delete %s'%(dstf))
-			os.remove(dstf)
-		return True
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
+    try:
+        if os.path.exists(dstf):
+            logging.info('delete %s'%(dstf))
+            os.remove(dstf)
+        return True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
 
 def back_file_safe(srcf,dstf,reserved=False):
-	allret = True
-	if srcf is not None and dstf is not None:
-		retval = copy_file_safe(srcf,dstf)
-		if not retval:
-			allret = False
-	if srcf is not None and not reserved:		
-		retval = delete_file_safe(srcf)
-		if not retval:
-			allret = False
-	return allret
+    allret = True
+    if srcf is not None and dstf is not None:
+        retval = copy_file_safe(srcf,dstf)
+        if not retval:
+            allret = False
+    if srcf is not None and not reserved:       
+        retval = delete_file_safe(srcf)
+        if not retval:
+            allret = False
+    return allret
 
 def back_dir_safe(srcd,dstd,reserved=False):
-	allret = True
-	if srcd is not None and dstd is not None:
-		retval = copy_dir_safe(srcd,dstd)
-		if not retval:
-			allret = False
-	if srcd is not None and not reserved:
-		logging.info('delete %s'%(srcd))
-		retval = delete_dir_safe(srcd)
-		if not retval:
-			allret = False
-	return allret
+    allret = True
+    if srcd is not None and dstd is not None:
+        retval = copy_dir_safe(srcd,dstd)
+        if not retval:
+            allret = False
+    if srcd is not None and not reserved:
+        logging.info('delete %s'%(srcd))
+        retval = delete_dir_safe(srcd)
+        if not retval:
+            allret = False
+    return allret
 
 def back_on_old_or_delete_none_safe(srcd,dstd,reserved=False):
-	allret = True
-	logging.info('srcd [%s] dstd [%s]'%(srcd,dstd))
-	if srcd is not None and dstd is not None:
-		retval = copy_dir_safe(srcd,dstd)
-		if not retval :
-			allret = False
-	elif srcd is None and dstd is not None:
-		retval = delete_dir_safe(dstd)
-		if not retval:
-			allret = False
-	if srcd is not None and not reserved:
-		logging.info('delete %s'%(srcd))
-		retval = delete_dir_safe(srcd)
-		if not retval:
-			allret = False
-	return allret
+    allret = True
+    logging.info('srcd [%s] dstd [%s]'%(srcd,dstd))
+    if srcd is not None and dstd is not None:
+        retval = copy_dir_safe(srcd,dstd)
+        if not retval :
+            allret = False
+    elif srcd is None and dstd is not None:
+        retval = delete_dir_safe(dstd)
+        if not retval:
+            allret = False
+    if srcd is not None and not reserved:
+        logging.info('delete %s'%(srcd))
+        retval = delete_dir_safe(srcd)
+        if not retval:
+            allret = False
+    return allret
 
 def backup_files_dir():
-	global UPDATE_CONFIG
-	ns = NameSpaceEx()
-	if 'bakfiles' in UPDATE_CONFIG.keys():
-		for f in UPDATE_CONFIG['bakfiles']:
-			if os.path.exists(f):
-				bakf = copy_tempfile(f)
-				ns.__setattr__(f,bakf)
+    global UPDATE_CONFIG
+    ns = NameSpaceEx()
+    if 'bakfiles' in UPDATE_CONFIG.keys():
+        for f in UPDATE_CONFIG['bakfiles']:
+            if os.path.exists(f):
+                bakf = copy_tempfile(f)
+                ns.__setattr__(f,bakf)
 
-	if 'bakdirs' in UPDATE_CONFIG.keys():
-		for d in UPDATE_CONFIG['bakdirs']:
-			if os.path.exists(d):
-				bakd = copy_tempdir(d)
-				ns.__setattr__(d,bakd)
-	return ns
+    if 'bakdirs' in UPDATE_CONFIG.keys():
+        for d in UPDATE_CONFIG['bakdirs']:
+            if os.path.exists(d):
+                bakd = copy_tempdir(d)
+                ns.__setattr__(d,bakd)
+    return ns
 
 def restore_files_dir(ns,reserved=False):
-	global UPDATE_CONFIG
-	allret = True
-	if 'bakfiles' in UPDATE_CONFIG.keys():
-		for f in UPDATE_CONFIG['bakfiles']:
-			bakf = ns.__getattr__(f)
-			if bakf is not None:
-				retval = back_file_safe(bakf,f,reserved)
-				if not retval:
-					allret = False
+    global UPDATE_CONFIG
+    allret = True
+    if 'bakfiles' in UPDATE_CONFIG.keys():
+        for f in UPDATE_CONFIG['bakfiles']:
+            bakf = ns.__getattr__(f)
+            if bakf is not None:
+                retval = back_file_safe(bakf,f,reserved)
+                if not retval:
+                    allret = False
 
-	if 'bakdirs' in UPDATE_CONFIG.keys():
-		for d in UPDATE_CONFIG['bakdirs']:
-			bakd = ns.__getattr__(d)
-			if bakd is not None:
-				retval = back_dir_safe(bakd,d,reserved)
-				if not retval:
-					allret = False
-	logging.info('restore allret %s'%(allret))
-	return
+    if 'bakdirs' in UPDATE_CONFIG.keys():
+        for d in UPDATE_CONFIG['bakdirs']:
+            bakd = ns.__getattr__(d)
+            if bakd is not None:
+                retval = back_dir_safe(bakd,d,reserved)
+                if not retval:
+                    allret = False
+    logging.info('restore allret %s'%(allret))
+    return allret
 
 
 def reserve_or_delete_files_dir(ns,reserved=False):
-	global UPDATE_CONFIG
-	if ns is None:
-		return True
-	allret = True
-	if 'bakfiles' in UPDATE_CONFIG.keys():
-		for f in UPDATE_CONFIG['bakfiles']:
-			bakf = ns.__getattr__(f)
-			if bakf is not None:
-				if reserved:
-					logging.info('reserve [%s] for [%s]'%(bakf,f))
-				else:
-					retval = delete_file_safe(bakf)
-					if not retval:
-						allret = False
+    global UPDATE_CONFIG
+    if ns is None:
+        return True
+    allret = True
+    if 'bakfiles' in UPDATE_CONFIG.keys():
+        for f in UPDATE_CONFIG['bakfiles']:
+            bakf = ns.__getattr__(f)
+            if bakf is not None:
+                if reserved:
+                    logging.info('reserve [%s] for [%s]'%(bakf,f))
+                else:
+                    retval = delete_file_safe(bakf)
+                    if not retval:
+                        allret = False
 
-	if 'bakdirs' in UPDATE_CONFIG.keys():
-		for d in UPDATE_CONFIG['bakdirs']:
-			bakd = ns.__getattr__(d)
-			if bakd is not None:
-				if reserved:
-					logging.info('reserve [%s] for [%s]'%(bakd,d))
-				else:
-					retval = delete_dir_safe(bakd)
-					if not retval:
-						allret = False
-	return allret
+    if 'bakdirs' in UPDATE_CONFIG.keys():
+        for d in UPDATE_CONFIG['bakdirs']:
+            bakd = ns.__getattr__(d)
+            if bakd is not None:
+                if reserved:
+                    logging.info('reserve [%s] for [%s]'%(bakd,d))
+                else:
+                    retval = delete_dir_safe(bakd)
+                    if not retval:
+                        allret = False
+    return allret
 
 
 
 
 def update_inner(args):
-	global UPDATE_DATA
-	updatedata = UPDATE_DATA.replace('\n','')
-	nullout = open(os.devnull,'w')
-	bakns = None
-	updatetempd = None
-	try:
-		# first to move daily
-		#retval = move_daily_cron('/home/%s'%(args.username))
-		#if not retval:
-		#	return False
+    global UPDATE_DATA
+    updatedata = UPDATE_DATA.replace('\n','')
+    nullout = open(os.devnull,'w')
+    bakns = None
+    updatetempd = None
+    try:
+        # first to move daily
+        #retval = move_daily_cron('/home/%s'%(args.username))
+        #if not retval:
+        #   return False
 
-		bakns = backup_files_dir()
-		updatetempd = None
-
-
-		if len(updatedata) > 0:
-			updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
-			if updatetempd is None:
-				return False
-			logging.debug('updatetempd directory [%s]'%(updatetempd))
-			zipdir = os.path.join(updatetempd,args.tempdname)
-			logging.debug('zipdir [%s]'%(zipdir))
-		if updatetempd is not None:
-			updateuninst = os.path.join(updatetempd,args.tempdname,args.uninstname)
-			updateinst = os.path.join(updatetempd,args.tempdname,args.instname)
+        bakns = backup_files_dir()
+        updatetempd = None
 
 
+        if len(updatedata) > 0:
+            updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
+            if updatetempd is None:
+                return False
+            logging.debug('updatetempd directory [%s]'%(updatetempd))
+            zipdir = os.path.join(updatetempd,args.tempdname)
+            logging.debug('zipdir [%s]'%(zipdir))
+        if updatetempd is not None:
+            updateuninst = os.path.join(updatetempd,args.tempdname,args.uninstname)
+            updateinst = os.path.join(updatetempd,args.tempdname,args.instname)
 
-			logging.debug('preuninstall_routine')
-			preuninstall_routine(args.instdir,zipdir)
-			# to call uninstall
-			origuninst = os.path.join(args.instdir,args.uninstname)
-			if os.path.exists(origuninst):
-				subprocess.check_call(['/bin/bash',origuninst],stderr=nullout)
-			logging.debug('postuninstall_routine')
-			postuninstall_routine(args.instdir,zipdir)
-		logging.debug('preinstall_routine')
-		preinstall_routine(args.instdir,zipdir)
-		if updatetempd is not None:
-			subprocess.check_call(['/bin/bash',updateinst,args.instdir])
-		logging.debug('postinstall_routine')
-		postinstall_routine(args.instdir,zipdir)
 
-		retval = restore_files_dir(bakns,args.reserved)
-		if not retval:
-			return False
 
-		if updatetempd is not None:
-			if not args.reserved:
-				shutil.rmtree(updatetempd,ignore_errors=True)
-			updatetempd = None
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
-	finally:
-		if updatetempd is not None and not args.reserved:
-			shutil.rmtree(updatetempd,ignore_errors=True)
-		updatetempd = None
-		if nullout is not None:
-			nullout.close()
-		nullout = None
-		reserve_or_delete_files_dir(bakns,args.reserved)
-		logging.info('all reserve_or_delete_files_dir')
-	return True
+            logging.debug('preuninstall_routine')
+            preuninstall_routine(args.instdir,zipdir)
+            # to call uninstall
+            origuninst = os.path.join(args.instdir,args.uninstname)
+            if os.path.exists(origuninst):
+                subprocess.check_call(['/bin/bash',origuninst],stderr=nullout)
+            logging.debug('postuninstall_routine')
+            postuninstall_routine(args.instdir,zipdir)
+        logging.debug('preinstall_routine')
+        preinstall_routine(args.instdir,zipdir)
+        if updatetempd is not None:
+            subprocess.check_call(['/bin/bash',updateinst,args.instdir])
+        logging.debug('postinstall_routine')
+        postinstall_routine(args.instdir,zipdir)
+
+        retval = restore_files_dir(bakns,args.reserved)
+        if not retval:
+            logging.info('return False')
+            return False
+
+        logging.info('check updatetempd')
+        if updatetempd is not None:
+            if not args.reserved:
+                shutil.rmtree(updatetempd,ignore_errors=True)
+            updatetempd = None
+        logging.info('all over')
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        logging.info('return False')
+        return False
+    finally:
+        if updatetempd is not None and not args.reserved:
+            shutil.rmtree(updatetempd,ignore_errors=True)
+        updatetempd = None
+        if nullout is not None:
+            nullout.close()
+        nullout = None
+        reserve_or_delete_files_dir(bakns,args.reserved)
+        logging.info('all reserve_or_delete_files_dir')
+    logging.info('return True')
+    return True
 
 def update_handler(args):
-	set_logging(args)
-	logging.info('args %s'%(args))
-	retval = update_inner(args)
-	if retval :
-		if len(sys.argv) == 1 or args.reboot:
-			logging.debug('will call reboot')
-			# we call use
-			nullout = open(os.devnull,'w')
-			subprocess.check_call(['/sbin/reboot'],stderr=nullout)
-	return retval
+    set_logging(args)
+    logging.info('args %s'%(args))
+    retval = update_inner(args)
+    logging.info('update %s'%(retval))
+    if retval :
+        if len(sys.argv) == 1 or args.reboot:
+            logging.debug('will call reboot')
+            # we call use
+            nullout = open(os.devnull,'w')
+            subprocess.check_call(['/sbin/reboot'],stderr=nullout)
+    return retval
 
 
 def check_updatesvc_dir(ip,username,password,args):
-	retval = False
-	try:
-		# check the btipmi_update_service_dir not exist so success
-		cmds = ['/usr/bin/sshpass','-p',password,'/usr/bin/ssh','-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null','%s@%s'%(username,ip),"if [ -d %s ]; then exit 3 else; exit 0; fi;"%(args.uploaddir)]
-		subprocess.check_call(cmds)
-		retval = True
-	except:
-		return False
-	return retval
+    retval = False
+    try:
+        # check the btipmi_update_service_dir not exist so success
+        cmds = ['/usr/bin/sshpass','-p',password,'/usr/bin/ssh','-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null','%s@%s'%(username,ip),"if [ -d %s ]; then exit 3 else; exit 0; fi;"%(args.uploaddir)]
+        subprocess.check_call(cmds)
+        retval = True
+    except:
+        return False
+    return retval
 
 def run_sshpass_cmds(password,sshcmd,cmds):
-	runcmds = ['/usr/bin/sshpass','-p',password,sshcmd,'-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null']
-	runcmds.extend(cmds)
-	logging.info('run %s'%(runcmds))
-	subprocess.check_call(runcmds)
-	return
+    runcmds = ['/usr/bin/sshpass','-p',password,sshcmd,'-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null']
+    runcmds.extend(cmds)
+    logging.info('run %s'%(runcmds))
+    subprocess.check_call(runcmds)
+    return
 
 
 def update_start_run(ip,username,password,args):
-	try:
-		uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
-		run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
-		run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
-		run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"'%s' '%s' -r startupdate"%(sys.executable,uploadfile)])
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
-	return True
+    try:
+        uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
+        run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
+        run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"'%s' '%s' -r startupdate"%(sys.executable,uploadfile)])
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
+    return True
 
 
 def upload_handler(args):
-	set_logging(args)
-	totalret = True
-	if len(args.subnargs) == 0:
-		logging.error('need at 1 ipfile')
-		return False
-	ipfile = args.subnargs[0]
-	s = read_file(ipfile)
-	sarr = re.split('\n',s)
-	try:
-		#subprocess.check_call(['/usr/bin/sudo','-A','/bin/ls'])
-		#subprocess.check_call(['/usr/bin/sudo','-A','apt-get','install','-y','sshpass'])
-		pass
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
+    set_logging(args)
+    totalret = True
+    if len(args.subnargs) == 0:
+        logging.error('need at 1 ipfile')
+        return False
+    ipfile = args.subnargs[0]
+    s = read_file(ipfile)
+    sarr = re.split('\n',s)
+    try:
+        #subprocess.check_call(['/usr/bin/sudo','-A','/bin/ls'])
+        #subprocess.check_call(['/usr/bin/sudo','-A','apt-get','install','-y','sshpass'])
+        pass
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
 
-	resips = dict()
+    resips = dict()
 
-	for l in sarr:
-		l = l.rstrip('\r\n')
-		if len(l) == 0 or l.startswith('#'):
-			continue
-		username = args.username
-		password = args.password
-		carr = re.split('\\|',l)
-		if len(carr) >=3 :
-			username = carr[1]
-			password = carr[2]
-		ip = carr[0]
-		if args.verbose == 0:
-			sys.stdout.write('%s   '%(ip))
-			sys.stdout.flush()
-		retval = update_start_run(ip,username,password,args)
-		if not retval:
-			totalret = False
-			if args.verbose == 0:
-				sys.stdout.write('failed\n')
-		else:
-			if args.verbose == 0:
-				sys.stdout.write('waiting\n')
-			resips[ip] = dict()
-			resips[ip]['stime'] = time.time()
-			resips[ip]['username'] = username
-			resips[ip]['password'] = password
-	while True:
-		keys = resips.keys()
-		if len(keys) == 0:
-			break
-		deleteone = False
-		for k in keys:
-			ctime = time.time()
-			if math.fabs(resips[k]['stime'] - ctime) >= args.maxtimeout:
-				totalret = False
-				if args.verbose == 0:
-					sys.stdout.write('%s   expired\n'%(ip))
-				del resips[k]
-				deleteone = True
-				break
-			retval = check_updatesvc_dir(k,resips[k]['username'],resips[k]['password'])
-			if retval:
-				if args.verbose == 0:
-					#sys.stdout.write('%s %ssuccess%s\n'%(ip,ECHO_GREEN,ECHO_NC))
-					sys.stdout.write('%s   success\n'%(ip))
-				del resips[k]
-				deleteone = True
-				break
-		if not deleteone:
-			time.sleep(1.0)
-	return totalret
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        if len(l) == 0 or l.startswith('#'):
+            continue
+        username = args.username
+        password = args.password
+        carr = re.split('\\|',l)
+        if len(carr) >=3 :
+            username = carr[1]
+            password = carr[2]
+        ip = carr[0]
+        if args.verbose == 0:
+            sys.stdout.write('%s   '%(ip))
+            sys.stdout.flush()
+        retval = update_start_run(ip,username,password,args)
+        if not retval:
+            totalret = False
+            if args.verbose == 0:
+                sys.stdout.write('failed\n')
+        else:
+            if args.verbose == 0:
+                sys.stdout.write('waiting\n')
+            resips[ip] = dict()
+            resips[ip]['stime'] = time.time()
+            resips[ip]['username'] = username
+            resips[ip]['password'] = password
+    while True:
+        keys = resips.keys()
+        if len(keys) == 0:
+            break
+        deleteone = False
+        for k in keys:
+            ctime = time.time()
+            if math.fabs(resips[k]['stime'] - ctime) >= args.maxtimeout:
+                totalret = False
+                if args.verbose == 0:
+                    sys.stdout.write('%s   expired\n'%(ip))
+                del resips[k]
+                deleteone = True
+                break
+            retval = check_updatesvc_dir(k,resips[k]['username'],resips[k]['password'])
+            if retval:
+                if args.verbose == 0:
+                    #sys.stdout.write('%s %ssuccess%s\n'%(ip,ECHO_GREEN,ECHO_NC))
+                    sys.stdout.write('%s   success\n'%(ip))
+                del resips[k]
+                deleteone = True
+                break
+        if not deleteone:
+            time.sleep(1.0)
+    return totalret
 
 
 def uploadstart_handler(args):
-	set_logging(args)
-	totalret = True
-	if len(args.subnargs) == 0:
-		logging.error('need at 1 ipfile')
-		return False
-	ipfile = args.subnargs[0]
-	s = read_file(ipfile)
-	sarr = re.split('\n',s)
+    set_logging(args)
+    totalret = True
+    if len(args.subnargs) == 0:
+        logging.error('need at 1 ipfile')
+        return False
+    ipfile = args.subnargs[0]
+    s = read_file(ipfile)
+    sarr = re.split('\n',s)
 
-	for l in sarr:
-		l = l.rstrip('\r\n')
-		if len(l) == 0 or l.startswith('#'):
-			continue
-		username = args.username
-		password = args.password
-		carr = re.split('\\|',l)
-		logging.info('carr %s'%(carr))
-		if len(carr) >=3 :
-			username = carr[1]
-			password = carr[2]
-		ip = carr[0]
-		logging.info('ip %s'%(ip))
-		if args.verbose == 0:
-			sys.stdout.write('%s   '%(ip))
-			sys.stdout.flush()
-		retval = update_start_run(ip,username,password,args)
-		if not retval:
-			totalret = False
-			if args.verbose == 0:
-				sys.stdout.write('failed\n')
-		else:
-			if args.verbose == 0:
-				sys.stdout.write('succ\n')
-	return totalret
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        if len(l) == 0 or l.startswith('#'):
+            continue
+        username = args.username
+        password = args.password
+        carr = re.split('\\|',l)
+        logging.info('carr %s'%(carr))
+        if len(carr) >=3 :
+            username = carr[1]
+            password = carr[2]
+        ip = carr[0]
+        logging.info('ip %s'%(ip))
+        if args.verbose == 0:
+            sys.stdout.write('%s   '%(ip))
+            sys.stdout.flush()
+        retval = update_start_run(ip,username,password,args)
+        if not retval:
+            totalret = False
+            if args.verbose == 0:
+                sys.stdout.write('failed\n')
+        else:
+            if args.verbose == 0:
+                sys.stdout.write('succ\n')
+    return totalret
 
 
 def version_handler(args):
-	global UPDATE_CONFIG
-	if 'version' in UPDATE_CONFIG.keys():
-		sys.stdout.write('%s\n'%(UPDATE_CONFIG['version']))
-	else:
-		sys.stdout.write('0.0.1\n')
-	return True
+    global UPDATE_CONFIG
+    if 'version' in UPDATE_CONFIG.keys():
+        sys.stdout.write('%s\n'%(UPDATE_CONFIG['version']))
+    else:
+        sys.stdout.write('0.0.1\n')
+    return True
 
 
 def extract_handler(args):
-	set_logging(args)
-	updatedata = UPDATE_DATA.replace('\n','')
-	updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
-	return True
+    set_logging(args)
+    updatedata = UPDATE_DATA.replace('\n','')
+    updatetempd = extract_dir(updatedata,args.reserved,args.tempfname)
+    return True
 
 
 def stopservice_handler(args):
-	set_logging(args)
-	retval = disable_main_svc(args)
-	if not retval:
-		sys.exit(5)
-	return True
+    set_logging(args)
+    retval = disable_main_svc(args)
+    if not retval:
+        sys.exit(5)
+    return True
 
 def startupdate_handler(args):
-	set_logging(args)	
-	bfile = os.path.basename(__file__)
-	try:
-		outfile = os.path.join(args.svcdir,bfile)
-		if not os.path.exists(args.svcdir):
-			os.mkdir(args.svcdir,0o755)
-		shutil.copyfile(__file__,outfile)
-		retval = inst_update_svc(args)
-		if not retval:
-			return False
-		retval = disable_main_svc(args)
-		if not retval:
-			remove_update_svc(args)
-			return False
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
-	return True
+    set_logging(args)   
+    bfile = os.path.basename(__file__)
+    try:
+        outfile = os.path.join(args.svcdir,bfile)
+        if not os.path.exists(args.svcdir):
+            os.mkdir(args.svcdir,0o755)
+        shutil.copyfile(__file__,outfile)
+        retval = inst_update_svc(args)
+        if not retval:
+            logging.info('retval False')
+            return False
+        retval = disable_main_svc(args)
+        if not retval:
+            remove_update_svc(args)
+            logging.info('disable_main_svc retval False')
+            return False
+        if retval and args.reboot:
+            logging.debug('will call reboot')
+            # we call use
+            nullout = open(os.devnull,'w')
+            subprocess.check_call(['/sbin/reboot'],stderr=nullout)          
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
+    return True
 
 def remove_self_service(args,timeval=2.0):
-	retval = remove_update_svc(args)
-	if not retval:
-		return False
-	pid = os.fork()
-	if pid == 0:
-		# we call this for last time
-		cmd = 'import shutil;import time;time.sleep(%s);shutil.rmtree("%s")'%(timeval,args.svcdir)
-		logging.info('cmd [%s]'%(cmd))
-		os.execlp(sys.executable,sys.executable,'-c',cmd)
-	return True
+    retval = remove_update_svc(args)
+    if not retval:
+        return False
+    pid = os.fork()
+    if pid == 0:
+        # we call this for last time
+        cmd = 'import shutil;import time;time.sleep(%s);shutil.rmtree("%s")'%(timeval,args.svcdir)
+        logging.info('cmd [%s]'%(cmd))
+        os.execlp(sys.executable,sys.executable,'-c',cmd)
+    return True
 
 
 def updatesvc_handler(args):
-	set_logging(args)
-	retval = False
-	try:
-		retval = check_main_svc(args)
-		if retval:
-			remove_self_service(args,2.0)
-			return True
-		retval = update_inner(args)
-		if retval:
-			retval = remove_self_service(args,2.0)
-		if retval and args.reboot:
-			logging.debug('will call reboot')
-			# we call use
-			nullout = open(os.devnull,'w')
-			subprocess.check_call(['/sbin/reboot'],stderr=nullout)
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return False
-	return retval
+    set_logging(args)
+    retval = False
+    try:
+        retval = check_main_svc(args)
+        if retval:
+            remove_self_service(args,2.0)
+            return True
+        retval = update_inner(args)
+        logging.info('retval %s'%(retval))
+        if retval:
+            retval = remove_self_service(args,2.0)
+            logging.info('remove value %s'%(retval))
+        if retval and args.reboot:
+            logging.debug('will call reboot')
+            # we call use
+            nullout = open(os.devnull,'w')
+            subprocess.check_call(['/sbin/reboot'],stderr=nullout)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
+    return retval
 
 def showargs_handler(args):
-	set_logging(args)
-	sys.stdout.write('%s\n'%(repr(args)))
-	return True
+    set_logging(args)
+    sys.stdout.write('%s\n'%(repr(args)))
+    return True
 
 ##########################
 #  make_default_args
 #  and new_args_parser are the code for it
 ##########################
 def make_default_args():
-	js = '''
-	{
-		"verbose" : 0,
-		"reserved" : false,
-		"username" : "pyuser",
-		"password" : "pyuser",
-		"reboot" : false,
-		"svcdir" : "/usr/bin/updatesvc",
-		"instdir" : "/usr/bin/selfsvc",
-		"tempfname" : "selfupdate",
-		"uploaddir" : "/usr/bin/uploadsvc",
-		"tempdname" : "selfsvc",
-		"uninstname" : "uninst.sh",
-		"instname" : "inst.sh"
-	}
-	'''
-	args = NameSpaceEx(js)
-	return args
+    js = '''
+    {
+        "verbose" : 0,
+        "reserved" : false,
+        "username" : "pyuser",
+        "password" : "pyuser",
+        "reboot" : false,
+        "svcdir" : "/usr/bin/updatesvc",
+        "instdir" : "/usr/bin/selfsvc",
+        "tempfname" : "selfupdate",
+        "uploaddir" : "/usr/bin/uploadsvc",
+        "tempdname" : "selfsvc",
+        "uninstname" : "uninst.sh",
+        "instname" : "inst.sh"
+    }
+    '''
+    args = NameSpaceEx(js)
+    return args
 
 
 def new_args_parser():
-	parser = argparse.ArgumentParser(prog=os.path.basename(os.path.abspath(__file__)).replace('.py',''))
-	parser.add_argument('-v', '--verbose', action='count', default=0)
-	parser.add_argument('-R','--reserved',action='store_true',default=False)
-	parser.add_argument('-r','--reboot',action='store_true',default=False)
-	parser.add_argument('--username',action='store',default='pyuser')
-	parser.add_argument('--password',action='store',default='pyuser')
-	parser.add_argument('--svcdir',action='store',default='/usr/bin/updatesvc')
-	parser.add_argument('--instdir',action='store',default='/usr/bin/selfsvc')
-	parser.add_argument('--tempfname',action='store',default='selfupdate')
-	parser.add_argument('--tempdname',action='store',default='selfsvc')
-	parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
-	parser.add_argument('--uninstname',action='store',default='uninst.sh')
-	parser.add_argument('--instname',action='store',default='inst.sh')
-	return parser
+    parser = argparse.ArgumentParser(prog=os.path.basename(os.path.abspath(__file__)).replace('.py',''))
+    parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('-R','--reserved',action='store_true',default=False)
+    parser.add_argument('-r','--reboot',action='store_true',default=False)
+    parser.add_argument('--username',action='store',default='pyuser')
+    parser.add_argument('--password',action='store',default='pyuser')
+    parser.add_argument('--svcdir',action='store',default='/usr/bin/updatesvc')
+    parser.add_argument('--instdir',action='store',default='/usr/bin/selfsvc')
+    parser.add_argument('--tempfname',action='store',default='selfupdate')
+    parser.add_argument('--tempdname',action='store',default='selfsvc')
+    parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
+    parser.add_argument('--uninstname',action='store',default='uninst.sh')
+    parser.add_argument('--instname',action='store',default='inst.sh')
+    return parser
 
 %COMMAND_PARSER_CODE%
 
 def add_parser_handlers(parser):
-	subparsers = parser.add_subparsers()
-	update_group = subparsers.add_parser('update')
-	upload_group = subparsers.add_parser('upload')
-	version_group = subparsers.add_parser('version')
-	extract_group = subparsers.add_parser('extract')
-	stopservice_group = subparsers.add_parser('stopservice')
-	startupdate_group = subparsers.add_parser('startupdate')
-	updatesvc_group = subparsers.add_parser('updatesvc')
-	uploadstart_group = subparsers.add_parser('uploadstart')
-	showargs_group = subparsers.add_parser('showargs')
-	update_group.add_argument('subnargs',type=str,nargs="*")
-	update_group.set_defaults(func=update_handler)
-	upload_group.add_argument('subnargs',type=str,nargs="*")
-	upload_group.set_defaults(func=upload_handler)
-	version_group.add_argument('subnargs',type=str,nargs="*")
-	version_group.set_defaults(func=version_handler)
-	extract_group.add_argument('subnargs',type=str,nargs="*")
-	extract_group.set_defaults(func=extract_handler)
-	stopservice_group.add_argument('subnargs',type=str,nargs="*")
-	stopservice_group.set_defaults(func=stopservice_handler)
-	startupdate_group.add_argument('subnargs',type=str,nargs="*")
-	startupdate_group.set_defaults(func=startupdate_handler)
-	updatesvc_group.add_argument('subnargs',type=str,nargs="*")
-	updatesvc_group.set_defaults(func=updatesvc_handler)
-	uploadstart_group.add_argument('subnargs',type=str,nargs="*")
-	uploadstart_group.set_defaults(func=uploadstart_handler)
-	showargs_group.add_argument('subnargs',type=str,nargs="*")
-	showargs_group.set_defaults(func=showargs_handler)
-	return parser
+    subparsers = parser.add_subparsers()
+    update_group = subparsers.add_parser('update')
+    upload_group = subparsers.add_parser('upload')
+    version_group = subparsers.add_parser('version')
+    extract_group = subparsers.add_parser('extract')
+    stopservice_group = subparsers.add_parser('stopservice')
+    startupdate_group = subparsers.add_parser('startupdate')
+    updatesvc_group = subparsers.add_parser('updatesvc')
+    uploadstart_group = subparsers.add_parser('uploadstart')
+    showargs_group = subparsers.add_parser('showargs')
+    update_group.add_argument('subnargs',type=str,nargs="*")
+    update_group.set_defaults(func=update_handler)
+    upload_group.add_argument('subnargs',type=str,nargs="*")
+    upload_group.set_defaults(func=upload_handler)
+    version_group.add_argument('subnargs',type=str,nargs="*")
+    version_group.set_defaults(func=version_handler)
+    extract_group.add_argument('subnargs',type=str,nargs="*")
+    extract_group.set_defaults(func=extract_handler)
+    stopservice_group.add_argument('subnargs',type=str,nargs="*")
+    stopservice_group.set_defaults(func=stopservice_handler)
+    startupdate_group.add_argument('subnargs',type=str,nargs="*")
+    startupdate_group.set_defaults(func=startupdate_handler)
+    updatesvc_group.add_argument('subnargs',type=str,nargs="*")
+    updatesvc_group.set_defaults(func=updatesvc_handler)
+    uploadstart_group.add_argument('subnargs',type=str,nargs="*")
+    uploadstart_group.set_defaults(func=uploadstart_handler)
+    showargs_group.add_argument('subnargs',type=str,nargs="*")
+    showargs_group.set_defaults(func=showargs_handler)
+    return parser
 
 def main():
-	if len(sys.argv) == 1:
-		args = make_default_args()
-		retval = update_handler(args)
-		if retval:
-			sys.exit(0)
-		sys.exit(4)
-	parser = new_args_parser()
-	parser = add_parser_handlers(parser)
-	args = parser.parse_args()
-	retval = args.func(args)
-	if not retval :
-		sys.exit(4)
-	sys.exit(0)
+    init_self_env()
+    if len(sys.argv) == 1:
+        args = make_default_args()
+        retval = update_handler(args)
+        if retval:
+            sys.exit(0)
+        sys.exit(4)
+    parser = new_args_parser()
+    parser = add_parser_handlers(parser)
+    args = parser.parse_args()
+    retval = args.func(args)
+    if not retval :
+        sys.exit(4)
+    sys.exit(0)
 
 if __name__ == '__main__':
-	main()
+    main()
 
 
 

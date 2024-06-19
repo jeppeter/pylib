@@ -3,16 +3,15 @@
 def disable_main_svc(args):
 	retval = False
 	try:
-		cmds = ['systemctl','disable','selfsvc.service']
-		nret = subprocess.call(cmds)
-		logging.info('run %s nret %s'%(cmds,nret))
-		if nret != 0:
-			retval = False
-			return retval
-		else:
-			retval = True
+		defaultsvcfile = '/etc/systemd/system/default.target.wants/selfsvc.service'
+		nret = delete_file_safe(defaultsvcfile)
 		svcfile = '/etc/systemd/system/selfsvc.service'
-		os.remove(svcfile)		
+		n2ret = delete_file_safe(svcfile)
+		if not nret or not n2ret:
+			logging.error('[%s] or [%s] delete failed'%(defaultsvcfile,svcfile))
+			retval = False
+		else:			
+			retval = True
 	except:
 		logging.error('%s'%(traceback.format_exc()))
 		retval = False
@@ -25,7 +24,7 @@ After=network.target
 Requires=
 
 [Service]
-ExecStart=python3 %UPDATE_FILE% updatesvc
+ExecStart=python3 %UPDATE_FILE% --reboot updatesvc
 Type=forking
 User=root
 

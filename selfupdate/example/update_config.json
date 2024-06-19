@@ -1,5 +1,5 @@
 {
-    "bakfiles" : ["/usr/bin/selfsvc/conf.json"],
+    "bakfiles" : ["/usr/bin/selfsvc/config.json"],
     "bakdirs" : [],
     "version" : "0.2.0"
 }
