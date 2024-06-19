@@ -1,6 +1,6 @@
 
 TOPDIR= $(shell pwd)
-UPDIR=${TOPDIR}/..
+UPDIR=${TOPDIR}/../..
 
 PYTHON:=$(shell which python)
 ifeq (${PYTHON},)
