@@ -531,7 +531,7 @@ def check_updatesvc_dir(ip,username,password,args):
     retval = False
     try:
         # check the btipmi_update_service_dir not exist so success
-        cmds = ['/usr/bin/sshpass','-p',password,'/usr/bin/ssh','-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null','%s@%s'%(username,ip),"if [ -d %s ]; then exit 3 else; exit 0; fi;"%(args.uploaddir)]
+        cmds = ['/usr/bin/sshpass','-p',password,'/usr/bin/ssh','-o','StrictHostKeyChecking=no','-o','LogLevel=QUIET','-o','UserKnownHostsFile=/dev/null','%s@%s'%(username,ip),"if [ -d %s ]; then exit 3 else; exit 0; fi;"%(args.svcdir)]
         subprocess.check_call(cmds)
         retval = True
     except:
@@ -551,7 +551,17 @@ def update_start_run(ip,username,password,args):
         uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
         run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
         run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
-        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"'%s' '%s' -r startupdate"%(sys.executable,uploadfile)])
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"%s %s '%s' --reboot startupdate"%(args.sudobin,args.pythonbin,uploadfile)])
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return False
+    return True
+
+def upload_only(ip,username,password,args):
+    try:
+        uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
+        run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
+        run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
     except:
         logging.error('%s'%(traceback.format_exc()))
         return False
@@ -758,6 +768,43 @@ def showargs_handler(args):
     sys.stdout.write('%s\n'%(repr(args)))
     return True
 
+def uploadonly_handler(args):
+    set_logging(args)
+    totalret = True
+    if len(args.subnargs) == 0:
+        logging.error('need at 1 ipfile')
+        return False
+    ipfile = args.subnargs[0]
+    s = read_file(ipfile)
+    sarr = re.split('\n',s)
+
+    for l in sarr:
+        l = l.rstrip('\r\n')
+        if len(l) == 0 or l.startswith('#'):
+            continue
+        username = args.username
+        password = args.password
+        carr = re.split('\\|',l)
+        logging.info('carr %s'%(carr))
+        if len(carr) >=3 :
+            username = carr[1]
+            password = carr[2]
+        ip = carr[0]
+        logging.info('ip %s'%(ip))
+        if args.verbose == 0:
+            sys.stdout.write('%s   '%(ip))
+            sys.stdout.flush()
+        retval = upload_only(ip,username,password,args)
+        if not retval:
+            totalret = False
+            if args.verbose == 0:
+                sys.stdout.write('failed\n')
+        else:
+            if args.verbose == 0:
+                sys.stdout.write('succ\n')
+    return totalret
+
+
 ##########################
 #  make_default_args
 #  and new_args_parser are the code for it
@@ -776,7 +823,10 @@ def make_default_args():
         "uploaddir" : "/usr/bin/uploadsvc",
         "tempdname" : "selfsvc",
         "uninstname" : "uninst.sh",
-        "instname" : "inst.sh"
+        "instname" : "inst.sh",
+        "pythonbin" : "python",
+        "sudobin" : ""
+
     }
     '''
     args = NameSpaceEx(js)
@@ -797,6 +847,8 @@ def new_args_parser():
     parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
     parser.add_argument('--uninstname',action='store',default='uninst.sh')
     parser.add_argument('--instname',action='store',default='inst.sh')
+    parser.add_argument('--pythonbin',action='store',default='python')
+    parser.add_argument('--sudobin',action='store',default='')
     return parser
 
 %COMMAND_PARSER_CODE%
@@ -805,6 +857,7 @@ def add_parser_handlers(parser):
     subparsers = parser.add_subparsers()
     update_group = subparsers.add_parser('update')
     upload_group = subparsers.add_parser('upload')
+    uploadonly_group = subparsers.add_parser('uploadonly')
     version_group = subparsers.add_parser('version')
     extract_group = subparsers.add_parser('extract')
     stopservice_group = subparsers.add_parser('stopservice')
@@ -830,6 +883,8 @@ def add_parser_handlers(parser):
     uploadstart_group.set_defaults(func=uploadstart_handler)
     showargs_group.add_argument('subnargs',type=str,nargs="*")
     showargs_group.set_defaults(func=showargs_handler)
+    uploadonly_group.add_argument('subnargs',type=str,nargs="*")
+    uploadonly_group.set_defaults(func=uploadonly_handler)
     return parser
 
 def main():

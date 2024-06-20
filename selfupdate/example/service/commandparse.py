@@ -13,7 +13,9 @@ def make_default_args():
 		"uploaddir" : "/usr/bin/uploadsvc",
 		"tempdname" : "selfmain",
 		"uninstname" : "uninst.sh",
-		"instname" : "inst.sh"
+		"instname" : "inst.sh",
+		"pythonbin" : "python3",
+		"sudobin" : ""
 	}
 	'''
 	args = NameSpaceEx(js)
@@ -34,4 +36,6 @@ def new_args_parser():
 	parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
 	parser.add_argument('--uninstname',action='store',default='uninst.sh')
 	parser.add_argument('--instname',action='store',default='inst.sh')
+    parser.add_argument('--pythonbin',action='store',default='python3')
+    parser.add_argument('--sudobin',action='store',default='')
 	return parser

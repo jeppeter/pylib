@@ -10,10 +10,12 @@ def make_default_args():
 		"svcdir" : "/userdata/media/onlyforupdate",
 		"instdir" : "/userdata/media/selfsvc",
 		"tempfname" : "updatebasic",
-		"uploaddir" : "/userdata/media/onlyforupdate",
+		"uploaddir" : "/tmp",
 		"tempdname" : "selfmain",
 		"uninstname" : "uninst.sh",
-		"instname" : "inst.sh"
+		"instname" : "inst.sh",
+		"pythonbin" : "python",
+		"sudobin" : ""
 	}
 	'''
 	args = NameSpaceEx(js)
@@ -34,4 +36,6 @@ def new_args_parser():
 	parser.add_argument('--uploaddir',action='store',default='/userdata/media/onlyforupdate')
 	parser.add_argument('--uninstname',action='store',default='uninst.sh')
 	parser.add_argument('--instname',action='store',default='inst.sh')
+    parser.add_argument('--pythonbin',action='store',default='python')
+    parser.add_argument('--sudobin',action='store',default='')
 	return parser
