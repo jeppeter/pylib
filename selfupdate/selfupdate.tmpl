@@ -549,18 +549,27 @@ def run_sshpass_cmds(password,sshcmd,cmds):
 def update_start_run(ip,username,password,args):
     try:
         uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
-        run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),'--','mkdir','-p',args.uploaddir])
         run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
-        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"%s %s '%s' --reboot startupdate"%(args.sudobin,args.pythonbin,uploadfile)])
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"%s %s '%s'  startupdate"%(args.sudobin,args.pythonbin,uploadfile)])
     except:
         logging.error('%s'%(traceback.format_exc()))
         return False
+    # now check for value
+    retval = check_updatesvc_dir(ip,username,password,args)
+    if retval:
+        logging.error('no %s found'%(args.svcdir))
+        return False
+    try:
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),"%s reboot"%(args.sudobin)])
+    except:
+        logging.info('%s'%(traceback.format_exc()))
     return True
 
 def upload_only(ip,username,password,args):
     try:
         uploadfile = os.path.join(args.uploaddir,os.path.basename(os.path.abspath(__file__)))
-        run_sshpass_cmds(password,'/usr/bin/ssh',['--','mkdir','-p',args.uploaddir])
+        run_sshpass_cmds(password,'/usr/bin/ssh',['%s@%s'%(username,ip),'--','mkdir','-p',args.uploaddir])
         run_sshpass_cmds(password,'/usr/bin/scp',[os.path.abspath(__file__),'%s@%s:%s'%(username,ip,uploadfile)])
     except:
         logging.error('%s'%(traceback.format_exc()))
@@ -627,7 +636,7 @@ def upload_handler(args):
                 del resips[k]
                 deleteone = True
                 break
-            retval = check_updatesvc_dir(k,resips[k]['username'],resips[k]['password'])
+            retval = check_updatesvc_dir(k,resips[k]['username'],resips[k]['password'],args)
             if retval:
                 if args.verbose == 0:
                     #sys.stdout.write('%s %ssuccess%s\n'%(ip,ECHO_GREEN,ECHO_NC))
@@ -825,8 +834,8 @@ def make_default_args():
         "uninstname" : "uninst.sh",
         "instname" : "inst.sh",
         "pythonbin" : "python",
-        "sudobin" : ""
-
+        "sudobin" : "",
+        "maxtimeout" : 500.0
     }
     '''
     args = NameSpaceEx(js)
@@ -844,11 +853,12 @@ def new_args_parser():
     parser.add_argument('--instdir',action='store',default='/usr/bin/selfsvc')
     parser.add_argument('--tempfname',action='store',default='selfupdate')
     parser.add_argument('--tempdname',action='store',default='selfsvc')
-    parser.add_argument('--uploaddir',action='store',default='/usr/bin/uploadsvc')
+    parser.add_argument('--uploaddir',action='store',default='/tmp')
     parser.add_argument('--uninstname',action='store',default='uninst.sh')
     parser.add_argument('--instname',action='store',default='inst.sh')
     parser.add_argument('--pythonbin',action='store',default='python')
     parser.add_argument('--sudobin',action='store',default='')
+    parser.add_argument('--maxtimeout',type=float,action='store',default=500.0)
     return parser
 
 %COMMAND_PARSER_CODE%
