@@ -159,7 +159,7 @@ def copy_tempfile(srcfile,tempd=None):
     fd = None
     try:
         if tempd is None:
-            tempd = os.path.dirname(__file__)
+            tempd = os.path.dirname(os.path.abspath(__file__))
             if len(tempd) == 0:
                 tempd = os.getcwd()
         retval = make_directory_safe(tempd)
@@ -185,7 +185,7 @@ def copy_tempdir(srcfile,ind=None):
     tempd = None
     try:
         if ind is None:
-            ind = os.path.dirname(__file__)
+            ind = os.path.dirname(os.path.abspath(__file__))
         retval = make_directory_safe(ind)
         if not retval:
             return None
@@ -207,7 +207,7 @@ def extract_dir(inputdata,reserved=False,note='',tempd=None):
     zobj = None
     try:
         if tempd is None:
-            tempd = os.path.dirname(__file__)
+            tempd = os.path.dirname(os.path.abspath(__file__))
             if len(tempd) == 0:
                 tempd = os.getcwd()
         tempf = tempfile.NamedTemporaryFile(delete=False,suffix='.b64',dir=tempd)
@@ -711,12 +711,12 @@ def stopservice_handler(args):
 
 def startupdate_handler(args):
     set_logging(args)   
-    bfile = os.path.basename(__file__)
+    bfile = os.path.basename(os.path.abspath(__file__))
     try:
         outfile = os.path.join(args.svcdir,bfile)
         if not os.path.exists(args.svcdir):
             os.mkdir(args.svcdir,0o755)
-        shutil.copyfile(__file__,outfile)
+        shutil.copyfile(os.path.abspath(__file__),outfile)
         retval = inst_update_svc(args)
         if not retval:
             logging.info('retval False')
