@@ -313,6 +313,10 @@ def copy_file_safe(srcf,dstf):
     try:
         if os.path.exists(srcf) and os.path.exists(dstf):
             os.remove(dstf)
+        dstd = os.path.dirname(dstf)
+        retval = make_directory_safe(dstd)
+        if not retval:
+            return False
         if os.path.exists(srcf):
             logging.info('restore [%s] => [%s]'%(srcf,dstf))
             shutil.copyfile(srcf,dstf)
