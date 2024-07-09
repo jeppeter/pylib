@@ -92,6 +92,7 @@ class NameSpaceEx(object):
     def __setattr__(self,k,v):
         if not k.startswith('_'):
             self.__setdict[k] = v
+            logging.info('[%s]=[%s]'%(k,v))
             return
         self.__dict__[k] = v
         return
