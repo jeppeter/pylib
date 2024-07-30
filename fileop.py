@@ -12,6 +12,7 @@ import time
 import math
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
+sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int

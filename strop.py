@@ -6,11 +6,59 @@ import os
 import re
 import struct
 import logging
+import inspect
+
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import logop
-
 import extargsparse
+
+def get_buffer_value(c):
+    if sys.version[0] == '3':
+        return c
+    return struct.unpack('B', c)[0]
+
+
+def dump_buffer(buf,fmt='',stkidx=1):
+    i = 0
+    lasti = 0
+    s = ''
+    _,fn,ln,_,_,_ = inspect.stack()[stkidx]
+    s += '[%s:%d] '%(fn,ln)
+    s += fmt
+
+    while buf is not None and i < len(buf):
+        if (i % 16) == 0 :
+            if i > 0:
+                s += ' ' * 4
+                while lasti != i:
+                    iv = get_buffer_value(buf[lasti])
+                    if iv >= ord(' ') and iv <= ord('~'):
+                        s += '%c'%(buf[lasti])
+                    else:
+                        s += '.'
+                    lasti += 1
+                s += '\n'
+            elif len(fmt) > 0:
+                s += '\n'
+            s += '0x%08x:'%(i)
+        iv = get_buffer_value(buf[i])
+        s += ' 0x%02x'%(iv)
+        i += 1
+
+    if i != lasti:
+        while (i % 16) != 0:
+            s += ' ' * 5
+            i += 1
+        s += ' ' * 4
+        while lasti != len(buf):
+            iv = get_buffer_value(buf[lasti])
+            if iv >= ord(' ') and iv <= ord('~'):
+                s += '%c'%(buf[lasti])
+            else:
+                s += '.'
+            lasti += 1
+    return s
 
 
 def sort_and_uniq(sarr):

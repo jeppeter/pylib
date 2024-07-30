@@ -5,7 +5,11 @@ import sys
 import socket
 import logging
 import re
+import os
 
+sys.path.insert(0,os.path.join(os.path.dirname(__file__)))
+import fileop
+import strop
 
 def set_logging(args):
     loglvl= logging.ERROR
@@ -132,6 +136,24 @@ def chatsvr_handler(args,parser):
     sys.exit(0)
     return
 
+def udpconn_handler(args,parser):
+    set_logging(args)
+    allret = True
+    cli = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    carr = re.split(':',args.subnargs[0])
+    if len(carr) > 1:
+        destaddr = (carr[0],int(carr[1]))
+    else:
+        destaddr = (carr[0],0)
+    for f in args.subnargs[1:]:
+        c = fileop.read_file_bytes(f)
+        cli.sendto(c,destaddr)
+        (retdata,recvaddr) = cli.recvfrom(1555)
+        sys.stdout.write('%s'%(strop.dump_buffer(retdata,'recv %s'%(repr(recvaddr)))))
+
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -141,6 +163,9 @@ def main():
         	"$" : "+"
         },
         "chatsvr<chatsvr_handler>##port to listen##" : {
+            "$" : "+"
+        },
+        "udpconn<udpconn_handler>##ip:port udpfile ##": {
             "$" : "+"
         }
     }
