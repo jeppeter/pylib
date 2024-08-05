@@ -6,6 +6,10 @@ import socket
 import logging
 import re
 import os
+import random
+import traceback
+import struct
+import time
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__)))
 import fileop
@@ -103,6 +107,71 @@ def chatcli_handler(args,parser):
 	sys.exit(0)
 	return
 
+def get_rand_bytes(cnt):
+    s = b''
+    i = 0
+    while i < cnt:
+        s += struct.pack('B',random.randint(0,256) & 0xff)
+        i += 1
+    return s
+
+def get_rand_max(maxnum):
+    return random.randint(1,maxnum)
+
+def asyncchatcli_handler(args,parser):
+    set_logging(args)
+    hoststr = args.subnargs[0]
+    verbose = args.verbose
+    sarr = re.split(':',hoststr)
+    if len(sarr) > 1:
+        host = sarr[0]
+        port = parse_int(sarr[1])
+    else:
+        host = sarr[0]
+        port = 3391
+    testcnt = 10
+    if len(args.subnargs) > 1:
+        testcnt = int(args.subnargs[1])
+    random.seed(time.time())
+    cli = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    cli.connect((host,port))
+    allret = True
+    i = 0
+    logging.info('testcnt %d'%(testcnt))
+    while i < testcnt:
+        try:
+            maxnum = get_rand_max(50029)
+            logging.info('maxnum %d'%(maxnum))
+            sndb = get_rand_bytes(maxnum)
+            logging.info('%s'%(strop.dump_buffer(sndb,'sndb')))
+            cli.send(sndb)
+            recvb = b''
+            while len(recvb) < maxnum:
+                nrecv = cli.recv(100000)
+                recvb += nrecv
+                logging.info('recvb [%d]'%(len(recvb)))
+            logging.info('%s\n%s'%(strop.dump_buffer(sndb,'sndb'),strop.dump_buffer(recvb,'recvb')))
+            if len(recvb) != maxnum or recvb != sndb:
+                raise Exception('not valid compare')
+        except:
+            logging.error('%s'%(traceback.format_exc()))
+            allret = False
+            break
+        if verbose == 0 and (i % 10) == 0:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        if verbose == 0 and (i % 100) == 0:
+            sys.stdout.write('\n')
+        i += 1
+
+    cli.close()
+    cli = None
+
+    if not allret:
+        sys.exit(5)
+    sys.exit(0)
+    return
+
 
 def chatsvr_handler(args,parser):
     set_logging(args)
@@ -166,6 +235,9 @@ def main():
             "$" : "+"
         },
         "udpconn<udpconn_handler>##ip:port udpfile ##": {
+            "$" : "+"
+        },
+        "asyncchatcli<asyncchatcli_handler>##ip:port num to test##" : {
             "$" : "+"
         }
     }
