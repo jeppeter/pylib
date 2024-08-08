@@ -157,12 +157,12 @@ def asyncchatcli_handler(args,parser):
             logging.error('%s'%(traceback.format_exc()))
             allret = False
             break
+        i += 1
         if verbose == 0 and (i % 10) == 0:
             sys.stdout.write('.')
             sys.stdout.flush()
         if verbose == 0 and (i % 100) == 0:
             sys.stdout.write('\n')
-        i += 1
 
     cli.close()
     cli = None

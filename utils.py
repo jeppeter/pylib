@@ -14,6 +14,7 @@ import json
 import subprocess
 import traceback
 import math
+import threading
 
 
 def set_logging(args):
@@ -1326,6 +1327,84 @@ def bintojsonarray_handler(args,parser):
     sys.exit(0)
     return
 
+class RunCmd(threading.Thread):
+    def __init__(self,cmds,timeout=None,stdout=None,stderr=None):
+        threading.Thread.__init__(self)
+        self.cmds = cmds
+        self.stdout = stdout
+        self.stderr = stderr
+        self.timeout = timeout
+        self.p = None
+        self.exitcode =None
+        return
+
+    def run(self):
+        self.p = subprocess.Popen(self.cmds,stdout=self.stdout,stderr=self.stderr,shell=True)
+        sticks = time.time()
+        while True:
+            cticks = time.time()
+            if self.timeout is not None and math.fabs(self.timeout - 0.0) > 0.01:
+                if math.fabs(cticks - sticks) > self.timeout:
+                    break
+            pret = self.p.poll()
+            if pret is not None:
+                self.exitcode = pret
+                self.p = None
+                break
+            time.sleep(0.1)
+        self._kill_proc()
+        return
+
+    def _kill_proc(self):
+        if self.p is not None:
+            while True:
+                pret = self.p.poll()
+                if pret is not None:
+                    self.exitcode = pret
+                    self.p = None
+                    break
+                self.p.terminate()
+
+    def __del__(self):
+        self._kill_proc()
+        return
+
+def runcmd_handler(args,parser):
+    set_logging(args)
+    allret = True
+    idx = 0
+    subs = []
+    cmds = args.subnargs
+    timeout = args.timeout
+    while len(subs) < args.runcnt:
+        cursub = RunCmd(cmds,timeout)
+        cursub.start()
+        subs.append(cursub)
+
+    cont = True
+    while cont:
+        cont = False
+        idx = 0
+        chked = True
+        while chked:
+            chked = False
+            while idx < len(subs):
+                if subs[idx].exitcode is not None:
+                    if subs[idx].exitcode != 0:
+                        allret = False
+                        logging.info('run %s exitcode %d'%(cmds,subs[idx].exitcode))
+                    subs.pop(idx)
+                    chked = True
+                    break
+                else:
+                    cont = True
+                idx += 1
+        if cont:
+            time.sleep(1.0)
+    if not allret:
+        sys.exit(5)
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
@@ -1336,6 +1415,7 @@ def main():
         "srcdir|s" : null,
         "dstdir|d" : null,
         "shellmode|S" : false,
+        "runcnt" : 1,
         "mdnote" : "rust",
         "timeout" : 0.0,
         "tab|T" : 0,
@@ -1440,6 +1520,9 @@ def main():
         },
         "bintojsonarray<bintojsonarray_handler>## [key] from input to output##" : {
             "$" : "?"
+        },
+        "runcmd<runcmd_handler>##args ... to run cmd##" : {
+            "$" : "+"
         }
     }
     '''
