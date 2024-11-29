@@ -33,6 +33,18 @@ def read_file(infile=None):
     fin = None
     return rets
 
+def write_file(s,outfile=None):
+    fout = sys.stdout
+    if outfile is not None:
+        fout = open(outfile, 'w+b')
+    outs = s
+    if 'b' in fout.mode:
+        outs = s.encode('utf-8')
+    fout.write(outs)
+    if fout != sys.stdout:
+        fout.close()
+    fout = None
+    return 
 
 
 def match(args,ctx):
@@ -415,12 +427,30 @@ def gnudec_handler(args,parser):
 	sys.exit(0)
 	return
 
+def resubinfile_handler(args,parser):
+	set_logging(args)
+	restr = args.restr
+	substr = args.substr
+	logging.info('restr [%s] substr [%s]'%(restr,substr))
+	for f in args.subnargs:
+		s = read_file(f)
+		outs = ''
+		sarr = re.split('\n',s)
+		for l in sarr:
+			#l = l.rstrip('\r')
+			l = re.sub(restr,substr,l)
+			outs += '%s\n'%(l)
+		write_file(outs,f)
+	sys.exit(0)
+	return
 
 
 command = {
 	'verbose|v' : '+',
 	'infile|i' : None,
 	'outfile|o' : None,
+	'restr|R' : '',
+	'substr|S' : '',
 	'match<match>##call re.match func##' : {
 		'$' : "+"
 	},
@@ -463,7 +493,10 @@ command = {
 	'isearch<isearch>##re.search ignore case ##' : {
 		'$' : '+'
 	},
-	"gnufuncdec<gnudec_handler>##funcname ...  to decode gnu function decode##" : {
+	'gnufuncdec<gnudec_handler>##funcname ...  to decode gnu function decode##' : {
+		"$" : "+"
+	},
+	'resubinfile<resubinfile_handler>##fname ... to give the file name##' : {
 		"$" : "+"
 	}
 }
