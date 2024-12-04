@@ -153,7 +153,7 @@ def predict_ch3(net, test_iter, n=6):  #@save
     	#titles = [true +'\n' + pred for true, pred in zip(trues, preds)]
         #break
     eff = float(oknum) / (float(oknum) + float(falsenum))
-    sys.stdout.write('oknum [%d] falsenum [%d] eff [%.f]\n'%(oknum,falsenum,eff))
+    sys.stdout.write('oknum [%d] falsenum [%d] eff [%f]\n'%(oknum,falsenum,eff))
     #sys.stdout.write(f'X\n{X}\ntitles{titles[:n]}\n')
     #d2l.show_images(
     #    X[0:n].reshape((n, 28, 28)), 1, n, titles=titles[0:n])
