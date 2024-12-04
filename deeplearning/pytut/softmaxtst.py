@@ -138,14 +138,25 @@ def updater(batch_size):
 
 def predict_ch3(net, test_iter, n=6):  #@save
     """预测标签（定义见第3章）"""
+    oknum = 0
+    falsenum = 0
     for X, y in test_iter:
-        break
-    trues = d2l.get_fashion_mnist_labels(y)
-    preds = d2l.get_fashion_mnist_labels(net(X).argmax(axis=1))
-    titles = [true +'\n' + pred for true, pred in zip(trues, preds)]
-    sys.stdout.write(f'X\n{X}\ntitles{titles[:n]}\n')
-    d2l.show_images(
-        X[0:n].reshape((n, 28, 28)), 1, n, titles=titles[0:n])
+    	trues = d2l.get_fashion_mnist_labels(y)
+    	preds = d2l.get_fashion_mnist_labels(net(X).argmax(axis=1))
+    	idx = 0
+    	while idx < len(trues):
+    		if trues[idx] == preds[idx]:
+    			oknum += 1
+    		else:
+    			falsenum += 1
+    		idx += 1
+    	#titles = [true +'\n' + pred for true, pred in zip(trues, preds)]
+        #break
+    eff = float(oknum) / (float(oknum) + float(falsenum))
+    sys.stdout.write('oknum [%d] falsenum [%d] eff [%.f]\n'%(oknum,falsenum,eff))
+    #sys.stdout.write(f'X\n{X}\ntitles{titles[:n]}\n')
+    #d2l.show_images(
+    #    X[0:n].reshape((n, 28, 28)), 1, n, titles=titles[0:n])
 
 
 batch_size = 256
