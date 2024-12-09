@@ -133,7 +133,7 @@ def predict_ch3(net, test_iter, n=6):  #@save
     		else:
     			falsenum += 1
     		idx += 1
-    	#titles = [true +'\n' + pred for true, pred in zip(trues, preds)]
+    	titles = [true +'\n' + pred for true, pred in zip(trues, preds)]
         #break
     eff = float(oknum) / (float(oknum) + float(falsenum))
     sys.stdout.write('oknum [%d] falsenum [%d] eff [%f]\n'%(oknum,falsenum,eff))
@@ -161,3 +161,4 @@ trainer = torch.optim.SGD(net.parameters(), lr=lr)
 
 train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
 train_ch3(net, train_iter, test_iter, loss, num_epochs, trainer)
+predict_ch3(net, test_iter)
