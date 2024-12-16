@@ -10,37 +10,6 @@ import sys
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)),'..'))
 import d2ltorch  as d2l
 
-d2l.DATA_HUB['kaggle_house_train'] =   (  #@save
-    d2l.DATA_URL + 'kaggle_house_pred_train.csv',
-    '585e9cc93e70b39160e7921475f9bcd7d31219ce')
-d2l.DATA_HUB['kaggle_house_test'] = (  #@save
-    d2l.DATA_URL + 'kaggle_house_pred_test.csv',
-    'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
-
-train_data = pd.read_csv(d2l.download('kaggle_house_train'))
-test_data = pd.read_csv(d2l.download('kaggle_house_test'))
-all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
-print(f'all_features\n{all_features}')
-
-# 若无法获得测试数据，则可根据训练数据计算均值和标准差
-numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
-all_features[numeric_features] = all_features[numeric_features].apply(
-    lambda x: (x - x.mean()) / (x.std()))
-# 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
-all_features[numeric_features] = all_features[numeric_features].fillna(0)
-# “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
-all_features = pd.get_dummies(all_features, dummy_na=True)
-print(f'all_features\n{all_features}')
-
-n_train = train_data.shape[0]
-print('values\n%s'%(all_features[:n_train].values))
-train_features = torch.tensor(all_features[:n_train].values, dtype=torch.float32)
-test_features = torch.tensor(all_features[n_train:].values, dtype=torch.float32)
-train_labels = torch.tensor(
-    train_data.SalePrice.values.reshape(-1, 1), dtype=torch.float32)
-loss = nn.MSELoss()
-in_features = train_features.shape[1]
-
 def get_net():
     net = nn.Sequential(nn.Linear(in_features,1))
     return net
@@ -115,6 +84,44 @@ def train_and_pred(train_features, test_features, train_labels, test_data,
     test_data['SalePrice'] = pd.Series(preds.reshape(1, -1)[0])
     submission = pd.concat([test_data['Id'], test_data['SalePrice']], axis=1)
     submission.to_csv('submission.csv', index=False)
+
+def feature_change(all_feat):
+    return all_feat * float(1.0)
+
+d2l.DATA_HUB['kaggle_house_train'] =   (  #@save
+    d2l.DATA_URL + 'kaggle_house_pred_train.csv',
+    '585e9cc93e70b39160e7921475f9bcd7d31219ce')
+d2l.DATA_HUB['kaggle_house_test'] = (  #@save
+    d2l.DATA_URL + 'kaggle_house_pred_test.csv',
+    'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
+
+train_data = pd.read_csv(d2l.download('kaggle_house_train'))
+test_data = pd.read_csv(d2l.download('kaggle_house_test'))
+all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
+print(f'all_features\n{all_features}')
+
+# 若无法获得测试数据，则可根据训练数据计算均值和标准差
+numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+all_features[numeric_features] = all_features[numeric_features].apply(
+    lambda x:    (x - x.mean()) / (x.std()) )
+# 在标准化数据之后，所有均值消失，因此我们可以将缺失值设置为0
+all_features[numeric_features] = all_features[numeric_features].fillna(0)
+# “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指示符特征
+all_features = pd.get_dummies(all_features, dummy_na=True)
+print(f'all_features\n{all_features}')
+
+n_train = train_data.shape[0]
+
+all_features=feature_change(all_features)
+
+#all_features = np.vstack(all_features).astype(np.float64)
+train_features = torch.tensor(all_features[:n_train].values, dtype=torch.float32)
+test_features = torch.tensor(all_features[n_train:].values, dtype=torch.float32)
+train_labels = torch.tensor(
+    train_data.SalePrice.values.reshape(-1, 1), dtype=torch.float32)
+loss = nn.MSELoss()
+in_features = train_features.shape[1]
+
 
 
 k, num_epochs, lr, weight_decay, batch_size = 5, 100, 5, 0, 64
