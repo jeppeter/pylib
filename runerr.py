@@ -8,6 +8,8 @@ import re
 import time
 import ctypes
 import io
+import subprocess
+import math
 
 
 def set_logging(args):
@@ -60,15 +62,42 @@ def runout_handler(args,parser):
     sys.exit(0)
     return
 
-
+def checkok_handler(args,parser):
+    set_logging(args)
+    errcnt = 0
+    runcnt = 0
+    while True:
+        stime = time.time()
+        if errcnt >= args.maxerror:
+            logging.error('run %s on continue error %d '%(args.subnargs,errcnt))
+            break
+        nret = subprocess.call(args.subnargs)
+        if nret == 0:
+            logging.info('[%d] run ok'%(runcnt))
+            errcnt = 0
+        else:
+            logging.error('[%d] error'%(runcnt))
+            errcnt += 1
+        runcnt += 1
+        ctime = time.time()
+        if math.fabs(args.maxtime - 0.0) > 0.001:
+            if math.fabs(ctime - stime) < args.maxtime:
+                time.sleep(args.maxtime - math.fabs(ctime-stime))
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
     {
         "verbose|v" : "+",
         "output|o" : null,
+        "maxerror" : 3,
+        "maxtime" : 0.0,
         "runout<runout_handler>##   to test for call back##" : {
             "$" : 0
+        },
+        "checkok<checkok_handler>##args... to run in max time##" : {
+            "$" : "+"
         }
     }
     '''
