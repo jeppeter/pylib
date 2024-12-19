@@ -80,8 +80,8 @@ def findall(args,ctx):
 		for l in carr:
 			l = l.rstrip('\r')
 			sarr.append(l)
+	expr = re.compile(restr)
 	for instr in sarr:
-		expr = re.compile(restr)
 		m =  expr.findall(instr)
 		if m :
 			s = '(%s) match (%s)\n'%(instr,restr)
@@ -112,7 +112,7 @@ def filefindall(args,ctx):
 				fout.write('[%d]'%(cnt))
 				for i in range(len(m)):
 					fout.write('\t[%d] %s'%(i,m[i]))
-				fout.write('(%s)\n'%(l))
+				fout.write(' (%s)\n'%(l))
 		cnt += 1
 	if fin != sys.stdin:
 		fin.close()

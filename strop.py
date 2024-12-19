@@ -60,6 +60,45 @@ def dump_buffer(buf,fmt='',stkidx=1):
             lasti += 1
     return s
 
+def dump_ints(intarr,fmt=''):
+    i = 0
+    lasti = 0
+    s = ''
+    s += fmt
+    while i < len(intarr):
+        if (i % 16) == 0 :
+            if i > 0:
+                s += ' ' * 4
+                while lasti != i:
+                    iv = intarr[lasti]
+                    if iv >= ord(' ') and iv <= ord('~'):
+                        s += '%c'%(chr(intarr[lasti]))
+                    else:
+                        s += '.'
+                    lasti += 1
+                s += '\n'
+            elif len(fmt) > 0:
+                s += '\n'
+            s += '0x%08x:'%(i)
+        iv = int(intarr[i])
+        s += ' 0x%02x'%(iv)
+        i += 1
+
+    if i != lasti:
+        while (i % 16) != 0:
+            s += ' ' * 5
+            i += 1
+        s += ' ' * 4
+        while lasti != len(intarr):
+            iv = intarr[lasti]
+            if iv >= ord(' ') and iv <= ord('~'):
+                s += '%c'%(chr(intarr[lasti]))
+            else:
+                s += '.'
+            lasti += 1
+    return s
+
+
 
 def sort_and_uniq(sarr):
     retsarr = []
