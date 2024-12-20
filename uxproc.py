@@ -11,6 +11,8 @@ import math
 import re
 import traceback
 import socket
+import select
+import signal
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
@@ -19,51 +21,51 @@ from loglib import set_logging,load_log_commandline
 from strop import parse_int
 
 def _open_tcp_client(svraddr,port,wr=True):
-	try:
-		cli = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-		cli.connect((svraddr,port))
-		if wr:
-			return cli.makefile('w')
-		else:
-			return cli.makefile('r')
-	except:
-		logging.error('%s'%(traceback.format_exc()))
-		return None
+    try:
+        cli = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        cli.connect((svraddr,port))
+        if wr:
+            return cli.makefile('w')
+        else:
+            return cli.makefile('r')
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        return None
 
 
 def _default_file(wr=True):
-	if wr:
-		return open(os.devnull,'w+')
-	else:
-		return open(os.devnull,'r')
+    if wr:
+        return open(os.devnull,'w+')
+    else:
+        return open(os.devnull,'r')
 
 def _open_file(fname,wr=True,note=''):
-	if fname is None:
-		logging.info('open %s default'%(note))
-		return _default_file(wr)
-	if fname.startswith('tcp:'):
-		sarr = re.split(':',fname)
-		if len(sarr) >= 3:
-			host = sarr[1]
-			port = parse_int(sarr[2])
-		else:
-			host = '127.0.0.1'
-			port = parse_int(sarr[1])
-		outf = _open_tcp_client(host,port,wr)
-		if outf is None:
-			outf = _default_file(wr)
-		logging.info('open %s for %s'%(fname,note))
-	else:
-		try:
-			if wr:
-				outf = open(fname,'w+')
-			else:
-				outf = open(fname,'r')
-			logging.info('open %s for %s'%(fname,note))
-		except:
-			logging.error('can not open [%s]'%(fname))
-			return _default_file(wr)
-	return outf
+    if fname is None:
+        logging.info('open %s default'%(note))
+        return _default_file(wr)
+    if fname.startswith('tcp:'):
+        sarr = re.split(':',fname)
+        if len(sarr) >= 3:
+            host = sarr[1]
+            port = parse_int(sarr[2])
+        else:
+            host = '127.0.0.1'
+            port = parse_int(sarr[1])
+        outf = _open_tcp_client(host,port,wr)
+        if outf is None:
+            outf = _default_file(wr)
+        logging.info('open %s for %s'%(fname,note))
+    else:
+        try:
+            if wr:
+                outf = open(fname,'w+')
+            else:
+                outf = open(fname,'r')
+            logging.info('open %s for %s'%(fname,note))
+        except:
+            logging.error('can not open [%s]'%(fname))
+            return _default_file(wr)
+    return outf
 
 def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=True):
     logging.debug('daemon_proc will on [%s]'%(note))
@@ -98,150 +100,135 @@ def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=
     return
 
 def daemonout_handler(args,parser):
-	set_logging(args)
-	maxtimes = 0
-	if len(args.subnargs) > 0:
-		maxtimes = parse_int(args.subnargs[0])
-	daemon_proc(args.stdout,args.stderr,args.stdin,'daemonout',args.redirect)
-	curtime = 0
-	while True:
-		if maxtimes != 0 and curtime >= maxtimes:
-			break
-		sys.stdout.write('daemon [%d]\n'%(curtime))
-		sys.stdout.flush()
-		time.sleep(args.timeout)
-		curtime += 1
+    set_logging(args)
+    maxtimes = 0
+    if len(args.subnargs) > 0:
+        maxtimes = parse_int(args.subnargs[0])
+    daemon_proc(args.stdout,args.stderr,args.stdin,'daemonout',args.redirect)
+    curtime = 0
+    while True:
+        if maxtimes != 0 and curtime >= maxtimes:
+            break
+        sys.stdout.write('daemon [%d]\n'%(curtime))
+        sys.stdout.flush()
+        time.sleep(args.timeout)
+        curtime += 1
 
-	sys.exit(0)
-	return
+    sys.exit(0)
+    return
 
-def server_handler(args,parser):
-	set_logging(args)
-	listenport = 4395
-	if len(args.subnargs) > 0:
-		listenport = parse_int(args.subnargs[0])
-	sever = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	server.bind(('0.0.0.0',listenport))
-	server.listen(5)
-	clisocks = []
+gl_exit = False
+gl_exitevt = None
+
+def exit_signal_handle(signum,frame):
+    global gl_exit
+    global gl_exitevt
+    gl_exit = True
+    logging.info('notify gl_exit')
+    if gl_exitevt is not None:
+        os.eventfd_write(gl_exitevt,10)
+    return
+
+def sigint_handler(signum,frame):
+    exit_signal_handle(signum,frame)
+    return
+
+def sigterm_handler(signum,frame):
+    exit_signal_handle(signum,frame)
+    return
+
+
+def prepare_sighandler(args):
+    global gl_exitevt
+    signal.signal(signal.SIGTERM,sigterm_handler)
+    signal.signal(signal.SIGINT,sigint_handler)
+    signal.signal(signal.SIGPIPE,signal.SIG_IGN)
+    gl_exitevt = os.eventfd(0,os.EFD_SEMAPHORE )
+    return
+
+
+def logserver_handler(args,parser):
+    global gl_exit
+    global gl_exitevt
+    set_logging(args)
+    prepare_sighandler(args)
+    listenport = 4395
+    if len(args.subnargs) > 0:
+        listenport = parse_int(args.subnargs[0])
+    servsock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    servsock.bind(('0.0.0.0',listenport))
+    servsock.listen(5)
+    logging.info('listen on %s'%(listenport))
+    clisocks = []
     running = True
-    while running:
+    while running and  not gl_exit :
         # now first to set blocks
-        rds = [self.sock,self.exitevt]
-        for s in self.clisocks:
-            rds.append(s.sock)
-        rds.append(self.i2ccmdnotievt)
-        rds.append(self.outevt)
+        rds = [servsock,gl_exitevt]
+        for s in clisocks:
+            rds.append(s)
+
         # now we should test if need 
-        wrs = []
-        for s in self.clisocks:
-            if s.need_write():
-                wrs.append(s.sock)
         try:
-            canrds ,canwrs,_ = select.select(rds,wrs,[],15.0)
+            logging.info('rds %s'%(rds))
+            canrds ,_,_ = select.select(rds,[],[],15.0)
         except:
-            logwarn('%s'%(traceback.format_exc()))
+            logging.error('%s'%(traceback.format_exc()))
             continue
         if len(canrds) > 0:
             for evt in canrds:
-                if evt == self.sock:
+                if evt == servsock:
                     try:
-                        clisock, cliaddr = self.sock.accept()
-                        logging.info('come %s'%(repr(cliaddr)))
-                        s = I2CClientEx(clisock,self.inq,self.inevt,self.timeout)
-                        self.clisocks.append(s)
+                        cli, cliaddr = servsock.accept()
+                        logging.info('accept %s'%(repr(cliaddr)))
+                        clisocks.append(cli)
                     except:
                         logging.fatal('%s'%(traceback.format_exc()))
                         runnig = False
                         break
-                elif evt == self.i2ccmdnotievt:
-                    self.i2ccmdnotievt.clear()
+                elif evt == gl_exitevt:
                     running = False
                     break
-                elif evt == self.outevt:
-                    self.outevt.clear()
-                    # it means we have some thing to send
-                    try:
-                        while True:
-                            pkg = self.outq.get_nowait()
-                            finded = 0
-                            for s in self.clisocks:
-                                if id(s.sock) == pkg[0]:
-                                    s.put(pkg)
-                                    finded = 1
-                                    break
-                            if finded < 0:
-                                logwarn('not found [%s]'%(pkg[0]))                         
-                    except Queue.Empty:
-                        logwarn('outq empty')
-                    except:
-                        logging.fatal('%s'%(traceback.format_exc()))
-                        running = False
-                elif evt == self.exitevt:
-                    self.exitevt.clear()
-                    running = False                     
                 else:
                     searr = []
-                    for s in self.clisocks:
-                        if evt == s.sock:
+                    for s in clisocks:
+                        if evt == s:
                             try:
-                                s.read()
-                            except dbgexp.DebugException as err:
+                                b = s.recv(1024)
+                                if b is not None and len(b) != 0:
+                                    logging.info('b %s blen %d'%(repr(b),len(b)))
+                                else:
+                                    logging.info('%s disconnect'%(repr(s)))
+                                    searr.append(s)
+                            except :
                                 #logwarn('[%s]%s'%(repr(s.sock.getpeername()),traceback.format_exc()))
-                                logwarn('[%s]%s'%(repr(s.sock),traceback.format_exc()))
+                                logging.error('[%s]%s'%(repr(s),traceback.format_exc()))
                                 searr.append(s)
-                            except:
-                                logging.fatal('%s'%(traceback.format_exc()))
-                                running = False
                             break
                     if len(searr) > 0:
                         for se in searr:
                             # we need to remove close socket
-                            logging.info('remove [%s]'%(se.sock))
                             se.close()
-                            self.clisocks.remove(se)
+                            clisocks.remove(se)
                             se = None
                     searr = []
-        if len(canwrs) > 0:
-            for evt in canwrs:
-                searr  = []
-                for s in self.clisocks:
-                        if s.sock == evt:
-                            try:
-                                s.write()
-                            except dbgexp.DebugException as err:
-                                logwarn('%s'%(err))
-                                searr.append(s)
-                            except:
-                                logging.error('%s'%(traceback.format_exc()))
-                                running = False
-                            break
-                    if len(searr) > 0:
-                        for se in searr:
-                            logging.info('remove [%s]'%(se))
-                            se.close()
-                            self.clisocks.remove(se)
-                            se = None
-                    searr = []
-        return		
 
-	sys.exit(0)
-	return
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
     {
-    	"stdout" : null,
-    	"stderr" : null,
-    	"stdin" : null,
-    	"redirect" : true,
-    	"timeout" : 1.0,
-    	"daemonout<daemonout_handler>##to  daemon out values##" : {
-    		"$" : "*"
-    	},
-    	"logserver<logserver_handler>##[port]to log to listen on port default 4395 ##" : {
-    		"$" : "*"
-    	}
+        "stdout" : null,
+        "stderr" : null,
+        "stdin" : null,
+        "redirect" : true,
+        "timeout" : 1.0,
+        "daemonout<daemonout_handler>##to  daemon out values##" : {
+            "$" : "*"
+        },
+        "logserver<logserver_handler>##[port]to log to listen on port default 4395 ##" : {
+            "$" : "*"
+        }
     }
     '''
     parser = extargsparse.ExtArgsParse()
