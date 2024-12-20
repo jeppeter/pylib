@@ -3,6 +3,7 @@
 import logging
 import sys
 
+from logging import handlers
 
 
 def set_logging(args):
@@ -30,7 +31,7 @@ def set_logging(args):
 		curlog.addHandler(flog)
 	for f in args.logappends:		
 		if args.logrotate:
-			flog = logging.handlers.RotatingFileHandler(f,mode='a',maxBytes=args.logmaxbytes,backupCount=args.logbackupcnt,delay=0)
+			flog = handlers.RotatingFileHandler(f,mode='a',maxBytes=args.logmaxbytes,backupCount=args.logbackupcnt,delay=0)
 		else:
 			sys.stdout.write('appends [%s] file\n'%(f))
 			flog = logging.FileHandler(f,mode='a',delay=0)
