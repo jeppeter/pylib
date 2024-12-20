@@ -18,7 +18,7 @@ sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 import extargsparse
 from loglib import set_logging,load_log_commandline
-from strop import parse_int
+from strop import parse_int,dump_buffer
 
 def _open_tcp_client(svraddr,port,wr=True):
     try:
@@ -80,12 +80,17 @@ def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=
         sys.stdout.close()
         sys.stdout = _open_file(stdoutfile,True,'stdout')
         logging.info(' ')
-        sys.stdin.close()
-        sys.stdin = _open_file(stdinfile,False,'stdin')
-        sys.stderr.close()
+        #sys.stdin.close()
+        #sys.stdin = _open_file(stdinfile,False,'stdin')
+        #sys.stderr.close()
+        logging.info(' ')
+        sys.stdout.write('1nnncc\n')
+        sys.stdout.flush()
         logging.info(' ')
         sys.stderr = _open_file(stderrfile,True,'stderr')
         logging.info(' ')
+        sys.stdout.write('2nnncc\n')
+        sys.stdout.flush()
 
     os.setsid()
     logging.debug('daemon child setsid')
@@ -111,6 +116,8 @@ def daemonout_handler(args,parser):
             break
         sys.stdout.write('daemon [%d]\n'%(curtime))
         sys.stdout.flush()
+        sys.stderr.write('err daemon [%d]\n'%(curtime))
+        sys.stderr.flush()
         time.sleep(args.timeout)
         curtime += 1
 
@@ -169,7 +176,7 @@ def logserver_handler(args,parser):
 
         # now we should test if need 
         try:
-            logging.info('rds %s'%(rds))
+            #logging.info('rds %s'%(rds))
             canrds ,_,_ = select.select(rds,[],[],15.0)
         except:
             logging.error('%s'%(traceback.format_exc()))
@@ -195,7 +202,7 @@ def logserver_handler(args,parser):
                             try:
                                 b = s.recv(1024)
                                 if b is not None and len(b) != 0:
-                                    logging.info('b %s blen %d'%(repr(b),len(b)))
+                                    sys.stdout.write('%s\n'%(dump_buffer(b,'%s'%(repr(s)))))
                                 else:
                                     logging.info('%s disconnect'%(repr(s)))
                                     searr.append(s)
