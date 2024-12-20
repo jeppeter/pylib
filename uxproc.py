@@ -120,6 +120,8 @@ def daemonout_handler(args,parser):
         sys.stderr.flush()
         time.sleep(args.timeout)
         curtime += 1
+    logging.info('out log file')
+    raise Exception('ccfile')
 
     sys.exit(0)
     return
