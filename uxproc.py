@@ -19,12 +19,54 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int,dump_buffer
+from jsonutil import JSONPack
 
-def _open_tcp_client(svraddr,port,wr=True):
+def _write_sock(sock,jpack):
+    retval = False
+    try:
+        sock.send(jpack.pack())
+        retval = True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+    return retval
+
+def _write_hdl(hdl,jpack):
+    retval = False
+    try:
+        hdl.buffer.write(jpack.pack())
+        hdl.flush()
+        retval = True
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+    return retval
+
+def _write_sock_begin(sock,note):
+    jpack = JSONPack()
+    jpack.command = 'startsock'
+    jpack.uid = 1
+    jpack.pid = os.getpid()
+    jpack.note = note
+    jpack.sysargv = sys.argv
+    return _write_sock(sock,jpack)
+
+def _write_sock_end(hdl,note):
+    jpack = JSONPack()
+    jpack.command = 'endsock'
+    jpack.uid = 333
+    jpack.pid = os.getpid()
+    jpack.note = note
+    jpack.sysargv = sys.argv
+    return _write_hdl(hdl,jpack)
+
+def _open_tcp_client(svraddr,port,wr=True,note=''):
     try:
         cli = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         cli.connect((svraddr,port))
         if wr:
+            retval = _write_sock_begin(cli,note)
+            if not retval:
+                cli.close()
+                return None
             return cli.makefile('w')
         else:
             return cli.makefile('r')
@@ -51,7 +93,7 @@ def _open_file(fname,wr=True,note=''):
         else:
             host = '127.0.0.1'
             port = parse_int(sarr[1])
-        outf = _open_tcp_client(host,port,wr)
+        outf = _open_tcp_client(host,port,wr,note)
         if outf is None:
             outf = _default_file(wr)
         logging.info('open %s for %s'%(fname,note))
@@ -104,12 +146,16 @@ def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=
     os.umask(0) 
     return
 
+def deamon_end_send(filehdl,note):
+    return _write_sock_end(filehdl,note)
+
 def daemonout_handler(args,parser):
     set_logging(args)
     maxtimes = 0
     if len(args.subnargs) > 0:
         maxtimes = parse_int(args.subnargs[0])
-    daemon_proc(args.stdout,args.stderr,args.stdin,'daemonout',args.redirect)
+    if not args.foreground:
+        daemon_proc(args.stdout,args.stderr,args.stdin,'daemonout',args.redirect)
     curtime = 0
     while True:
         if maxtimes != 0 and curtime >= maxtimes:
@@ -121,8 +167,9 @@ def daemonout_handler(args,parser):
         time.sleep(args.timeout)
         curtime += 1
     logging.info('out log file')
-    raise Exception('ccfile')
-
+    if not args.foreground:
+        deamon_end_send(sys.stdout,'stdout')
+        deamon_end_send(sys.stderr,'stderr')
     sys.exit(0)
     return
 
@@ -232,6 +279,7 @@ def main():
         "stdin" : null,
         "redirect" : true,
         "timeout" : 1.0,
+        "foreground|F" : false,
         "daemonout<daemonout_handler>##to  daemon out values##" : {
             "$" : "*"
         },
