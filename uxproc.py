@@ -20,6 +20,11 @@ import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int,dump_buffer
 from jsonutil import JSONPack
+GL_EVENT_FD_HAS=False
+if not hasattr(os,'eventfd'):
+    GL_EVENT_FD_HAS=True
+if GL_EVENT_FD_HAS:
+    from  eventfd import EventFD
 
 def _write_sock(sock,jpack):
     retval = False
@@ -179,10 +184,14 @@ gl_exitevt = None
 def exit_signal_handle(signum,frame):
     global gl_exit
     global gl_exitevt
+    global GL_EVENT_FD_HAS
     gl_exit = True
     logging.info('notify gl_exit')
     if gl_exitevt is not None:
-        os.eventfd_write(gl_exitevt,10)
+        if GL_EVENT_FD_HAS:
+            gl_exitevt.set()
+        else:
+            os.eventfd_write(gl_exitevt,10)
     return
 
 def sigint_handler(signum,frame):
@@ -196,10 +205,14 @@ def sigterm_handler(signum,frame):
 
 def prepare_sighandler(args):
     global gl_exitevt
+    global GL_EVENT_FD_HAS
     signal.signal(signal.SIGTERM,sigterm_handler)
     signal.signal(signal.SIGINT,sigint_handler)
-    signal.signal(signal.SIGPIPE,signal.SIG_IGN)
-    gl_exitevt = os.eventfd(0,os.EFD_SEMAPHORE )
+    signal.signal(signal.SIGPIPE,signal.SIG_IGN)    
+    if GL_EVENT_FD_HAS:
+        gl_exitevt = EventFD()
+    else:
+        gl_exitevt = os.eventfd(0,os.EFD_SEMAPHORE )
     return
 
 
