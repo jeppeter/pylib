@@ -86,32 +86,37 @@ def _default_file(wr=True):
     else:
         return open(os.devnull,'r')
 
-def _open_file(fname,wr=True,note=''):
+def _open_file(fname,wr=True,note='',dupfd=1):
     if fname is None:
         logging.info('open %s default'%(note))
-        return _default_file(wr)
-    if fname.startswith('tcp:'):
-        sarr = re.split(':',fname)
-        if len(sarr) >= 3:
-            host = sarr[1]
-            port = parse_int(sarr[2])
-        else:
-            host = '127.0.0.1'
-            port = parse_int(sarr[1])
-        outf = _open_tcp_client(host,port,wr,note)
-        if outf is None:
-            outf = _default_file(wr)
-        logging.info('open %s for %s'%(fname,note))
+        outf =  _default_file(wr)
     else:
-        try:
-            if wr:
-                outf = open(fname,'w+')
+        if fname.startswith('tcp:'):
+            sarr = re.split(':',fname)
+            if len(sarr) >= 3:
+                host = sarr[1]
+                port = parse_int(sarr[2])
             else:
-                outf = open(fname,'r')
+                host = '127.0.0.1'
+                port = parse_int(sarr[1])
+            outf = _open_tcp_client(host,port,wr,note)
+            if outf is None:
+                outf = _default_file(wr)
             logging.info('open %s for %s'%(fname,note))
-        except:
-            logging.error('can not open [%s]'%(fname))
-            return _default_file(wr)
+        else:
+            try:
+                if wr:
+                    outf = open(fname,'w+')
+                else:
+                    outf = open(fname,'r')
+                logging.info('open %s for %s'%(fname,note))            
+            except:
+                logging.error('can not open [%s]'%(fname))
+                outf =  _default_file(wr)
+    try:
+        os.dup2(outf.fileno(),dupfd)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
     return outf
 
 def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=True):
@@ -122,22 +127,8 @@ def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=
         sys.exit(0)
     elif pid < 0:
         sys.exit(3)
+    logging.info('pid %d'%(os.getpid()))
 
-    if redirect:
-        sys.stdout.close()
-        sys.stdout = _open_file(stdoutfile,True,'stdout')
-        logging.info(' ')
-        #sys.stdin.close()
-        #sys.stdin = _open_file(stdinfile,False,'stdin')
-        #sys.stderr.close()
-        logging.info(' ')
-        sys.stdout.write('1nnncc\n')
-        sys.stdout.flush()
-        logging.info(' ')
-        sys.stderr = _open_file(stderrfile,True,'stderr')
-        logging.info(' ')
-        sys.stdout.write('2nnncc\n')
-        sys.stdout.flush()
 
     os.setsid()
     logging.debug('daemon child setsid')
@@ -147,6 +138,24 @@ def daemon_proc(stdoutfile=None,stderrfile=None,stdinfile=None,note='',redirect=
         sys.exit(0)
     elif pid < 0:
         sys.exit(3)
+
+    if redirect:
+        #sys.stdout.close()
+        _open_file(stdoutfile,True,'stdout',1)
+        logging.info(' ')
+        #sys.stdin.close()
+        #sys.stdin = _open_file(stdinfile,False,'stdin')
+        logging.info(' ')
+        sys.stdout.write('1nnncc\n')
+        sys.stdout.flush()
+        logging.info(' ')
+        #sys.stderr.close()
+        _open_file(stderrfile,True,'stderr',2)
+        #os.dup2(sys.stderr.fileno(),2)
+        logging.info(' ')
+        sys.stdout.write('2nnncc\n')
+        sys.stdout.flush()
+
     logging.debug('daemon fork over')    
     os.umask(0) 
     return
@@ -169,6 +178,7 @@ def daemonout_handler(args,parser):
         sys.stdout.flush()
         sys.stderr.write('err daemon [%d]\n'%(curtime))
         sys.stderr.flush()
+        logging.info('logging daemon [%d]'%(curtime))
         time.sleep(args.timeout)
         curtime += 1
     logging.info('out log file')
