@@ -1406,6 +1406,59 @@ def runcmd_handler(args,parser):
     sys.exit(0)
     return
 
+def cmp_bin(basebin,cmpbin,offset):
+    findoff = -1
+    maxmatch = -1
+
+    idx = offset
+    jdx = 0
+    while idx < len(basebin):
+        if basebin[idx] == cmpbin[0]:
+            logging.info('search [%d]'%(idx))
+            jdx = 0
+            while jdx < (len(basebin) - idx) and jdx < len(cmpbin):
+                if basebin[idx+jdx] != cmpbin[jdx]:
+                    break
+                jdx += 1
+            findoff = idx
+            maxmatch = jdx
+            break
+        idx += 1
+    logging.info('findoff %d maxmatch %d'%(findoff,maxmatch))
+    return findoff,maxmatch
+
+def cmpbin_handler(args,parser):
+    set_logging(args)
+    basefile = args.subnargs[0]
+    cmpfile = args.subnargs[1]
+    basebin = read_file_bytes(basefile)
+    cmpbin = read_file_bytes(cmpfile)
+    offs = []
+    matchs = []
+    curoff = 0
+    while True:
+        noff,nmatchs = cmp_bin(basebin,cmpbin,curoff)
+        if noff < 0 or nmatchs <= 0:
+            break
+        offs.append(noff)
+        matchs.append(nmatchs)
+        curoff = noff + 1
+
+    findidx = -1
+    nmatch = -1
+    idx = 0
+    while idx < len(offs):
+        if matchs[idx] >= nmatch:
+            findidx = idx
+            nmatch = matchs[idx]
+        idx += 1
+    if findidx < 0:
+        sys.stdout.write('%s no match %s\n'%(cmpfile,basefile))
+    else:
+        sys.stdout.write('%s match %s on %d[0x%x] offset match %d[0x%x]\n'%(cmpfile,basefile,offs[findidx],offs[findidx],matchs[findidx],matchs[findidx]))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -1523,6 +1576,9 @@ def main():
         },
         "runcmd<runcmd_handler>##args ... to run cmd##" : {
             "$" : "+"
+        },
+        "cmpbin<cmpbin_handler>##basebin binfile to cmp search##" : {
+            "$" : 2
         }
     }
     '''
