@@ -1456,6 +1456,8 @@ def cmpbin_handler(args,parser):
         sys.stdout.write('%s no match %s\n'%(cmpfile,basefile))
     else:
         sys.stdout.write('%s match %s on %d[0x%x] offset match %d[0x%x]\n'%(cmpfile,basefile,offs[findidx],offs[findidx],matchs[findidx],matchs[findidx]))
+        sys.stdout.write('%s'%(dump_buffer(basebin[offs[findidx]:(offs[findidx] + matchs[findidx])],'match')))
+
     sys.exit(0)
     return
 
