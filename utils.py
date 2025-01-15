@@ -229,8 +229,13 @@ def binhex_to_bytes(ins):
         s = s.strip(' \t')
         ns = re.sub('^\\[0x[a-fA-F0-9]+\\][:]?\\s+','',s)
         if ns == s:
-            ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
+            ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)            
         s = ns
+        ns = re.sub('^\\s+','',s)
+        s = ns
+        sarr = re.split('\\s+',s)
+        if len(sarr) > 1:
+            s = sarr[0]
         if len(s) > (16 * 3)+1:
             s = s[:(16*3)+1]
         logging.info('s [%s]'%(s))
@@ -240,7 +245,9 @@ def binhex_to_bytes(ins):
             c = cursarr[idx]
             if c.startswith('0x') or c.startswith('0X'):
                 c = c[2:]
-            retb += bytes([int(c,16)])
+            logging.info('c [%s]'%(c))
+            if len(c) > 0:
+                retb += bytes([int(c,16)])
             idx += 1
     return retb
 
