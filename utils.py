@@ -192,6 +192,9 @@ def bin_to_bytes(ins):
             logging.info('c [%s]'%(c))
             if c.startswith('0x') or c.startswith('0X'):
                 retb += bytes([int(c[2:],16)])
+            else:
+                retb += bytes([int(c,16)])
+            logging.info('retb [%d]'%(len(retb)))
             idx += 1
     return retb
 
@@ -468,6 +471,7 @@ def bintofile_handler(args,parser):
     logging.info('read [%s]'%(args.input))
     bins = read_file(args.input)
     retb = bin_to_bytes(bins)
+    logging.info('write retb [%d]'%(len(retb)))
     write_file_bytes(retb,args.output)
     sys.exit(0)
     return
