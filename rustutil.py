@@ -998,6 +998,27 @@ def loggerfmt_handler(args,parser):
 	sys.exit(0)
 	return
 
+def format_tab_line(tab,l):
+	s = ''
+	i = 0
+	while i < tab:
+		s += '    '
+		i += 1
+	s += '%s\n'%(l)
+	return s
+
+def fmtdoccode_handler(args,parser):
+	set_logging(args)
+	ins = fileop.read_file(args.input)
+	sarr = re.split('\n',ins)
+	outs = format_tab_line(args.tabnum,'/// ```rust')
+	for l in sarr:
+		l = l.rstrip('\r')
+		outs += format_tab_line(args.tabnum,'/// %s'%(l))
+	outs += format_tab_line(args.tabnum,'/// ```')
+	fileop.write_file(outs,args.output)
+	sys.exit(0)
+	return
 
 def main():
     commandline='''
@@ -1007,11 +1028,15 @@ def main():
         "exportmacro|M": true,
         "debugmode|D":true,
         "stdmode|N" : true,
+        "tabnum" : 0,
         "fmterrors<errorsfmt_handler>##nameprefix to replace name prefix##" : {
         	"$" : 1
         },
         "fmtlogger<loggerfmt_handler>##nameprefix to used name prefix##" : {
         	"$" : 1
+        },
+        "fmtdoccode<fmtdoccode_handler>##to format output##" : {
+        	"$" : 0
         }
     }
     '''
