@@ -1472,6 +1472,42 @@ def cmpbin_handler(args,parser):
     sys.exit(0)
     return
 
+def difffiles_handler(args,parser):
+    set_logging(args)
+    s = read_file(args.input)
+    sarr = re.split('\n',s)
+    logging.info('len(%d)'%(len(sarr)))
+    mexpr = re.compile('^diff\\s+(\\-[^\\s]+)\\s+(.*)',re.I)
+    lindex = 0
+    outs = ''
+    for l in sarr:
+        lindex += 1
+        if (lindex % 1000) == 0:
+            logging.info('%d'%(lindex))
+        l = l.rstrip('\r')
+        m = mexpr.findall(l)
+        if m is not None and len(m) > 0 and len(m[0]) > 1:
+            ns = m[0][1]
+            barr = re.split('\\s+',ns)
+            if len(barr) > 1:
+                carr = re.split('/',barr[0])
+                idx = 1
+                bs = ''
+                while  idx < len(carr):
+                    if idx > 1:
+                        bs += '/'
+                    bs += '%s'%(carr[idx])
+                    idx += 1
+                outs += '%s\n'%(bs)
+    write_file(outs,args.output)
+    sys.exit(0)
+    return
+
+
+
+
+
+
 def main():
     commandline='''
     {
@@ -1592,6 +1628,9 @@ def main():
         },
         "cmpbin<cmpbin_handler>##basebin binfile to cmp search##" : {
             "$" : 2
+        },
+        "difffiles<difffiles_handler>##to output file##" : {
+            "$" : 0
         }
     }
     '''
