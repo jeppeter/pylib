@@ -182,19 +182,38 @@ def bin_to_bytes(ins):
         if ns == s:
             ns = re.sub('^0x[a-fA-F0-9]+[:]?\\s+','',s)
         s = ns
-        if len(s) > (16 * 5)+1:
-            s = s[:(16*5)+1]
+        #if len(s) > (16 * 5)+1:
+        #    s = s[:(16*5)+1]
         logging.info('s [%s]'%(s))
         cursarr = re.split('\\s+',s)
         idx = 0 
-        while idx < (len(cursarr) - 1):
+        skipped = 0
+        lastspace = False
+        while idx < (len(cursarr) - 1 - skipped):
             c = cursarr[idx]
             logging.info('c [%s]'%(c))
             if c.startswith('0x') or c.startswith('0X'):
+                lv = int(c[2:],16)
+                # we should handle skip type
+                if lv == 0x20:
+                    if not lastspace:
+                        lastspace = True
+                        skipped += 1
+                else:
+                    lastspace = False
+
                 retb += bytes([int(c[2:],16)])
             else:
+                lv = int(c,16)
+                # we should handle skip type
+                if lv == 0x20:
+                    if not lastspace:
+                        lastspace = True
+                        skipped += 1
+                else:
+                    lastspace = False
                 retb += bytes([int(c,16)])
-            logging.info('retb [%d]'%(len(retb)))
+            #logging.info('retb [%d]'%(len(retb)))
             idx += 1
     return retb
 
@@ -236,22 +255,26 @@ def binhex_to_bytes(ins):
         s = ns
         ns = re.sub('^\\s+','',s)
         s = ns
-        sarr = re.split('\\s+',s)
-        if len(sarr) > 1:
-            s = sarr[0]
-        if len(s) > (16 * 3)+1:
-            s = s[:(16*3)+1]
+        nsarr = re.split('\\s+',s)
+        if len(nsarr) > 1:
+            s = nsarr[0]
+        #if len(s) > (16 * 3)+1:
+        #    s = s[:(16*3)+1]
         logging.info('s [%s]'%(s))
         cursarr = re.split(':',s)
         idx = 0 
+        skipped = 0
+        lastspace = False
         while idx < (len(cursarr)):
             c = cursarr[idx]
             if c.startswith('0x') or c.startswith('0X'):
                 c = c[2:]
             logging.info('c [%s]'%(c))
             if len(c) > 0:
-                retb += bytes([int(c,16)])
+                lv = int(c,16)
+                retb += bytes([lv])
             idx += 1
+    logging.info('retb [%d]'%(len(retb)))
     return retb
 
 
