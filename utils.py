@@ -198,7 +198,9 @@ def bin_to_bytes(ins):
                 if lv == 0x20:
                     if not lastspace:
                         lastspace = True
-                        skipped += 1
+                        if idx != 0:
+                            # if we not the first bytes
+                            skipped += 1
                 else:
                     lastspace = False
 
