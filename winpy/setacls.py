@@ -9,6 +9,7 @@ import logging
 import platform
 import cmdpack
 import re
+import traceback
 
 
 WIN_MAX_PATH=255
@@ -284,6 +285,28 @@ def setfullgrant_handler(args,parser):
 	sys.exit(0)
 	return
 
+def reset_directory(d):
+	try:
+		cmds = ['takeown.exe','/d','y','/r','/a','/f',d]
+		subprocess.check_call(cmds)
+		cmds = ['icacls.exe',d,'/reset','/t','/c','/l']
+		subprocess.check_call(cmds)
+	except:
+		logging.error('%s'%(traceback.format_exc()))
+		return False
+	return True
+
+def reset_handler(args,parser):
+	set_log_level(args)
+	allret = True
+	for f in args.subnargs:
+		retval = reset_directory(f)
+		if not retval:
+			allret = False
+	if not allret:
+		sys.exit(5)
+	sys.exit(0)
+	return
 
 def main():
 	commandline='''
@@ -304,6 +327,9 @@ def main():
 			"$" : "+"
 		},
 		"setfullgrant<setfullgrant_handler>## user dirs ... to set user to dirs full##" : {
+			"$" : "+"
+		},
+		"reset<reset_handler>##directory ... to reset directory##" : {
 			"$" : "+"
 		}
 	}
