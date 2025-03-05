@@ -16,6 +16,8 @@ import traceback
 import math
 import threading
 
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+import strop
 
 def set_logging(args):
     loglvl= logging.ERROR
@@ -1564,6 +1566,35 @@ def header_handler(args,parser):
     sys.exit(0)
     return
 
+def pipeselect_handler(args,parser):
+    set_logging(args)
+    stepval = 10 * 1024 * 1024
+    if len(args.subnargs) > 0:
+        stepval = strop.parse_k_value(args.subnargs[0])
+    tbytes = 0
+    logging.info('stepval %d'%(stepval))
+    ws = ''
+    while True:
+        curval = stepval - (tbytes % stepval)
+        inb = os.read(sys.stdin.fileno(),curval)
+        if inb is None or len(inb) == 0:
+            #logging.info('%d %d end inb %d'%(curval, sys.stdin.fileno(),tbytes))
+            break
+        tbytes += len(inb)
+        os.write(sys.stdout.fileno(),inb)
+
+        if (tbytes % stepval) == 0:
+            for i in range(len(ws)):
+                sys.stderr.write('\b')
+            sys.stderr.flush()
+            ws = '%d'%(tbytes)
+            sys.stderr.write('%s'%(ws))
+            sys.stderr.flush()
+    for i in range(len(ws)):
+        sys.stderr.write('\b')
+    sys.stderr.write('%d\n'%(tbytes))
+    sys.exit(0)
+    return
 
 
 def main():
@@ -1693,6 +1724,9 @@ def main():
         },
         "header<header_handler>##file ... to make file##" : {
             "$" : "+"
+        },
+        "pipeselect<pipeselect_handler>##to list size##" : {
+            "$" : "?"
         }
     }
     '''

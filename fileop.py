@@ -10,6 +10,7 @@ import struct
 import random
 import time
 import math
+import re
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
@@ -710,6 +711,54 @@ def md5_handler(args,parser):
     sys.exit(0)
     return
 
+def rmlist_handler(args,parser):
+    set_logging(args)
+    s = read_file(args.input)
+    sarr = re.split('\n',s)
+    dname = args.subnargs[0]
+    dname = os.path.abspath(dname)
+    ofiles = []
+    for f in sarr:
+        if len(f) > 0:
+            ofiles.append(f)
+    files = []
+    ofiles.sort()
+    for dp,dns,fns in os.walk(dname):
+        #logging.info('dp %s fns %s'%(dp,fns))
+        for f in fns:
+            if dp == dname:
+                files.append(f)
+                logging.info('append %s'%(f))
+            else:
+                nfile = os.path.join(dp,f)
+                nfile = nfile.replace(dname,'')
+                files.append(nfile)
+                logging.info('append %s'%(nfile))
+    files.sort()
+    sidx = 0
+    didx = 0
+    while sidx < len(ofiles) and didx < len(files):
+        if ofiles[sidx] < files[didx]:
+            logging.info('skip [%s]'%(ofiles[sidx]))
+            sidx += 1
+        elif ofiles[sidx] > files[didx]:
+            logging.info('will remove [%s]'%(files[didx]))
+            didx += 1
+        else:
+            logging.info('pair [%d] [%d] [%s]'%(sidx,didx,ofiles[sidx]))
+            sidx += 1
+            didx += 1
+    while sidx < len(ofiles):
+        logging.info('no %s'%(ofiles[sidx]))
+        sidx += 1
+    while didx < len(files):
+        logging.info('remove %s'%(files[didx]))
+        didx += 1
+
+
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -738,6 +787,9 @@ def main():
         },
         "md5<md5_handler>##file ... to get file md5##" : {
             "$" : "+"
+        },
+        "rmlist<rmlist_handler>##dir  to compare with dirlist##" : {
+            "$": 1
         }
     }
     '''

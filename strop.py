@@ -19,6 +19,28 @@ def get_buffer_value(c):
     return struct.unpack('B', c)[0]
 
 
+def parse_k_value(s):
+    kval = 0
+    matchexpr = re.compile('([0-9]+)([kKmMgGtT]?)')
+    m = matchexpr.findall(s)
+    if m is not None and len(m) >= 1 and len(m[0]) >= 2:
+        kval = int(m[0][0])
+        if m[0][1] == 'k' or m[0][1] == 'K':
+            kval *= 1024
+        elif m[0][1] == 'm' or m[0][1] == 'M':
+            kval *= 1024 * 1024
+        elif m[0][1] == 'g' or m[0][1] == 'G':
+            kval *= 1024 * 1024 * 1024
+        elif m[0][1] == 't' or m[0][1] == 'T':
+            kval *= 1024 * 1024 * 1024 * 1024
+        elif m[0][1] == 'p' or m[0][1] == 'P':
+            kval *= 1024 * 1024 * 1024 * 1024 * 1024
+        elif m[0][1] == 'e' or m[0][1] == 'E':
+            kval *= 1024 * 1024 * 1024 * 1024 * 1024 * 1024
+    return kval
+
+
+
 def dump_buffer(buf,fmt='',stkidx=1):
     i = 0
     lasti = 0
