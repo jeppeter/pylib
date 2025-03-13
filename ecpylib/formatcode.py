@@ -215,6 +215,23 @@ def _init_ecc_params():
 
     return rdict,names
 
+WINDOWS_PATH = False
+
+def join_path(*args):
+    global WINDOWS_PATH
+    outp = ''
+    idx = 0
+    while idx < len(args):
+        if idx > 0:
+            if WINDOWS_PATH:
+                outp += '\\'
+            else:
+                outp += '/'
+        outp += args[idx]
+        idx += 1
+    outp = outp.replace('\\','\\\\')
+    return outp
+
 def init_ecc_params():
     global GL_ECC_PARAMS
     global GL_ECC_NAMES
@@ -346,8 +363,8 @@ class ECCInstance(object):
 class RustInstance(object):
 
     def _format_win_path(self,*args):
-        retp = os.path.join(*args)
-        retp = retp.replace('\\','\\\\')
+        retp = join_path(*args)
+        #retp = retp.replace('\\','\\\\')
         return retp
 
     def __init__(self,rustbin,outpath,params,privnum,hashnum):
@@ -387,8 +404,14 @@ class RustInstance(object):
         return s
 
 
+def init_parameters(args):
+    global WINDOWS_PATH
+    WINDOWS_PATH = args.winmode
+    return
+
 def fmtsslcode_handler(args,parser):
     global GL_LINES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = GL_ECC_NAMES
@@ -430,6 +453,7 @@ def fmtsslcode_handler(args,parser):
     return
 
 def getbn_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     bnnum = 10
     bnsize = 10
@@ -450,8 +474,7 @@ def getbn_handler(args,parser):
 
 class RustVerify(object):
     def _format_win_path(self,*args):
-        retp = os.path.join(*args)
-        retp = retp.replace('\\','\\\\')
+        retp = join_path(*args)
         return retp
     def __init__(self,privnum,ecname,rootpath,hashnum,rustbin):
         self.rootpath = rootpath
@@ -488,9 +511,9 @@ class SslVerify(object):
         self.privnumshort = get_short_value(self.privnum)
         self.hashnumshort = get_short_value(self.hashnum)
         self.ecname = ecname
-        self.signbin = os.path.join(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,self.privnumshort,self.hashnumshort))
-        self.ecpubbin = os.path.join(rootpath,'rust.ecpub.%s.%x'%(ecname,self.privnumshort))
-        self.vfylog = os.path.join(rootpath,'ssl.vfy.%s.%x.%x.log'%(self.ecname,self.privnumshort,self.hashnumshort))
+        self.signbin = join_path(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,self.privnumshort,self.hashnumshort))
+        self.ecpubbin = join_path(rootpath,'rust.ecpub.%s.%x'%(ecname,self.privnumshort))
+        self.vfylog = join_path(rootpath,'ssl.vfy.%s.%x.%x.log'%(self.ecname,self.privnumshort,self.hashnumshort))
         return
 
     def format_code(self,tab=0):
@@ -515,9 +538,9 @@ class SslSingle(object):
         self.privnum = privnum
         self.hashnum = hashnum
         self.ecname = ecname
-        self.signbin = os.path.join(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,privnum,hashnum))
-        self.ecpubbin = os.path.join(rootpath,'rust.ecpub.%s.%x'%(ecname,privnum))
-        self.vfylog = os.path.join(rootpath,'ssl.vfy.%x.%x.log'%(self.privnum,self.hashnum))
+        self.signbin = join_path(rootpath,'rust.sign.%s.%x.%x.bin'%(ecname,privnum,hashnum))
+        self.ecpubbin = join_path(rootpath,'rust.ecpub.%s.%x'%(ecname,privnum))
+        self.vfylog = join_path(rootpath,'ssl.vfy.%x.%x.log'%(self.privnum,self.hashnum))
         return
 
     def format_code(self,tab=0):
@@ -535,6 +558,7 @@ class SslSingle(object):
         return rets
 
 def fmtrustcode_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.rustbin is None or len(args.rustbin) == 0:
         raise Exception('need rustbin set')
@@ -568,6 +592,7 @@ def fmtrustcode_handler(args,parser):
     return
 
 def fmtrustsignbase_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = GL_ECC_NAMES
@@ -609,6 +634,7 @@ def fmtrustsignbase_handler(args,parser):
     return
 
 def fmtsslvfybase_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.sslbin is None or len(args.sslbin) == 0:
         raise Exception('need sslbin set')
@@ -653,6 +679,7 @@ def fmtsslvfybase_handler(args,parser):
     return
 
 def fmtsslsingle_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.sslbin is None or len(args.sslbin) == 0:
         raise Exception('need sslbin set')
@@ -697,6 +724,7 @@ def fmtsslsingle_handler(args,parser):
     return
 
 def listectypes_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     global GL_ECC_NAMES
     init_ecc_params()
@@ -711,22 +739,22 @@ class SslEcgenInstance(object):
         self.partnum = partnum
         self.opensslbin = opensslbin
         self.outdir = outdir
-        self.compressed_file = os.path.join(outdir,'ecgen.%s.%d.compressed.pem'%(ecname,partnum))
-        self.compressed_explicit_file = os.path.join(outdir,'ecgen.%s.%d.compressed.explicit.pem'%(ecname,partnum))
-        self.uncompressed_file = os.path.join(outdir,'ecgen.%s.%d.uncompressed.pem'%(ecname,partnum))
-        self.uncompressed_explicit_file = os.path.join(outdir,'ecgen.%s.%d.uncompressed.explicit.pem'%(ecname,partnum))
-        self.hybrid_file = os.path.join(outdir,'ecgen.%s.%d.hybrid.pem'%(ecname,partnum))
-        self.hybrid_explicit_file = os.path.join(outdir,'ecgen.%s.%d.hybrid.explicit.pem'%(ecname,partnum))
+        self.compressed_file = join_path(outdir,'ecgen.%s.%d.compressed.pem'%(ecname,partnum))
+        self.compressed_explicit_file = join_path(outdir,'ecgen.%s.%d.compressed.explicit.pem'%(ecname,partnum))
+        self.uncompressed_file = join_path(outdir,'ecgen.%s.%d.uncompressed.pem'%(ecname,partnum))
+        self.uncompressed_explicit_file = join_path(outdir,'ecgen.%s.%d.uncompressed.explicit.pem'%(ecname,partnum))
+        self.hybrid_file = join_path(outdir,'ecgen.%s.%d.hybrid.pem'%(ecname,partnum))
+        self.hybrid_explicit_file = join_path(outdir,'ecgen.%s.%d.hybrid.explicit.pem'%(ecname,partnum))
         return
 
     def _formaat_base(self,tab):
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
-        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
-        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privlogfile = join_path(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        publogfile = join_path(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
         rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" 2>"%s"'%(self.opensslbin,self.ecname,privfile,privlogfile))
         rets += format_tab_line(tab,'if [ $? -ne 0 ]')
         rets += format_tab_line(tab,'then')
@@ -746,11 +774,11 @@ class SslEcgenInstance(object):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        infile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
-        publogfile = os.path.join(self.outdir,'ecgen.pub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        infile = join_path(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        pubfile = join_path(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = join_path(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        publogfile = join_path(self.outdir,'ecgen.pub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
         outs = ''
         outs += format_tab_line(tab,'')
         #outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
@@ -796,9 +824,9 @@ class RustEcgenInstance(object):
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
-        logfile = os.path.join(self.outdir,'rust.%s.%d.base.log'%(self.ecname,self.partnum))
-        pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        logfile = join_path(self.outdir,'rust.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = join_path(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
         ss = '"%s" --no-sm2privformat ecgen --ecpriv "%s" --ecpub "%s" %s 2>"%s"'%(self.rustbin,privfile,pubfile,self.ecname,logfile)
         ss += ' || (echo "[%d] can not format %s %s file" && exit /b 4)'%(GL_LINES,privfile,pubfile)
         rets += format_tab_line(tab,ss)
@@ -808,12 +836,12 @@ class RustEcgenInstance(object):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        inprivfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
-        inpubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        pubfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        privlogfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
-        publogfile = os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        inprivfile = join_path(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        inpubfile = join_path(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        pubfile = join_path(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = join_path(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        publogfile = join_path(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
         outs = ''
         outs += format_tab_line(tab,'')
         #outs += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
@@ -856,11 +884,11 @@ class SslEcloadLib(object):
 
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
-        infile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
-        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        infile = join_path(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = join_path(self.outdir,'ecgen.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        pubfile = join_path(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        publogfile = join_path(self.outdir,'ecpub.priv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
 
         rets += format_tab_line(tab,'"%s" ec -in "%s" -out "%s" %s 2> "%s"'%(self.opensslbin,infile,privfile,appends,privlogfile))
         rets += format_tab_line(tab,'if [ $? -ne 0 ]')
@@ -901,10 +929,10 @@ class SslSM2genInstance(object):
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d'%(self.ecname,self.partnum))
-        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
-        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
-        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        privfile = join_path(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        privlogfile = join_path(self.outdir,'ecgen.priv.%s.%d.base.log'%(self.ecname,self.partnum))
+        pubfile = join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        publogfile = join_path(self.outdir,'ecpub.priv.%s.%d.base.log'%(self.ecname,self.partnum))
         rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" 2>"%s"'%(self.opensslbin,self.ecname,privfile,privlogfile))
         rets += format_tab_line(tab,'if [ $? -ne 0 ]')
         rets += format_tab_line(tab,'then')
@@ -931,10 +959,10 @@ class SslSM2genInstance(object):
 
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'#TESTCASE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
-        privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
-        privlogfile = os.path.join(self.outdir,'ecgen.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
-        pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
-        publogfile = os.path.join(self.outdir,'ecpub.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
+        privfile = join_path(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+        privlogfile = join_path(self.outdir,'ecgen.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
+        pubfile = join_path(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+        publogfile = join_path(self.outdir,'ecpub.priv.%s.%d.base.%s.log'%(self.ecname,self.partnum,types))
         rets += format_tab_line(tab,'"%s" ecparam -genkey -name %s -noout -out "%s" %s 2>"%s"'%(self.opensslbin,self.ecname,privfile,appends,privlogfile))
         rets += format_tab_line(tab,'if [ $? -ne 0 ]')
         rets += format_tab_line(tab,'then')
@@ -985,18 +1013,18 @@ class Asn1SM2Instance(object):
         rets += format_tab_line(tab,'')
         if len(types) > 0:
             rets += format_tab_line(tab,'REM ASN1PARSE ecname %s partnum %d %s'%(self.ecname,self.partnum,types))
-            privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
-            privlogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
-            pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
-            publogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
+            privfile = join_path(self.outdir,'ecgen.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+            privlogfile = join_path(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
+            pubfile = join_path(self.outdir,'ecpub.%s.%d.base.%s.pem'%(self.ecname,self.partnum,types))
+            publogfile = join_path(self.outdir,'asn1.priv.%s.%d.base.%s.dump'%(self.ecname,self.partnum,types))
             rets += format_tab_line(tab,'"%s" asn1parse "%s" >"%s" || (echo "[%d] dump %s.%d %s error" >&2 && exit /b 4)'%(self.asn1bin,privfile,privlogfile,GL_LINES,self.ecname,self.partnum,types))
             rets += format_tab_line(tab,'"%s" asn1parse "%s" > "%s" || (echo "[%d] dump %s.%d %s error" >&2 && exit /b 4)'%(self.asn1bin,pubfile,publogfile,GL_LINES,self.ecname,self.partnum,types))
         else:
             rets += format_tab_line(tab,'REM ASN1PARSE ecname %s partnum %d'%(self.ecname,self.partnum))
-            privfile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
-            privlogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
-            pubfile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
-            publogfile = os.path.join(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
+            privfile = join_path(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+            privlogfile = join_path(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
+            pubfile = join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+            publogfile = join_path(self.outdir,'asn1.priv.%s.%d.base.dump'%(self.ecname,self.partnum))
             rets += format_tab_line(tab,'"%s" asn1parse "%s" >"%s" || (echo "[%d] dump %s.%d error" >&2 && exit /b 4)'%(self.asn1bin,privfile,privlogfile,GL_LINES,self.ecname,self.partnum))
             rets += format_tab_line(tab,'"%s" asn1parse "%s" > "%s" || (echo "[%d] dump %s.%d error" >&2 && exit /b 4)'%(self.asn1bin,pubfile,publogfile,GL_LINES,self.ecname,self.partnum))
 
@@ -1018,6 +1046,7 @@ class Asn1SM2Instance(object):
 
 def fmtsslecgen_handler(args,parser):
     global GL_ECC_NAMES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = args.subnargs
@@ -1078,6 +1107,7 @@ def fmtsslecgen_handler(args,parser):
 
 def fmtrustecgen_handler(args,parser):
     global GL_ECC_NAMES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = GL_ECC_NAMES
@@ -1132,7 +1162,7 @@ class RustEcprivExport(object):
         return
 
     def _format_rust_code(self,tab,outcmprtype,outparamenc):
-        infile = os.path.join(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
+        infile = join_path(self.outdir,'ecgen.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
         if outparamenc is None or len(outparamenc) == 0:
@@ -1140,8 +1170,8 @@ class RustEcprivExport(object):
         else:
             outtypes += '.%s'%(outparamenc)
             appends += ' --ecparamenc %s'%(outparamenc)
-        outfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
-        logfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
+        outfile = join_path(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
+        logfile = join_path(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM RUSTECPRIV TESTCASE from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
@@ -1159,6 +1189,7 @@ class RustEcprivExport(object):
         return rets
 
 def fmtrustecprivload_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     if args.rustbin is None or len(args.rustbin) == 0:
@@ -1222,7 +1253,7 @@ class RustEcpubExport(object):
         return
 
     def _format_rust_code(self,tab,outcmprtype,outparamenc):
-        infile = os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        infile = join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
         outtypes = '%s'%(outcmprtype)
         appends = '--eccmprtype %s'%(outcmprtype)
         if outparamenc is None or len(outparamenc) == 0:
@@ -1230,8 +1261,8 @@ class RustEcpubExport(object):
         else:
             outtypes += '.%s'%(outparamenc)
             appends += ' --ecparamenc %s'%(outparamenc)
-        outfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
-        logfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
+        outfile = join_path(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,outtypes))
+        logfile = join_path(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.log'%(self.ecname,self.partnum,outtypes))
         rets = ''
         rets += format_tab_line(tab,'')
         rets += format_tab_line(tab,'REM RUSTECPUB TESTCASE  from ecname %s partnum %d %s'%(self.ecname,self.partnum,outtypes))
@@ -1250,6 +1281,7 @@ class RustEcpubExport(object):
 
 
 def fmtrustecpubload_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     if args.rustbin is None or len(args.rustbin) == 0:
@@ -1304,6 +1336,7 @@ def fmtrustecpubload_handler(args,parser):
 
 
 def diffpem_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     sslpem = args.subnargs[0]
     rustpem = args.subnargs[1]
@@ -1329,8 +1362,8 @@ class SslDiffPemLib(object):
         types = '%s'%(cmprtype)
         if paramenc is not None and len(paramenc) > 0:
             types += '.%s'%(paramenc)
-        sslfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        rustfile = os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        sslfile = join_path(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = join_path(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
         pyfile = os.path.abspath(__file__)
         outs += format_tab_line(tab,'')
         outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s"'%(pyfile,sslfile,rustfile))
@@ -1363,8 +1396,8 @@ class RustDiffPemLib(object):
         types = '%s'%(cmprtype)
         if paramenc is not None and len(paramenc) > 0:
             types += '.%s'%(paramenc)
-        sslfile = os.path.join(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        rustfile = os.path.join(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
+        sslfile = join_path(self.outdir,'ecgen.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = join_path(self.outdir,'rust.ecprivload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
         pyfile = os.path.abspath(__file__)
         outs += format_tab_line(tab,'')
         outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s" || (echo "[%d]diff %s %s error" && exit /b 4)'%(pyfile,sslfile,rustfile,GL_LINES,sslfile,rustfile))
@@ -1392,8 +1425,8 @@ class RustDiffPemPubLib(object):
         types = '%s'%(cmprtype)
         if paramenc is not None and len(paramenc) > 0:
             types += '.%s'%(paramenc)
-        sslfile = os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
-        rustfile = os.path.join(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
+        sslfile = join_path(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        rustfile = join_path(self.outdir,'rust.ecpubload.%s.%d.base.out.%s.pem'%(self.ecname,self.partnum,types))
         pyfile = os.path.abspath(__file__)
         outs += format_tab_line(tab,'')
         outs += format_tab_line(tab,'python "%s" diffpem "%s" "%s" || (echo "[%d]diff %s %s error" && exit /b 4)'%(pyfile,sslfile,rustfile,GL_LINES,sslfile,rustfile))
@@ -1410,6 +1443,7 @@ class RustDiffPemPubLib(object):
         return outs
 
 def fmtssldiff_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     sarr = re.split('\n',ins)
@@ -1450,6 +1484,7 @@ def fmtssldiff_handler(args,parser):
     return
 
 def fmtrustdiff_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     sarr = re.split('\n',ins)
@@ -1490,6 +1525,7 @@ def fmtrustdiff_handler(args,parser):
     return
 
 def fmtrustdiffpub_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     sarr = re.split('\n',ins)
@@ -1530,6 +1566,7 @@ def fmtrustdiffpub_handler(args,parser):
     return
 
 def fmtsslsm2gen_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = ['SM2']
@@ -1579,6 +1616,7 @@ def fmtsslsm2gen_handler(args,parser):
     return
 
 def fmtsm2asn1_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     if args.asn1parsebin is None or len(args.asn1parsebin) == 0:
@@ -1625,6 +1663,7 @@ def fmtsm2asn1_handler(args,parser):
     return
 
 def fmtsslecload_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.outpath is None or len(args.outpath) == 0:
         raise Exception('need outpath')
@@ -1681,6 +1720,7 @@ def fmtsslecload_handler(args,parser):
     return
 
 def fmtsslecprivload_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.outpath is None or len(args.outpath) == 0:
         raise Exception('need outpath')
@@ -1748,45 +1788,45 @@ class SslSignInstance(object):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        return join_path(self.outdir,'ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
 
     def _get_priv_log(self,cmprtype,paramenc):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        return join_path(self.outdir,'ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,types))
 
     def _get_priv_base(self):
-        return os.path.join(self.outdir,'ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_privlog_base(self):
-        return os.path.join(self.outdir,'ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
 
     def _get_pub_name(self,cmprtype,paramenc):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        return join_path(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
 
     def _get_pub_log(self,cmprtype,paramenc):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
+        return join_path(self.outdir,'ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,types))
 
     def _get_pub_base(self):
-        return os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_publog_base(self):
-        return os.path.join(self.outdir,'ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
 
     def _get_rand_name(self,cmprtype,paramenc,digtype):
         if self.ecname == 'SM2':
-            return os.path.join(self.outdir,'ssl.rand.%s.%d.base.bin'%(self.ecname,self.partnum))
+            return join_path(self.outdir,'ssl.rand.%s.%d.base.bin'%(self.ecname,self.partnum))
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
             
 
     def _format_rand_file(self,cmprtype,paramenc,digtype,tab=0):
@@ -1938,17 +1978,17 @@ class SslSignInstance(object):
 
     def _get_sign_name(self,cmprtype,paramenc,digtype):
         if self.ecname == 'SM2':
-            return os.path.join(self.outdir,'sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+            return join_path(self.outdir,'sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
 
     def _get_sign_log(self,cmprtype,paramenc,digtype):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
 
 
     def _format_sign(self,cmprtype,paramenc,digtype,tab):
@@ -1975,7 +2015,7 @@ class SslSignInstance(object):
     def _format_sm2_sign_file(self,tab=0):
         randfile = self._get_rand_name(None,None,None)
         sigfile = self._get_sign_name(None,None,None)
-        logfile = os.path.join(self.outdir,'sign.%s.%d.sm3.log'%(self.ecname,self.partnum))
+        logfile = join_path(self.outdir,'sign.%s.%d.sm3.log'%(self.ecname,self.partnum))
         privbase = self._get_priv_base()
         outs = ''
         outs += format_tab_line(tab,'')
@@ -2020,6 +2060,7 @@ class SslSignInstance(object):
 
 def fmtsslsign_handler(args,parser):
     global GL_ECC_NAMES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = args.subnargs
@@ -2079,6 +2120,7 @@ def fmtsslsign_handler(args,parser):
 
 def fmtsslsm2sign_handler(args,parser):
     global GL_ECC_NAMES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = ['SM2']
@@ -2133,7 +2175,7 @@ def fmtsslsm2sign_handler(args,parser):
 
 class RustVfyInstance(object):
     def _format_win_path(self,*args):
-        retp = os.path.join(*args)
+        retp = join_path(*args)
         retp = retp.replace('\\','\\\\')
         return retp
     def __init__(self,rustbin,rustopath,ecname,partnum):
@@ -2147,32 +2189,32 @@ class RustVfyInstance(object):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
+        return join_path(self.outdir,'ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,types))
     def _get_rust_vfy_log(self,cmprtype,paramenc,digtype):
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'rust.vfy.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'rust.vfy.%s.%d.%s.%s.log'%(self.ecname,self.partnum,types,digtype))
 
     def _get_sign_name(self,cmprtype,paramenc,digtype):
         if self.ecname == 'SM2':
-            return os.path.join(self.outdir,'sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+            return join_path(self.outdir,'sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
 
     def _get_rand_file(self,cmprtype,paramenc,digtype):
         if self.ecname == 'SM2':
-            return os.path.join(self.outdir,'ssl.rand.%s.%d.base.bin'%(self.ecname,self.partnum))
+            return join_path(self.outdir,'ssl.rand.%s.%d.base.bin'%(self.ecname,self.partnum))
         types = '%s'%(cmprtype)
         if paramenc is not None:
             types += '.%s'%(paramenc)
-        return os.path.join(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
+        return join_path(self.outdir,'ssl.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,types,digtype))
 
 
     def _get_pub_base(self):
-        return os.path.join(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _format_sign_code(self,cmprtype,paramenc,digtype,tab=0):
         pubfile = self._get_pub_file(cmprtype,paramenc)
@@ -2191,7 +2233,7 @@ class RustVfyInstance(object):
         pubbase = self._get_pub_base()
         randfile = self._get_rand_file(None,None,None)
         sigfile = self._get_sign_name(None,None,None)
-        logfile = os.path.join(self.outdir,'rust.ecvfy.%s.%d.sm3.log'%(self.ecname,self.partnum))
+        logfile = join_path(self.outdir,'rust.ecvfy.%s.%d.sm3.log'%(self.ecname,self.partnum))
         outs += format_tab_line(tab,'"%s" ecvfy --digesttype sm3 --ecpub "%s" --input "%s" "%s" >"%s" 2>&1 || (echo "[%d] verify %s %d error" >&2 && exit /b 4)'%(self.rustbin,pubbase,sigfile,randfile,logfile,GL_LINES,self.ecname,self.partnum))
         return outs
 
@@ -2223,6 +2265,7 @@ class RustVfyInstance(object):
         return rets
 
 def fmtrustvfy_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     ins = fileop.read_file(args.input)
     sarr = re.split('\n',ins)
@@ -2271,16 +2314,16 @@ class RustSignInstance(object):
         return
 
     def _get_base_ecpriv(self):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_base_ecpub(self):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_base_ecpriv_log(self):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
 
     def _get_base_ecpub_log(self):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
 
 
     def _get_types(self,cmprtype,paramenc):
@@ -2296,35 +2339,35 @@ class RustSignInstance(object):
         return outs
 
     def _get_ecpriv_types(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
     def _get_ecpriv_types_log(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
 
     def _get_ecpub_types(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
     def _get_ecpub_types_log(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
 
     def _get_rand_types(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
     def _get_sign_types(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
 
     def _get_sign_types_log(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'rust.sign.%s.%d.%s.%s.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
 
     def _get_rand_sm3(self):
-        return os.path.join(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
 
     def _get_sign_sm3(self):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
 
     def _get_sign_sm3_log(self):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.sign.%s.%d.sm3.log'%(self.ecname,self.partnum))
 
     def _format_ecpub_out(self,cmprtype,paramenc,tab=0):
         outs = ''
@@ -2474,6 +2517,7 @@ class RustSignInstance(object):
 
 def fmtrustsign_handler(args,parser):
     global GL_ECC_NAMES
+    init_parameters(args)
     loglib.set_logging(args)
     init_ecc_params()
     ecnames = GL_ECC_NAMES
@@ -2527,16 +2571,16 @@ class SslEcVerifyInstance(object):
         return
 
     def _get_base_ecpriv(self):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_base_ecpub(self):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.base.pem'%(self.ecname,self.partnum))
 
     def _get_base_ecpriv_log(self):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.base.log'%(self.ecname,self.partnum))
 
     def _get_base_ecpub_log(self):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.base.log'%(self.ecname,self.partnum))
 
 
     def _get_types(self,cmprtype,paramenc):
@@ -2552,29 +2596,29 @@ class SslEcVerifyInstance(object):
         return outs
 
     def _get_ecpriv_types(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpriv.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
 
     def _get_ecpub_types(self,cmprtype,paramenc):
-        return os.path.join(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
+        return join_path(self.outdir,'rust.ecpub.%s.%d.%s.pem'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc)))
 
 
     def _get_rand_types(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'rust.rand.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
 
     def _get_sign_types(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'rust.sign.%s.%d.%s.%s.bin'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
 
     def _get_rand_sm3(self):
-        return os.path.join(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.rand.%s.%d.sm3.bin'%(self.ecname,self.partnum))
 
     def _get_sign_sm3(self):
-        return os.path.join(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'rust.sign.%s.%d.sm3.bin'%(self.ecname,self.partnum))
 
     def _get_verify_types(self,cmprtype,paramenc,dgsttype):
-        return os.path.join(self.outdir,'ssl.%s.%d.%s.%s.verify.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
+        return join_path(self.outdir,'ssl.%s.%d.%s.%s.verify.log'%(self.ecname,self.partnum,self._get_types(cmprtype,paramenc),dgsttype))
     def _get_verify_sm3(self):
-        return os.path.join(self.outdir,'ssl.%s.%d.sm3.verify.log'%(self.ecname,self.partnum))
+        return join_path(self.outdir,'ssl.%s.%d.sm3.verify.log'%(self.ecname,self.partnum))
 
 
     def _format_verify_code(self,cmprtype,paramenc,dgsttype,tab=0):
@@ -2637,6 +2681,7 @@ class SslEcVerifyInstance(object):
 
 
 def fmtsslvfy_handler(args,parser):
+    init_parameters(args)
     loglib.set_logging(args)
     if args.outpath is None or len(args.outpath) == 0:
         raise Exception('need outpath')
@@ -2700,6 +2745,7 @@ def main():
         "input|i" : null,
         "rustrand" : null,
         "sslrand" : null,
+        "winmode" : false,
         "opensslbin" : "/home/bt/source/openssl/apps/openssl",
         "sslbin" : "/mnt/zdisk/clibs/test/ssltst/ssltst",
         "rustbin" : "X:\\\\ecsimple\\\\utest\\\\ectst\\\\target\\\\release\\\\ectst.exe",
