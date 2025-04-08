@@ -7,23 +7,13 @@ import sys
 import socket
 import re
 import cmdpack
+import os
 
-def read_file(infile=None):
-	fin = sys.stdin
-	if infile is not None:
-		fin = open(infile,'rb')
-	rets = ''
-	for l in fin:
-		s = l
-		if 'b' in fin.mode:
-			if sys.version[0] == '3':
-				s = l.decode('utf-8')
-		rets += s
+sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
+sys.path.append(os.path.abspath(os.path.join( os.path.dirname(os.path.abspath(__file__)),'..')))
+from fileop import read_file,read_file_bytes
+from strop import dump_buffer
 
-	if fin != sys.stdin:
-		fin.close()
-	fin = None
-	return rets
 
 
 def set_logging(args):
@@ -56,7 +46,7 @@ def connect_handler(args,parser):
 	sys.exit(0)
 
 def get_mac_addr(name=None):
-	matchexpr = re.compile('^([\w]+)\s.*HWaddr\s+([a-f0-9A-F:]+)')
+	matchexpr = re.compile('^([\\w]+)\\s.*HWaddr\\s+([a-f0-9A-F:]+)')
 	cmds = ['ifconfig']
 	if name is not None:
 		cmds.append(name)
@@ -125,11 +115,37 @@ def getipmac_handler(args,parser):
 	sys.exit(0)
 	return
 
+def writetcp_handler(args,parser):
+	set_logging(args)
+	socktype = socket.SOCK_STREAM
+	host = '127.0.0.1'
+	port = 6200
+	if len(args.subnargs) > 0:
+		hoststr = args.subnargs[0]
+		sarr = re.split(':',hoststr)
+		host = sarr[0]
+		if len(sarr) > 1:
+			port = int(sarr[1])
+	indata = read_file_bytes(args.input)
+	with socket.socket(socket.AF_INET,socktype) as s:
+		s.connect((host,port))
+		wsize = 0
+		totalrd = []
+		while wsize < len(indata):
+			wlen = s.send(indata[wsize:])
+			wsize += wlen
+			rdata = s.recv(1024)
+			totalrd.extend(rdata)
+		logging.info('%s'%(dump_buffer(totalrd,'read buffer')))
+	sys.exit(0)
+	return
+
 def main():
 	commandline='''
 	{
 		"verbose|v" : "+",
 		"udpmode|U" : false,
+		"input|i" : null,
 		"connect<connect_handler>" : {
 			"$" : "+"
 		},
@@ -141,6 +157,9 @@ def main():
 		},
 		"getipmac<getipmac_handler>##ip ... ##" : {
 			"$" : "+"
+		},
+		"writetcp<writetcp_handler>##[host:port] to connect write input##" : {
+			"$" : "?"
 		}
 	}
 	'''
