@@ -150,6 +150,21 @@ def parse_input_sarr(ins):
                 retval.append(nk)
     return retval
 
+def parse_int_with_comma(v):
+    try:
+        vs = v.replace(',','')
+        return int(vs)
+    except:
+        return 0
+
+def parse_float_with_comma(v):
+    try:
+        vs = v.replace(',','')
+        return float(vs)
+    except:
+        return 0.0
+
+
 def parse_int(v):
     c = v
     base = 10
