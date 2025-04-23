@@ -36,10 +36,16 @@ class ParseSheet(object):
         return
 
     def parse_one_ridx_old(self,sh,ridx):
+        stkexpr = re.compile('([0-9]+)',re.I)
         try:
             self.ridx = ridx
             retcd = dict()
-            stkcode = sh.cell_value(ridx,STOCKCODE_CIDX)
+            stkcode1 = sh.cell_value(ridx,STOCKCODE_CIDX)
+            logging.info('stkcode [%s]'%(stkcode1))
+            stkcode = '%s'%(stkcode1)
+            m = stkexpr.findall(stkcode)
+            if m is not None and len(m) > 0:
+                stkcode = m[0]
             retcd[KEYWORD_STOCKCODE] = strop.parse_int(stkcode)
             shares = sh.cell_value(ridx, SHARESNUM_CIDX)
             retcd[KEYWORD_SHARES] = strop.parse_float_with_comma(shares)
@@ -115,7 +121,8 @@ class ParseSheet(object):
                     curidx = START_RIDX
                     while True:
                         val = sh.cell_value(curidx,0)
-                        if len(val) == 0:
+                        logging.info('val [%s]'%(val))
+                        if len(val) == 0 or val.lower() == 'nil' :
                             break
                         # now to parse 
                         cd = self.parse_one_ridx_old(sh,curidx)
@@ -158,7 +165,7 @@ def onesheet_handler(args,parser):
     if args.input is None:
         raise Exception('need set args input')
     v= ParseSheet(args.input)
-    retv =v.parse_one_sheet(args.input)
+    retv =v.parse_one_sheet()
     if retv is None:
         sys.exit(5)
     sys.stdout.write('%s'%(json.dumps(retv,indent=4)))
