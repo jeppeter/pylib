@@ -1597,6 +1597,19 @@ def pipeselect_handler(args,parser):
     return
 
 
+def jsonformatter_handler(args,parser):
+    set_logging(args)    
+    try:
+        s = read_file(args.input)
+        rdict = json.loads(s)
+        outs = json.dumps(rdict,indent=4)
+        write_file(outs,args.output)
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+        sys.exit(5)
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -1727,6 +1740,9 @@ def main():
         },
         "pipeselect<pipeselect_handler>##to list size##" : {
             "$" : "?"
+        },
+        "jsonformatter<jsonformatter_handler>##from input to format json##" : {
+            "$" : 0
         }
     }
     '''
