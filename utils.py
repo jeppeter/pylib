@@ -18,6 +18,7 @@ import threading
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import strop
+import fileop
 
 def set_logging(args):
     loglvl= logging.ERROR
@@ -1610,6 +1611,39 @@ def jsonformatter_handler(args,parser):
     sys.exit(0)
     return
 
+def splitfilelines_handler(args,parser):
+    set_logging(args)
+    numline = 100
+    if len(args.subnargs) > 0:
+        numline = parse_int(args.subnargs[0])
+    s = read_file(args.input)
+    sarr = re.split('\n',s)
+    outfile = None
+    outs = ''
+    lindex = 0
+    curline = 0
+    curnum = 1
+    if args.output is not None:
+        fileop.make_directory_safe(args.output)
+        outfile = os.path.join(args.output,'%d.txt'%(curnum))
+    else:
+        outfile = None
+    for l in sarr:
+        outs += '%s\n'%(l)
+        lindex += 1
+        curline += 1
+        if curline >= numline:
+            write_file(outs,outfile)
+            outs = ''
+            curline = 0
+            curnum += 1
+            if args.output is not None:
+                fileop.make_directory_safe(args.output)
+                outfile = os.path.join(args.output,'%d.txt'%(curnum))
+            else:
+                outfile = None
+    sys.exit(0)
+
 def main():
     commandline='''
     {
@@ -1743,6 +1777,9 @@ def main():
         },
         "jsonformatter<jsonformatter_handler>##from input to format json##" : {
             "$" : 0
+        },
+        "splitfilelines<splitfilelines_handler>##[line] to split in line default 100##" : {
+            "$" : "?"
         }
     }
     '''
