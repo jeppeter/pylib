@@ -1664,8 +1664,6 @@ def runnodedir_handler(args,parser):
     for (d,ds,fs) in os.walk(sd):
         logging.info('d %s ds %s fs %s'%(d,ds,fs))
         for f in fs:
-            if args.timeout > 0.01:
-                time.sleep(args.timeout)
             curcmds = []
             curcmds.append('node.exe')
             curcmds.extend(runcmds)
@@ -1678,6 +1676,8 @@ def runnodedir_handler(args,parser):
             except:
                 logging.error('%s'%(traceback.format_exc()))
                 retval = False
+            if args.timeout > 0.01:
+                time.sleep(args.timeout)
 
     if not retval:
         sys.exit(5)
