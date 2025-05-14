@@ -1642,6 +1642,45 @@ def splitfilelines_handler(args,parser):
                 outfile = os.path.join(args.output,'%d.txt'%(curnum))
             else:
                 outfile = None
+    if len(outs) > 0:
+        write_file(outs,outfile)
+        outs = ''
+        curnum += 1
+        curline = 0
+        if args.output is not None:
+            fileop.make_directory_safe(args.output)
+            outfile = os.path.join(args.output,'%d.txt'%(curnum))
+        else:
+            outfile = None
+    sys.exit(0)
+
+def runnodedir_handler(args,parser):
+    set_logging(args)
+    runcmds = args.subnargs
+    sd = args.srcdir
+    if sd is None:
+        raise Exception('need srcdir speciefied')
+    retval = True
+    for (d,ds,fs) in os.walk(sd):
+        logging.info('d %s ds %s fs %s'%(d,ds,fs))
+        for f in fs:
+            if args.timeout > 0.01:
+                time.sleep(args.timeout)
+            curcmds = []
+            curcmds.append('node.exe')
+            curcmds.extend(runcmds)
+            curcmds.append('--listinput')
+            curf = os.path.join(d,f)
+            curcmds.append(curf)
+            try:
+                logging.info('run %s'%(curcmds))
+                subprocess.check_call(curcmds)
+            except:
+                logging.error('%s'%(traceback.format_exc()))
+                retval = False
+
+    if not retval:
+        sys.exit(5)
     sys.exit(0)
 
 def main():
@@ -1780,6 +1819,9 @@ def main():
         },
         "splitfilelines<splitfilelines_handler>##[line] to split in line default 100##" : {
             "$" : "?"
+        },
+        "runnodedir<runnodedir_handler>##[nodeargs]... to run node dir##" : {
+            "$" : "+"
         }
     }
     '''
