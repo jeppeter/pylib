@@ -21,7 +21,7 @@ class ReadFileLarge(object):
     def __init__(self,fname=None):
         self.fname = fname
         if fname is not None:
-            self.fh = open(fname,'rb')
+            self.fh = open(fname,'r')
         else:
             self.fh = sys.stdin
         self.readb = b''
@@ -94,7 +94,7 @@ class ReadFileLarge(object):
             else:
                 self.readb += nb
 
-    def __iter__(self):
+    def __iter__(self):        
         while True:
             try:
                 val = self._next_step()
@@ -104,14 +104,6 @@ class ReadFileLarge(object):
 
     def __next__(self):
         return self._next_step()
-
-    def read_lines(self):
-        while True:
-            try:
-                val = self._next_step()
-                yield val
-            except StopIteration:
-                break
 
 
 class Utf8Encode(object):
@@ -858,7 +850,7 @@ def largefile_handler(args,parser):
     set_logging(args)
     for f in args.subnargs:
         nf= ReadFileLarge(f)
-        for l in nf:
+        for l in nf.fh:
             sys.stdout.write('%s'%(l))
     sys.exit(0)
     return
