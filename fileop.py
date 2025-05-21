@@ -42,6 +42,7 @@ class ReadFileLarge(object):
             curb = self.fh.buffer.read()
         if curb is None or len(curb) == 0:
             return b''
+        logging.info('curb %d'%(len(curb)))
         return curb
 
     def _search_linefeed(self):
@@ -49,20 +50,21 @@ class ReadFileLarge(object):
         curidx = self.sidx
         while curidx < len(self.readb):
             if self.readb[curidx] == 0xa:
-                nb = self.readb[self.sidx:(curidx+1)]
                 try:
                     if sys.version[0] == '3':
-                        news = nb.decode('utf-8')
+                        news = self.readb[self.sidx:(curidx+1)].decode('utf-8')
                     else:
-                        news = str(nb)
-                    self.readb = self.readb[(curidx+1):]
-                    self.sidx = 0
+                        news = str(self.readb[self.sidx:(curidx+1)])
+                    self.sidx = curidx + 1
                     return news
                 except:
                     self.readb = self.readb[(curidx+1):]
                     self.sidx = 0
                     return None
             curidx += 1
+        if self.sidx != 0:
+            self.readb = self.readb[self.sidx:]
+            self.sidx = 0
         return None
 
     def _next_step(self):
@@ -73,7 +75,7 @@ class ReadFileLarge(object):
                 return nline
             #logging.info('readb %d'%(len(self.readb)))
             # it is none so read again
-            nb = self._append_rbuf(4096)
+            nb = self._append_rbuf((1 << 20))
             if nb is None or len(nb) == 0:
                 if len(self.readb) > 0:
                     try:
@@ -856,11 +858,8 @@ def largefile_handler(args,parser):
     set_logging(args)
     for f in args.subnargs:
         nf= ReadFileLarge(f)
-        outs = ''
         for l in nf:
-            outs += l
             sys.stdout.write('%s'%(l))
-        write_file(outs,args.output)
     sys.exit(0)
     return
 
