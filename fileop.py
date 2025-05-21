@@ -18,6 +18,94 @@ import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int
 
+class ReadFileLarge(object):
+    def __init__(self,fname=None):
+        self.fname = fname
+        if fname is not None:
+            self.fh = open(fname,'rb')
+        else:
+            self.fh = sys.stdin
+        self.readb = b''
+        self.sidx = 0        
+        return
+
+    def __del__(self):
+        if self.fh != sys.stdin and self.fh is not None:
+            self.fh.close()
+        self.fh = None
+        return
+
+    def _append_rbuf(self,blocksize):
+        if 'b' in self.fh.mode:
+            curb = self.fh.read(blocksize)
+        else:
+            curb = self.fh.buffer.read()
+        if curb is None or len(curb) == 0:
+            return b''
+        return curb
+
+    def _search_linefeed(self):
+        news = None
+        curidx = self.sidx
+        while curidx < len(self.readb):
+            if self.readb[curidx] == 0xa:
+                nb = self.readb[self.sidx:curidx]
+                try:
+                    if sys.version[0] == '3':
+                        news = nb.decode('utf-8')
+                    else:
+                        news = str(nb)
+                    self.readb = self.readb[(curidx+1):]
+                    self.sidx = 0
+                    return news
+                except:
+                    self.readb = self.readb[(curidx+1):]
+                    self.sidx = 0
+                    return None
+            curidx += 1
+        return None
+
+    def _next_step(self):
+        while True:
+            nline = self._search_linefeed()
+            if nline is not None:
+                logging.info('nline\n%s'%(nline))
+                return nline
+            #logging.info('readb %d'%(len(self.readb)))
+            # it is none so read again
+            nb = self._append_rbuf(4096)
+            if nb is None or len(nb) == 0:
+                if len(self.readb) > 0:
+                    try:
+                        if sys.version[0] == '3':
+                            news = self.readb.decode('utf-8')
+                        else:
+                            news = str(self.readb)
+                        self.readb = b''
+                        self.sidx = 0
+                        return news
+                    except:
+                        raise StopIteration
+                else:
+                    raise StopIteration
+            else:
+                self.readb += nb
+
+    def __iter__(self):
+        while True:
+            try:
+                val = self._next_step()
+                yield val
+            except StopIteration:
+                break
+
+    def __next__(self):
+        return self._next_step()
+
+
+
+
+
 
 class Utf8Encode(object):
     def __dict_utf8(self,val):
@@ -759,6 +847,15 @@ def rmlist_handler(args,parser):
     sys.exit(0)
     return
 
+def largefile_handler(args,parser):
+    set_logging(args)
+    for f in args.subnargs:
+        nf= ReadFileLarge(f)        
+        for l in nf.__iter__():
+            sys.stdout.write('%s'%(l))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -790,6 +887,9 @@ def main():
         },
         "rmlist<rmlist_handler>##dir  to compare with dirlist##" : {
             "$": 1
+        },
+        "largefile<largefile_handler>##file ... to read large file##" : {
+            "$" : "+"
         }
     }
     '''
