@@ -1,6 +1,5 @@
 #! /usr/bin/env
 
-
 import sys
 import os
 import logging
@@ -26,7 +25,8 @@ class ReadFileLarge(object):
         else:
             self.fh = sys.stdin
         self.readb = b''
-        self.sidx = 0        
+        self.sidx = 0
+        self.linenum = 0
         return
 
     def __del__(self):
@@ -49,7 +49,7 @@ class ReadFileLarge(object):
         curidx = self.sidx
         while curidx < len(self.readb):
             if self.readb[curidx] == 0xa:
-                nb = self.readb[self.sidx:curidx]
+                nb = self.readb[self.sidx:(curidx+1)]
                 try:
                     if sys.version[0] == '3':
                         news = nb.decode('utf-8')
@@ -69,7 +69,7 @@ class ReadFileLarge(object):
         while True:
             nline = self._search_linefeed()
             if nline is not None:
-                logging.info('nline\n%s'%(nline))
+                self.linenum += 1
                 return nline
             #logging.info('readb %d'%(len(self.readb)))
             # it is none so read again
@@ -83,6 +83,7 @@ class ReadFileLarge(object):
                             news = str(self.readb)
                         self.readb = b''
                         self.sidx = 0
+                        self.linenum += 1
                         return news
                     except:
                         raise StopIteration
@@ -102,9 +103,13 @@ class ReadFileLarge(object):
     def __next__(self):
         return self._next_step()
 
-
-
-
+    def read_lines(self):
+        while True:
+            try:
+                val = self._next_step()
+                yield val
+            except StopIteration:
+                break
 
 
 class Utf8Encode(object):
@@ -850,9 +855,12 @@ def rmlist_handler(args,parser):
 def largefile_handler(args,parser):
     set_logging(args)
     for f in args.subnargs:
-        nf= ReadFileLarge(f)        
-        for l in nf.__iter__():
+        nf= ReadFileLarge(f)
+        outs = ''
+        for l in nf:
+            outs += l
             sys.stdout.write('%s'%(l))
+        write_file(outs,args.output)
     sys.exit(0)
     return
 
