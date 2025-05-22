@@ -694,12 +694,13 @@ class PrimeSlist(object):
             sval = self.primevals[-1]
             sval += 2
             while True:
-                qval = sval ** 2
-                if qval <= val:                    
+                qval = self.primevals[-1] ** 2
+                if qval <= (val+self.primevals[-1]*2 + 1):
                     if self._is_prime(sval):
                         logging.info('add %d'%(sval))
                         self.primevals.append(sval)
                 else:
+                    logging.info('qval %d > %d sval %d'%(qval,val,sval))
                     if sval < val:
                         sval = val
                         if (sval % 2) == 0:
