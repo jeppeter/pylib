@@ -1020,11 +1020,99 @@ def fmtdoccode_handler(args,parser):
 	sys.exit(0)
 	return
 
+class MemLeak(object):
+	def __init__(self,alignptr,realptr,size,callstks):
+		self.alignptr = alignptr
+		self.realptr = realptr
+		self.size = size
+		self.callstacks = callstks
+		return
+
+class MemoryMap(object):
+	def __init__(self,saddr, eaddr,mapfile):
+		self.startaddr = saddr
+		self.endaddr = eaddr
+		self.mapfile = mapfile
+		return
+
+class MemoryInfo(object):
+	def __init__(self):
+		self.maps = []
+		return
+
+	def append_map(self,saddr, eaddr, mapfile):
+		mp = MemoryMap(saddr,eaddr,mapfile)
+		self.maps.append(mp)
+		return
+
+
+def memlistparse_handler(args,parser):
+	set_logging(args)
+	if args.srcdir is None:
+		raise Exception('srcdir must set')
+	fd = fileop.ReadFileLarge(args.input)
+	rsmallocexpr = re.compile('^\\[RSMALLOC\\].*',re.I)
+	memlistexpr = re.compile('.*memlist.*alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]\\s+size\\s+\\[([^\\]]+)\\].*callstack\\[([^\\]]+)\\]',re.I)
+	deallocexpr = re.compile('.*deallocate:\\s+alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]',re.I)
+	mapexpr = re.compile('.*memorymap\\[([0-9]+)\\]\\s+\\[([^\\]]+)\\]\\s+\\-\\s+\\[([^\\]]+)\\]\\s+\\[([^\\]]+)\\]',re.I)
+	lindex = 0
+	memleak = dict()
+	meminfo = MemoryInfo()
+	memlistafter = False
+	for l in fd.fh:
+		lindex += 1
+		l = l.rstrip('\r\n')
+		if rsmallocexpr.match(l):
+			# to test for the memlist
+			if memlistafter:
+				# to match 
+				m = memlistexpr.findall(l)
+				if m is not None and len(m) > 0:
+					alignptr = parse_int(m[0][0])
+					realptr= parse_int(m[0][1])
+					size = parse_int(m[0][2])
+					sarr = re.split(',',m[0][3])
+					stks = []
+					for c in sarr:
+						stks.append(parse_int(c))
+					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
+				else:
+					m = deallocexpr.findall(l)
+					if m is not None and len(m) > 0:
+						alignptr = parse_int(m[0][0])
+						realptr = parse_int(m[0][1])
+						k = '0x%x'%(alignptr)
+						if k in memleak.keys():
+							logging.info('memleak %s deallocated'%(k))
+							del memleak[k]
+					else:
+						m = mapexpr.findall(l)
+						if m is not None and len(m) > 0:
+							startaddr = parse_int(m[0][1])
+							endaddr = parse_int(m[0][2])
+							mapfile = m[0][3]
+							meminfo.append_map(startaddr,endaddr,mapfile)
+			else:
+				m = memlistexpr.findall(l)
+				if m is not None and len(m) > 0:
+					memlistafter = True
+					alignptr = parse_int(m[0][0])
+					realptr= parse_int(m[0][1])
+					size = parse_int(m[0][2])
+					sarr = re.split(',',m[0][3])
+					stks = []
+					for c in sarr:
+						stks.append(parse_int(c))
+					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
+	sys.exit(0)
+
+
 def main():
     commandline='''
     {
         "input|i" : null,
         "output|o" : null,
+        "srcdir|S" : null,
         "exportmacro|M": true,
         "debugmode|D":true,
         "stdmode|N" : true,
@@ -1036,6 +1124,9 @@ def main():
         	"$" : 1
         },
         "fmtdoccode<fmtdoccode_handler>##to format output##" : {
+        	"$" : 0
+        },
+        "memlistparse<memlistparse_handler>##to dump code in memlist##" : {
         	"$" : 0
         }
     }
