@@ -1044,6 +1044,12 @@ class MemoryInfo(object):
 		mp = MemoryMap(saddr,eaddr,mapfile)
 		self.maps.append(mp)
 		return
+	def search_addr(self,addr):
+		for m in self.maps:
+			if addr >= m.startaddr and addr <= m.endaddr:
+				return '%s +0x%x'%(m.mapfile,addr - m.startaddr)
+		return None
+
 
 
 def memlistparse_handler(args,parser):
@@ -1104,6 +1110,14 @@ def memlistparse_handler(args,parser):
 					for c in sarr:
 						stks.append(parse_int(c))
 					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
+	if len(memleak.keys()) > 0:
+		# now to search for call stack
+		for k in memleak.keys():
+			curleak = memleak[k]
+			sys.stdout.write('alignptr[0x%x]realptr[0x%x]size[0x%x]\n'%(curleak.alignptr,curleak.realptr,curleak.size))
+			for fnaddr in memleak[k].callstacks:
+				m = meminfo.search_addr(fnaddr)
+				sys.stdout.write('    %s\n'%(m))
 	sys.exit(0)
 
 
