@@ -1683,6 +1683,94 @@ def runnodedir_handler(args,parser):
         sys.exit(5)
     sys.exit(0)
 
+
+class PrimeSlist(object):
+    def __init__(self):
+        self.primevals = [2,3]
+        return
+
+    def _search_val(self,val):
+        sidx = 0
+        eidx = len(self.primevals) - 1
+        while sidx < eidx:
+            cidx = (sidx + eidx ) >> 1
+            if cidx == sidx:
+                if self.primevals[cidx] > val:
+                    return self.primevals[cidx]
+                sidx += 1
+            elif cidx == eidx:
+                if self.primevals[eidx] < val:
+                    return self.primevals[eidx]
+                eidx -= 1
+            else:
+                if self.primevals[cidx] > val:
+                    eidx = cidx
+                else:
+                    sidx = cidx
+        return self.primevals[sidx]
+
+    def _is_prime(self,val):
+        idx = 0
+        while idx < len(self.primevals):
+            sqval = self.primevals[idx] ** 2
+            if sqval > val:
+                return True
+            if (val % self.primevals[idx]) == 0:
+                return False
+            idx += 1
+        return True
+
+
+
+    def get_min_prime(self,val):
+        maxval = self.primevals[-1]
+        if maxval > val:
+            return self._search_val(val)
+        sqval = self.primevals[-1] ** 2
+        if sqval > val:
+            if self._is_prime(val):
+                return val            
+            if (val % 2) == 0:
+                sval = val + 1
+            else:
+                sval = val
+            while True:
+                if self._is_prime(sval):
+                    return sval
+                sval += 2
+        else:
+            sval = self.primevals[-1]
+            sval += 2
+            while True:
+                qval = self.primevals[-1] ** 2
+                if qval <= (val+self.primevals[-1]*2 + 1):
+                    if self._is_prime(sval):
+                        logging.info('add %d'%(sval))
+                        self.primevals.append(sval)
+                else:
+                    logging.info('qval %d > %d sval %d'%(qval,val,sval))
+                    if sval < val:
+                        sval = val
+                        if (sval % 2) == 0:
+                            sval += 1
+                    if self._is_prime(sval):
+                        return sval
+                sval += 2
+
+
+
+
+
+def minprime_handler(args,parser):
+    set_logging(args)
+    minval = strop.parse_int(args.subnargs[0])
+    prime = PrimeSlist()
+    sval = prime.get_min_prime(minval)
+    sys.stdout.write('%d prime %d\n'%(minval, sval))
+    sys.exit(0)
+    return
+
+
 def main():
     commandline='''
     {
@@ -1822,6 +1910,9 @@ def main():
         },
         "runnodedir<runnodedir_handler>##[nodeargs]... to run node dir##" : {
             "$" : "+"
+        },
+        "minprime<minprime_handler>##val the minimum prime above val##" : {
+            "$" : 1
         }
     }
     '''
