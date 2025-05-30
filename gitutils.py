@@ -13,8 +13,7 @@ import fileop
 import loglib
 
 
-SUBMOD_CHECK_SHELL_FMT='''
-#! /bin/bash
+SUBMOD_CHECK_SHELL_FMT='''#! /bin/bash
 
 
 function add_rust_repo()
@@ -138,8 +137,7 @@ def cloneshell_handler(args,parser):
 		sys.exit(5)
 	sys.exit(0)
 
-CHECK_OUT_FMT='''
-#! /bin/bash
+CHECK_OUT_FMT='''#! /bin/bash
 
 function check_out_dir()
 {
@@ -188,8 +186,7 @@ def modchkout_handler(args,parser):
 	sys.exit(0)
 	return
 
-CLEAN_DIR_FMT='''
-#! /bin/bash
+CLEAN_DIR_FMT='''#! /bin/bash
 
 function clean_dir()
 {
