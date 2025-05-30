@@ -147,10 +147,15 @@ function check_out_dir()
 	pushd $PWD;
 
 	cd $_repo && git checkout --force $_br
-	popd $PWD;
+	popd;
 }
 
+pushd $PWD;
+BASEDIR=%BASEDIR%;
+
 %CHECKOUT_COMMAND%
+
+popd;
 
 '''
 
@@ -168,16 +173,18 @@ def modchkout_handler(args,parser):
 		shells = ''
 		if len(gitmods.mods) > 0:
 			idx = 0
+			shells += 'cd $BASEDIR && \\\n';
 			while idx < (len(gitmods.mods) - 1):
 				curmod = gitmods.mods[idx]
-				cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+				cpath = '$BASEDIR/%s'%(os.path.basename(curmod.path))
 				shells += 'check_out_dir "%s" "%s" && \\\n'%(cpath,curmod.branch)
 				idx += 1
 			curmod = gitmods.mods[-1]
-			cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+			cpath = '$BASEDIR/%s'%(os.path.basename(curmod.path))
 			shells += 'check_out_dir "%s" "%s"'%(cpath,curmod.branch)
 
 		outs = CHECK_OUT_FMT.replace('%CHECKOUT_COMMAND%',shells)
+		outs = outs.replace('%BASEDIR%',args.dstdir)
 		fileop.write_file(outs,args.output)
 	else:
 		sys.stdout.write('%s no .gitmodules\n'%(gitdir))
@@ -232,6 +239,89 @@ def cleandir_handler(args,parser):
 	sys.exit(0)
 	return
 
+MODULE_MERGE_FMT='''#! /bin/bash
+
+function add_merge()
+{
+	local _modrepo=$1;
+	local _modbr=$2;
+	local _outdir=$3;
+
+	if [ ! -d $_outdir ]
+	then
+		mkdir -p "$_outdir";
+	fi
+
+	pushd $PWD;
+
+	cd $_modrepo && (git archive --format=tar $_modbr | tar -C $_outdir -xf -);
+	popd;
+
+}
+
+BASEDIR=%BASEDIR%;
+MAINREPODIR=%MAINREPODIR%;
+OUTREPODIR=%OUTREPO%;
+
+
+pushd $PWD;
+
+%MERGE_COMMAND%
+
+popd;
+
+'''
+
+def modulemerge_handler(args,parser):
+	loglib.set_logging(args)
+	if args.dstdir is None:
+		raise Exception('please specified dstdir for git check out')
+	if args.srcdir is None:
+		raise Exception('please specified srcdir for git check out')
+	gitdir = args.subnargs[0]
+	outdir = gitdir
+	if len(args.subnargs) > 1:
+		outdir = args.subnargs[1]
+	gitsubmodfile = os.path.join(gitdir,'.gitmodules')
+	if os.path.isfile(gitsubmodfile):
+		# now to get the files
+		gitmods = GitModuleParse(gitsubmodfile)
+		# now we should give the module
+		shells = ''
+		if len(gitmods.mods) > 0:
+			idx = 0
+			shells += 'if [ -d "$OUTREPODIR" ]\n'
+			shells += 'then\n'
+			shells += '   mkdir -p "$OUTREPODIR";\n'
+			shells += 'fi\n'
+
+			shells += '\n'
+
+			shells += 'pushd $PWD;\n'
+			shells += 'cd $MAINREPODIR && (git archive --format=tar HEAD | tar -C $OUTREPODIR -xf -);\n'
+			shells += 'popd;\n'
+			shells += '\n'
+
+			while idx < (len(gitmods.mods) - 1):
+				curmod = gitmods.mods[idx]
+				cpath = '$BASEDIR/%s'%(os.path.basename(curmod.path))
+				shells += 'add_merge "%s" "%s" "$OUTREPODIR/%s" && \\\n'%(cpath,curmod.branch,curmod.path)
+				idx += 1
+			curmod = gitmods.mods[-1]
+			cpath = '$BASEDIR/%s'%(os.path.basename(curmod.path))
+			shells += 'add_merge "%s" "%s" "$OUTREPODIR/%s"\n'%(cpath,curmod.branch,curmod.path)
+
+		outs = MODULE_MERGE_FMT.replace('%MERGE_COMMAND%',shells)
+		outs = outs.replace('%BASEDIR%',args.dstdir)
+		outs = outs.replace('%MAINREPODIR%',args.srcdir)
+		outs = outs.replace('%OUTREPO%',outdir)
+		fileop.write_file(outs,args.output)
+	else:
+		sys.stdout.write('%s no .gitmodules\n'%(gitdir))
+		sys.exit(5)
+	sys.exit(0)
+	return
+
 
 def main():
     commandline='''
@@ -239,6 +329,7 @@ def main():
     	"input|i" : null,
     	"output|o" : null,
     	"dstdir" : null,
+    	"srcdir" : null,
     	"cloneshell<cloneshell_handler>##gitdir to format shell to output##" : {
     		"$" : 1
     	},
@@ -247,6 +338,9 @@ def main():
     	},
     	"cleandir<cleandir_handler>##gitdir to clean all dest##" : {
     		"$" : 1
+    	},
+    	"modulemerge<modulemerge_handler>##gitdir [outdir] to mergeout#" : {
+    		"$" : "+"
     	}
     }
     '''
