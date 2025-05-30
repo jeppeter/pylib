@@ -4,12 +4,13 @@ import re
 import sys
 import os
 import traceback
+import extargsparse
+import logging
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import strop
 import fileop
 import loglib
-import extargsparse
 
 
 SUBMOD_CHECK_SHELL_FMT='''
@@ -75,7 +76,7 @@ class GitModuleParse(object):
 			m = headerexpr.findall(l)
 			if m is not None and len(m) > 0:
 				if curpath is not None and cururl is not None:
-					self.mods.append(GitModule(cururl,curpath,curbr))
+					self.mods.append(GitModule(cururl,curpath,curbr))				
 				cururl = None
 				curpath = None
 				curbr = None
@@ -105,7 +106,7 @@ class GitModuleParse(object):
 
 
 
-def submodcheckshell_handler(args,parser):
+def cloneshell_handler(args,parser):
 	loglib.set_logging(args)
 	if args.dstdir is None:
 		raise Exception('please specified dstdir for git check out')
@@ -137,6 +138,103 @@ def submodcheckshell_handler(args,parser):
 		sys.exit(5)
 	sys.exit(0)
 
+CHECK_OUT_FMT='''
+#! /bin/bash
+
+function check_out_dir()
+{
+	local _repo=$1;
+	local _br=$2;
+
+	pushd $PWD;
+
+	cd $_repo && git checkout --force $_br
+	popd $PWD;
+}
+
+%CHECKOUT_COMMAND%
+
+'''
+
+
+def modchkout_handler(args,parser):
+	loglib.set_logging(args)
+	if args.dstdir is None:
+		raise Exception('please specified dstdir for git check out')
+	gitdir = args.subnargs[0]
+	gitsubmodfile = os.path.join(gitdir,'.gitmodules')
+	if os.path.isfile(gitsubmodfile):
+		# now to get the files
+		gitmods = GitModuleParse(gitsubmodfile)
+		# now we should give the module
+		shells = ''
+		if len(gitmods.mods) > 0:
+			idx = 0
+			while idx < (len(gitmods.mods) - 1):
+				curmod = gitmods.mods[idx]
+				cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+				shells += 'check_out_dir "%s" "%s" && \\\n'%(cpath,curmod.branch)
+				idx += 1
+			curmod = gitmods.mods[-1]
+			cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+			shells += 'check_out_dir "%s" "%s"'%(cpath,curmod.branch)
+
+		outs = CHECK_OUT_FMT.replace('%CHECKOUT_COMMAND%',shells)
+		fileop.write_file(outs,args.output)
+	else:
+		sys.stdout.write('%s no .gitmodules\n'%(gitdir))
+		sys.exit(5)
+
+	sys.exit(0)
+	return
+
+CLEAN_DIR_FMT='''
+#! /bin/bash
+
+function clean_dir()
+{
+	local _repo=$1;
+	pushd $PWD;
+	cd $_repo && (find . -maxdepth 1 | grep -v '^\\./\\.git$' | grep -v '^\\.$' | xargs -I {} rm -rf {});
+	popd;
+}
+
+%CLEANDIR_COMMAND%
+
+'''
+
+
+def cleandir_handler(args,parser):
+	loglib.set_logging(args)
+	if args.dstdir is None:
+		raise Exception('please specified dstdir for git check out')
+	gitdir = args.subnargs[0]
+	gitsubmodfile = os.path.join(gitdir,'.gitmodules')
+	if os.path.isfile(gitsubmodfile):
+		# now to get the files
+		gitmods = GitModuleParse(gitsubmodfile)
+		# now we should give the module
+		shells = ''
+		if len(gitmods.mods) > 0:
+			idx = 0
+			while idx < (len(gitmods.mods) - 1):
+				curmod = gitmods.mods[idx]
+				cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+				shells += 'clean_dir "%s" && \\\n'%(cpath)
+				idx += 1
+			curmod = gitmods.mods[-1]
+			cpath = '%s/%s'%(args.dstdir,os.path.basename(curmod.path))
+			shells += 'clean_dir "%s"\n'%(cpath)
+
+		outs = CLEAN_DIR_FMT.replace('%CLEANDIR_COMMAND%',shells)
+		fileop.write_file(outs,args.output)
+	else:
+		sys.stdout.write('%s no .gitmodules\n'%(gitdir))
+		sys.exit(5)
+
+	sys.exit(0)
+	return
+
 
 def main():
     commandline='''
@@ -144,7 +242,13 @@ def main():
     	"input|i" : null,
     	"output|o" : null,
     	"dstdir" : null,
-    	"submodcheckshell<submodcheckshell_handler>##gitdir to format shell to output##" : {
+    	"cloneshell<cloneshell_handler>##gitdir to format shell to output##" : {
+    		"$" : 1
+    	},
+    	"modchkout<modchkout_handler>##gitdir to checkout##" : {
+    		"$" : 1
+    	},
+    	"cleandir<cleandir_handler>##gitdir to clean all dest##" : {
     		"$" : 1
     	}
     }
