@@ -1020,105 +1020,58 @@ def fmtdoccode_handler(args,parser):
 	sys.exit(0)
 	return
 
-class MemLeak(object):
-	def __init__(self,alignptr,realptr,size,callstks):
-		self.alignptr = alignptr
-		self.realptr = realptr
-		self.size = size
-		self.callstacks = callstks
-		return
-
-class MemoryMap(object):
-	def __init__(self,saddr, eaddr,mapfile):
-		self.startaddr = saddr
-		self.endaddr = eaddr
-		self.mapfile = mapfile
-		return
-
-class MemoryInfo(object):
-	def __init__(self):
-		self.maps = []
-		return
-
-	def append_map(self,saddr, eaddr, mapfile):
-		mp = MemoryMap(saddr,eaddr,mapfile)
-		self.maps.append(mp)
-		return
-	def search_addr(self,addr):
-		for m in self.maps:
-			if addr >= m.startaddr and addr <= m.endaddr:
-				return '%s +0x%x'%(m.mapfile,addr - m.startaddr)
-		return None
-
-
-
-def memlistparse_handler(args,parser):
+def addrsmemgenimpl_handler(args,parser):
 	set_logging(args)
-	if args.srcdir is None:
-		raise Exception('srcdir must set')
-	fd = fileop.ReadFileLarge(args.input)
-	rsmallocexpr = re.compile('^\\[RSMALLOC\\].*',re.I)
-	memlistexpr = re.compile('.*memlist.*alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]\\s+size\\s+\\[([^\\]]+)\\].*callstack\\[([^\\]]+)\\]',re.I)
-	deallocexpr = re.compile('.*deallocate:\\s+alignptr\\[([^\\]]+)\\]\\s+realptr\\[([^\\]]+)\\]',re.I)
-	mapexpr = re.compile('.*memorymap\\[([0-9]+)\\]\\s+\\[([^\\]]+)\\]\\s+\\-\\s+\\[([^\\]]+)\\]\\s+\\[([^\\]]+)\\]',re.I)
-	lindex = 0
-	memleak = dict()
-	meminfo = MemoryInfo()
-	memlistafter = False
-	for l in fd.fh:
-		lindex += 1
-		l = l.rstrip('\r\n')
-		if rsmallocexpr.match(l):
-			# to test for the memlist
-			if memlistafter:
-				# to match 
-				m = memlistexpr.findall(l)
-				if m is not None and len(m) > 0:
-					alignptr = parse_int(m[0][0])
-					realptr= parse_int(m[0][1])
-					size = parse_int(m[0][2])
-					sarr = re.split(',',m[0][3])
-					stks = []
-					for c in sarr:
-						stks.append(parse_int(c))
-					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
-				else:
-					m = deallocexpr.findall(l)
-					if m is not None and len(m) > 0:
-						alignptr = parse_int(m[0][0])
-						realptr = parse_int(m[0][1])
-						k = '0x%x'%(alignptr)
-						if k in memleak.keys():
-							logging.info('memleak %s deallocated'%(k))
-							del memleak[k]
-					else:
-						m = mapexpr.findall(l)
-						if m is not None and len(m) > 0:
-							startaddr = parse_int(m[0][1])
-							endaddr = parse_int(m[0][2])
-							mapfile = m[0][3]
-							meminfo.append_map(startaddr,endaddr,mapfile)
+	bf = fileop.ReadFileLarge(args.input)
+	matcheimpl = False
+	implexpr = re.compile('^impl\\s+')
+	rsmemgenexpr = re.compile('^#\\[rsmemgen_impl_inline\\(.*')
+	outf = sys.stdout
+	if args.output is not None:
+		outf = open(args.output,'w+')
+	for l in bf.fh:
+		if implexpr.match(l):
+			if matcheimpl:
+				outf.write('%s'%(l))				
 			else:
-				m = memlistexpr.findall(l)
-				if m is not None and len(m) > 0:
-					memlistafter = True
-					alignptr = parse_int(m[0][0])
-					realptr= parse_int(m[0][1])
-					size = parse_int(m[0][2])
-					sarr = re.split(',',m[0][3])
-					stks = []
-					for c in sarr:
-						stks.append(parse_int(c))
-					memleak['0x%x'%(alignptr)] = MemLeak(alignptr,realptr,size,stks)
-	if len(memleak.keys()) > 0:
-		# now to search for call stack
-		for k in memleak.keys():
-			curleak = memleak[k]
-			sys.stdout.write('alignptr[0x%x]realptr[0x%x]size[0x%x]\n'%(curleak.alignptr,curleak.realptr,curleak.size))
-			for fnaddr in memleak[k].callstacks:
-				m = meminfo.search_addr(fnaddr)
-				sys.stdout.write('    %s\n'%(m))
+				outf.write('#[rsmemgen_impl_inline()]\n')
+				outf.write('%s'%(l))
+			matcheimpl = False
+		elif rsmemgenexpr.match(l):
+			matcheimpl = True
+			outf.write('%s'%(l))
+		else:
+			matcheimpl = False
+			outf.write('%s'%(l))
 	sys.exit(0)
+
+
+def addrsmemgenfn_handler(args,parser):
+	set_logging(args)
+	bf = fileop.ReadFileLarge(args.input)
+	fnimpl = False
+	fnexpr = re.compile('^(pub\\s+)?(\\(crate\\)\\s+)?fn\\s+')
+	rsmemfnexpr = re.compile('^#\\[rsmemgen_func_inline\\(.*')
+	outf = sys.stdout
+	if args.output is not None:
+		outf = open(args.output,'w+')
+	for l in bf.fh:
+		if fnexpr.match(l):
+			if fnimpl:
+				outf.write('%s'%(l))				
+			else:
+				outf.write('#[rsmemgen_func_inline()]\n')
+				outf.write('%s'%(l))
+			fnimpl = False
+		elif rsmemfnexpr.match(l):
+			fnimpl = True
+			outf.write('%s'%(l))
+		else:
+			fnimpl = False
+			outf.write('%s'%(l))
+	sys.exit(0)
+
+
 
 
 def main():
@@ -1140,9 +1093,14 @@ def main():
         "fmtdoccode<fmtdoccode_handler>##to format output##" : {
         	"$" : 0
         },
-        "memlistparse<memlistparse_handler>##to dump code in memlist##" : {
+        "rsmemgenimpl<addrsmemgenimpl_handler>##to from input to output##" : {
+        	"$" : 0
+        },
+        "rsmemgenfn<addrsmemgenfn_handler>##to from input to output to add fn##" : {
         	"$" : 0
         }
+
+
     }
     '''
     parser = extargsparse.ExtArgsParse()
