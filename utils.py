@@ -619,6 +619,47 @@ def dump_buffer(buf,fmt='',stkidx=1):
             lasti += 1
     return s
 
+def dump_ints(bufints,fmt='',stkidx=1):
+    i = 0
+    lasti = 0
+    s = ''
+    _,fn,ln,_,_,_ = inspect.stack()[stkidx]
+    s += '[%s:%d] '%(fn,ln)
+    s += fmt
+
+    while bufints is not None and i < len(bufints):
+        if (i % 16) == 0 :
+            if i > 0:
+                s += ' ' * 4
+                while lasti != i:
+                    iv = bufints[lasti]
+                    if iv >= ord(' ') and iv <= ord('~'):
+                        s += '%c'%(bufints[lasti])
+                    else:
+                        s += '.'
+                    lasti += 1
+                s += '\n'
+            elif len(fmt) > 0:
+                s += '\n'
+            s += '0x%08x:'%(i)
+        iv = bufints[i]
+        s += ' 0x%02x'%(iv)
+        i += 1
+
+    if i != lasti:
+        while (i % 16) != 0:
+            s += ' ' * 5
+            i += 1
+        s += ' ' * 4
+        while lasti != len(bufints):
+            iv = bufints[lasti]
+            if iv >= ord(' ') and iv <= ord('~'):
+                s += '%c'%(bufints[lasti])
+            else:
+                s += '.'
+            lasti += 1
+    return s
+
 class JSONPack(object):
     def __init__(self,jdict=None):
         if jdict is not None:
@@ -1771,6 +1812,36 @@ def minprime_handler(args,parser):
     return
 
 
+def formathexargs_handler(args,parser):
+    set_logging(args)
+    s = read_file(args.input)
+    sarr = re.split('\n',s)
+    outs = ''
+    outvals = []
+    lindex = 0
+    for l in sarr:
+        lindex += 1
+        l = l.rstrip('\n')
+        if l.startswith('#'):
+            continue
+        if len(l) == 0:
+            continue
+        carr = re.split(',\\s+',l)
+        for c in carr:
+            try:
+                cval = parse_int(c)
+                if len(outs) > 0:
+                    outs += ' '
+                outs += '0x%x'%(cval)
+                outvals.append(cval)
+            except:
+                logging.error('can not get [%d] %s'%(lindex,c))
+    sys.stdout.write('%s\n'%(outs))
+    nouts = dump_ints(outvals,'outvals')
+    write_file(nouts,args.output)
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -1913,6 +1984,9 @@ def main():
         },
         "minprime<minprime_handler>##val the minimum prime above val##" : {
             "$" : 1
+        },
+        "formathexargs<formathexargs_handler>##from input file to output##" : {
+            "$" : 0
         }
     }
     '''
