@@ -117,19 +117,22 @@ def scanssh_handler(args,parser):
 			popped = False
 			while idx < len(handleips):
 				if handleips[idx].exitcode is not None:
-					if handleips[idx].exitcode == 0:
-						succips.append(handleips[idx].ip)
-					else:
-						logging.info('%s failed'%(handleips[idx].ip))
-					handleips.pop(idx)
-					logging.info('handleips %d'%(len(handleips)))
-					popped = True
 					hdlcnt += 1
 					if (hdlcnt % 100) == 0 and args.verbose == 0:
 						sys.stdout.write('\n')
 					if (hdlcnt % 10) == 0 and args.verbose == 0:
 						sys.stdout.write('.')
 						sys.stdout.flush()
+					if handleips[idx].exitcode == 0:
+						if args.verbose == 0:
+							sys.stdout.write('+')
+							sys.stdout.flush()
+						succips.append(handleips[idx].ip)
+					else:
+						logging.info('%s failed'%(handleips[idx].ip))
+					handleips.pop(idx)
+					logging.info('handleips %d'%(len(handleips)))
+					popped = True
 					break
 				idx += 1
 			if not popped:
