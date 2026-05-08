@@ -192,6 +192,46 @@ def cellval_handler(args,parser):
     sys.stdout.write('[%d:%d]=[%s]\n'%(ridx,cidx,val))
     sys.exit(0)
 
+class HuigouValue(object):
+    def __init__(self,rdict):
+        self.stock_code=  rdict[KEYWORD_STOCKCODE]
+        self.shares = rdict[KEYWORD_SHARES]
+        self.totalcash = rdict[KEYWORD_TOTAL_CASH]
+        return
+
+    def __eq__(self,other):
+        if self.totalcash == other.totalcash:
+            return True
+        return False
+
+    def __lt__(self,other):
+        if self.totalcash < other.totalcash:
+            return True
+        return False
+
+    def __gt__(self,other):
+        if self.totalcash > other.totalcash:
+            return True
+        return False
+
+    def __str__(self):
+        s = 'code :%d , cash %f , shares %f'%(self.stock_code,self.totalcash,self.shares)
+        return s
+
+def sortval_handler(args,parser):
+    logop.set_logging(args)
+    vals = []
+    for s in args.subnargs:
+        s = fileop.read_file(s)
+        rdict = json.loads(s)
+        for v in rdict.values():
+            vals.append(HuigouValue(v))
+    vals = sorted(vals,reverse=True)
+    for i in vals:
+        sys.stdout.write('%s\n'%(i))
+
+    sys.exit(0)
+
 
 
 def main():
@@ -206,6 +246,9 @@ def main():
             "$" : 0
         },
         "dirsearch<dirsearch_handler>##dname to parse##" : {
+            "$" : "+"
+        },
+        "sortval<sortval_handler>##file ... to sort from the value##" : {
             "$" : "+"
         }
     }
