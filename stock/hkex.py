@@ -15,14 +15,19 @@ import logop
 import strop
 
 CHECK_COMPANY_IDX_NEW = 2
+CHECK_COMPANY_IDX_NEW2 = 4
 CHECK_COMPANY_IDX = 3
 START_RIDX = 7
 START_RIDX_NEW = 5
+START_RIDX_NEW2 = 7
 STOCKCODE_CIDX = 1
+STOCKCODE_CIDX_NEW2 = 2
 SHARESNUM_CIDX = 5
 SHARESNUM_CIDX_NEW = 4
+SHARESNUM_CIDX_NEW2 = 4
 AMOUNT_CIDX = 11
 AMOUNT_CIDX_NEW = 7
+AMOUNT_CIDX_NEW2 = 7
 KEYWORD_STOCKCODE = 'stockcode'
 KEYWORD_SHARES = 'shares'
 KEYWORD_AMOUNT = 'amount'
@@ -31,6 +36,7 @@ KEYWORD_TOTAL_CASH = 'totalcash'
 
 class ParseSheet(object):
     def __init__(self,fname):
+        logging.info('fname [%s]'%(fname))
         self.fname = fname
         self.ridx = 0
         return
@@ -41,15 +47,17 @@ class ParseSheet(object):
             self.ridx = ridx
             retcd = dict()
             stkcode1 = sh.cell_value(ridx,STOCKCODE_CIDX)
-            logging.info('stkcode [%s]'%(stkcode1))
+            logging.info('[%d]stkcode [%s]'%(STOCKCODE_CIDX,stkcode1))
             stkcode = '%s'%(stkcode1)
             m = stkexpr.findall(stkcode)
             if m is not None and len(m) > 0:
                 stkcode = m[0]
             retcd[KEYWORD_STOCKCODE] = strop.parse_int(stkcode)
             shares = sh.cell_value(ridx, SHARESNUM_CIDX)
+            logging.info('[%d] shares [%s]'%(SHARESNUM_CIDX,shares))
             retcd[KEYWORD_SHARES] = strop.parse_float_with_comma(shares)
             amnt = sh.cell_value(ridx,AMOUNT_CIDX)
+            logging.info('[%d] amnt [%s]'%(AMOUNT_CIDX,amnt))
             cashexpr =re.compile('^([^\\s]+)\\s+([0-9,\\.]+)',re.I)
             m = cashexpr.findall(amnt)
             if m is not None and len(m) > 0:
@@ -68,10 +76,13 @@ class ParseSheet(object):
             self.ridx = ridx
             retcd = dict()
             stkcode = sh.cell_value(ridx,STOCKCODE_CIDX)
+            logging.info('[%d] stkcode %s'%(STOCKCODE_CIDX,stkcode))
             retcd[KEYWORD_STOCKCODE] = strop.parse_int(stkcode)
             shares = sh.cell_value(ridx, SHARESNUM_CIDX_NEW)
+            logging.info('[%d] shares %s'%(SHARESNUM_CIDX_NEW,shares))
             retcd[KEYWORD_SHARES] = strop.parse_float_with_comma(shares)
             amnt = sh.cell_value(ridx,AMOUNT_CIDX_NEW)
+            logging.info('[%d] amnt %s'%(AMOUNT_CIDX_NEW,amnt))
             cashexpr =re.compile('^([^\\s]+)\\s+([0-9,\\.]+)',re.I)
             m = cashexpr.findall(amnt)
             if m is not None and len(m) > 0:
@@ -86,10 +97,53 @@ class ParseSheet(object):
             return None
         return retcd
 
+
+    def parse_one_ridx_new2(self,sh,ridx):
+        stkexpr = re.compile('([0-9]+)',re.I)
+        try:
+            self.ridx = ridx
+            retcd = dict()
+            stkcode1 = sh.cell_value(ridx,STOCKCODE_CIDX)
+            logging.info('[%d]stkcode [%s]'%(STOCKCODE_CIDX,stkcode1))
+            stkcode = '%s'%(stkcode1)
+            m = stkexpr.findall(stkcode)
+            if m is not None and len(m) > 0:
+                stkcode = m[0]
+            retcd[KEYWORD_STOCKCODE] = strop.parse_int(stkcode)
+            shares = sh.cell_value(ridx, SHARESNUM_CIDX_NEW2)
+            logging.info('[%d] shares [%s]'%(SHARESNUM_CIDX,shares))
+            retcd[KEYWORD_SHARES] = strop.parse_float_with_comma(shares)
+            amnt = sh.cell_value(ridx,AMOUNT_CIDX_NEW2)
+            logging.info('[%d] amnt [%s]'%(AMOUNT_CIDX_NEW2,amnt))
+            cashexpr =re.compile('^([^\\s]+)\\s+([0-9,\\.]+)',re.I)
+            m = cashexpr.findall(amnt)
+            if m is not None and len(m) > 0:
+                retcd[KEYWORD_CURRENCY] = m[0][0]
+                retcd[KEYWORD_TOTAL_CASH] = strop.parse_float_with_comma(m[0][1])
+            else:
+                retcd[KEYWORD_CURRENCY] = 'HKD'
+                retcd[KEYWORD_TOTAL_CASH] = 0.0
+        except:
+            logging.error('[%s:%d]error\n%s'%(self.fname,self.ridx,traceback.format_exc()))
+            return None
+        return retcd
+
     def _check_new_style(self,sh):
         try:
             retval = False
             compval = sh.cell_value(CHECK_COMPANY_IDX_NEW,0)
+            if compval.lower() == 'company':
+                retval = True
+        except:
+            logging.error('%s'%(traceback.format_exc()))
+            return False
+        return retval
+
+    def _check_new2_style(self,sh):
+        try:
+            retval = False
+            compval = sh.cell_value(CHECK_COMPANY_IDX_NEW2,0)
+            logging.info('[%d] value [%s]'%(CHECK_COMPANY_IDX_NEW2,compval))
             if compval.lower() == 'company':
                 retval = True
         except:
@@ -115,6 +169,19 @@ class ParseSheet(object):
                         if cd is not None:
                             retmap['%05d'%(cd[KEYWORD_STOCKCODE])] = cd
                         curidx += 1
+            elif self._check_new2_style(sh):
+                val = sh.cell_value(START_RIDX_NEW2,0)
+                if len(val) != 0:
+                    curidx = START_RIDX_NEW2
+                    while True:
+                        val = sh.cell_value(curidx,0)
+                        if len(val) == 0:
+                            break
+                        # now to parse 
+                        cd = self.parse_one_ridx_new2(sh,curidx)
+                        if cd is not None:
+                            retmap['%05d'%(cd[KEYWORD_STOCKCODE])] = cd
+                        curidx += 1                
             else:
                 val = sh.cell_value(START_RIDX,0)
                 if len(val) != 0:
