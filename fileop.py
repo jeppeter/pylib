@@ -855,6 +855,20 @@ def largefile_handler(args,parser):
     sys.exit(0)
     return
 
+def listdir_handler(args,parser):
+    set_logging(args)
+    for d in args.subnargs:
+        for (root,dirs,files) in os.walk(d):
+            logging.info('in root [%s]'%(root))
+            logging.info('\tdirs %d'%(len(dirs)))
+            for dn in dirs:
+                logging.info('\t\t%s'%(dn))
+            logging.info('\tfiles %d'%(len(files)))
+            for fn in files:
+                logging.info('\t\t%s'%(fn))
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -888,6 +902,9 @@ def main():
             "$": 1
         },
         "largefile<largefile_handler>##file ... to read large file##" : {
+            "$" : "+"
+        },
+        "listdir<listdir_handler>##d ... to list##" : {
             "$" : "+"
         }
     }

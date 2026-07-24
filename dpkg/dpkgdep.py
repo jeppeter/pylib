@@ -17,11 +17,11 @@ class DpkgDependBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__depmap = dict()
 		self.__pkg = ''
-		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
-		self.__depexpr = re.compile('^Depends:\s+(.*)',re.I)
-		self.__predepexpr = re.compile('^Pre-Depends:\s+(.*)',re.I)
+		self.__pkgexpr = re.compile('^Package:\\s+([^\\s]+)',re.I)
+		self.__depexpr = re.compile('^Depends:\\s+(.*)',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\\s+(.*)',re.I)
 		self.__emptylineexpr = re.compile('^$')
-		self.__splitexpr = re.compile('\|',re.I)
+		self.__splitexpr = re.compile('\\|',re.I)
 		return
 
 
@@ -30,7 +30,7 @@ class DpkgDependBase(dpkgbase.DpkgBase):
 			return
 		m = self.__splitexpr.findall(deppkg)
 		if m and len(m) > 0:
-			deppkgs = re.split('\|',deppkg)
+			deppkgs = re.split('\\|',deppkg)
 			if pkg not in self.__depmap.keys():
 				self.__depmap[pkg] = []
 			for p in deppkgs:
@@ -89,9 +89,9 @@ class DpkgInstBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__insts = []
 		self.__started = False
-		self.__startexpr = re.compile('[\+]+\-[\=]+',re.I)
+		self.__startexpr = re.compile('[\\+]+\\-[\\=]+',re.I)
 		# we get installed package
-		self.__instexpr = re.compile('^[a-zA-Z]i\s+([^\s]+)\s+',re.I)
+		self.__instexpr = re.compile('^[a-zA-Z]i\\s+([^\\s]+)\\s+',re.I)
 		return
 	def __add_inner(self,pkg):
 		if pkg is None:
@@ -128,8 +128,8 @@ class DpkgRcBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__rcs = []
 		self.__started = False
-		self.__startexpr = re.compile('[\+]+\-[\=]+',re.I)
-		self.__instexpr = re.compile('^rc\s+([^\s]+)\s+',re.I)
+		self.__startexpr = re.compile('[\\+]+\\-[\\=]+',re.I)
+		self.__instexpr = re.compile('^rc\\s+([^\\s]+)\\s+',re.I)
 		return
 	def __add_inner(self,pkg):
 		if pkg is None:
@@ -166,11 +166,11 @@ class DpkgRDependBase(dpkgbase.DpkgBase):
 		self.__rdepmap = dict()
 		self.__pkg = ''
 		self.__insts = []
-		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
-		self.__depexpr = re.compile('^Depends:\s+(.*)',re.I)
-		self.__predepexpr = re.compile('^Pre-Depends:\s+(.*)',re.I)
+		self.__pkgexpr = re.compile('^Package:\\s+([^\\s]+)',re.I)
+		self.__depexpr = re.compile('^Depends:\\s+(.*)',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\\s+(.*)',re.I)
 		self.__emptylineexpr = re.compile('^$')
-		self.__splitexpr = re.compile('\|',re.I)
+		self.__splitexpr = re.compile('\\|',re.I)
 		return
 
 
@@ -183,7 +183,7 @@ class DpkgRDependBase(dpkgbase.DpkgBase):
 			return
 		m = self.__splitexpr.findall(deppkg)
 		if m and len(m) > 0:
-			deppkgs = re.split('\|',deppkg)
+			deppkgs = re.split('\\|',deppkg)
 			for p in deppkgs:
 				if p not in self.__rdepmap.keys():
 					self.__rdepmap[p] = []
@@ -238,8 +238,8 @@ class DpkgRDependBase(dpkgbase.DpkgBase):
 class DpkgEssentailBase(dpkgbase.DpkgBase):
 	def __init__(self):
 		self.__essentials = []
-		self.__pkgexpr = re.compile('^Package:\s+([^\s]+)',re.I)
-		self.__essentialexpr = re.compile('^Essential:\s+yes$',re.I)
+		self.__pkgexpr = re.compile('^Package:\\s+([^\\s]+)',re.I)
+		self.__essentialexpr = re.compile('^Essential:\\s+yes$',re.I)
 		self.__emptylineexpr = re.compile('^$',re.I)
 		self.__pkg = ''
 		return
@@ -278,10 +278,10 @@ class DpkgDebInfoBase(dpkgbase.DpkgBase):
 		self.__name = ''
 		self.__version = ''
 		self.__deps = []
-		self.__pkgexpr = re.compile('^Package:\s+(.+)$',re.I)
-		self.__versionexpr = re.compile('^Version:\s+(.+)$',re.I)
-		self.__depexpr = re.compile('^Depends:\s+(.+)$',re.I)
-		self.__predepexpr = re.compile('^Pre-Depends:\s+(.+)$',re.I)
+		self.__pkgexpr = re.compile('^Package:\\s+(.+)$',re.I)
+		self.__versionexpr = re.compile('^Version:\\s+(.+)$',re.I)
+		self.__depexpr = re.compile('^Depends:\\s+(.+)$',re.I)
+		self.__predepexpr = re.compile('^Pre-Depends:\\s+(.+)$',re.I)
 		return
 
 	def __add_inner(self,pkgs):
@@ -289,7 +289,7 @@ class DpkgDebInfoBase(dpkgbase.DpkgBase):
 			return
 
 		for p in pkgs:
-			sarr = re.split('\|',p)
+			sarr = re.split('\\|',p)
 			for cp in sarr:
 				if cp not in self.__deps:
 					self.__deps.append(cp)
