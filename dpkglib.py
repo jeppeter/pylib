@@ -7,6 +7,7 @@ import sys
 import os
 
 
+PRE_DEPS_KEYWORD = 'Pre-Depends'
 DEPS_KEYWORD = 'Depends'
 PACKAGE_KEYWORD = 'Package'
 
@@ -21,7 +22,7 @@ class DpkgPackage(object):
 	def parse(self,sarr,index):
 		passed = index
 		lastkey = None
-		mkeyexpr = re.compile('^([A-Za-z0-9]+):\\s+(.*)$')
+		mkeyexpr = re.compile('^([A-Za-z0-9\\-]+):\\s+(.*)$')
 		while passed < len(sarr):
 			l = sarr[passed]
 			l = l.rstrip('\r\n')
@@ -118,13 +119,25 @@ class DpkgDeps(object):
 		deps = []
 		if name in self.db.maps.keys():
 			obj = self.db.maps[name]
+			logging.info('has info [%s] keys %s'%(name,obj.info.keys()))
 			if DEPS_KEYWORD in obj.info.keys():
+				logging.info('[%s] has %s'%(name,DEPS_KEYWORD))
 				sarr = re.split(',',obj.info[DEPS_KEYWORD])
 				for l in sarr:
 					p = re.sub('\\(([^\\)]+)\\)','',l)
 					p = p.rstrip('\t ')
 					p = p.strip('\t ')
 					deps.append(p)
+			if PRE_DEPS_KEYWORD in obj.info.keys():
+				logging.info('[%s] has %s'%(name,PRE_DEPS_KEYWORD))
+				sarr = re.split(',',obj.info[PRE_DEPS_KEYWORD])
+				for l in sarr:
+					p = re.sub('\\(([^\\)]+)\\)','',l)
+					p = p.rstrip('\t ')
+					p = p.strip('\t ')
+					deps.append(p)
+		else:
+			logging.error('no [%s] find in maps'%(name))
 		return deps
 
 	def get_dep(self,name,recursive=False):
