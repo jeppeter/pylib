@@ -198,10 +198,15 @@ class DpkgFiles(object):
 
 	def _get_match_list(self,name):
 		matchfiles = []
-		mexpr = re.compile('^%s(:[A-Za-z0-9]+)?.list'%(name))
+		mname = name
+		mname = re.sub('\\+','\\\\+',name)
+		restr = '^%s(:[A-Za-z0-9]+)?.list'%(mname)
+		mexpr = re.compile(restr)
+		logging.info('search [%s] restr [%s]'%(name,restr))
 		with os.scandir(self.datadir) as entries:
 			for fobj in entries:
 				if fobj.is_file() and mexpr.match(fobj.name):
+					logging.info('match [%s]'%(fobj.name))
 					matchfiles.append(fobj.name)
 		return matchfiles
 
