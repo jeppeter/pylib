@@ -146,18 +146,33 @@ class DpkgDeps(object):
 		totaldeps[name] = True
 		retdeps = []
 		retdeps.extend(deps)
+		for k in deps:
+			if k not in totaldeps.keys():
+				totaldeps[k] = False
 		cont = True
 		while cont and recursive:
 			cont = False
-			for k,v in totaldeps.items():
+			curkeys = totaldeps.keys()
+			nkeys = []
+			setkeys = []
+			for k in curkeys:
+				v = totaldeps[k]
+				logging.info('%s %s'%(k,v))
 				if not v:
 					deps = self._get_dep(k)
-					totaldeps[k] = True
+					logging.info('%s deps %s'%(k,deps))
+					setkeys.append(k)
 					retdeps.extend(deps)
-					for d in deps:
-						if d not in totaldeps.keys():
-							cont = True
-							totaldeps[d] = False
+			retdeps = list(set(retdeps))
+			retdeps = sorted(retdeps)
+			for k in setkeys:
+				totaldeps[k] = True
+			for k in retdeps:
+				if k not in totaldeps.keys():
+					cont = True
+					totaldeps[k] = False
+				elif not totaldeps[k]:
+					cont = True
 
 		retdeps = list(set(retdeps))
 		retdeps = sorted(retdeps)
