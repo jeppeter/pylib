@@ -5,11 +5,13 @@ import re
 import logging
 import sys
 import os
+import traceback
 
 
 PRE_DEPS_KEYWORD = 'Pre-Depends'
 DEPS_KEYWORD = 'Depends'
 PACKAGE_KEYWORD = 'Package'
+STATUS_KEYWORD = 'Status'
 
 class DpkgPackage(object):
 	def __init__(self):
@@ -179,6 +181,30 @@ class DpkgDeps(object):
 		return retdeps
 
 
+class DpkgInstalled(object):
+	def __init__(self,val):
+		if isinstance(val,DpkgDatabase):
+			self.db = val
+		else:
+			self.db = DpkgDatabase(val)
+			self.db.parse()
+		return
+
+
+	def get_installed(self,name):
+		retval = False
+		try:
+			if name in self.db.maps.keys():
+				curmap = self.db.maps[name]
+				logging.info('curmap %s'%(curmap))
+				if STATUS_KEYWORD in curmap.info.keys():
+					l = curmap.info[STATUS_KEYWORD]
+					instexpr = re.compile('^install\\s+ok\\s+installed$',re.I)
+					if instexpr.match(l):
+						retval = True
+		except:
+			logging.error('%s'%(traceback.format_exc()))
+		return retval
 
 class DpkgFiles(object):
 	def __init__(self,datadir):
