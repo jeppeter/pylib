@@ -123,21 +123,31 @@ class DpkgDeps(object):
 			obj = self.db.maps[name]
 			logging.info('has info [%s] keys %s'%(name,obj.info.keys()))
 			if DEPS_KEYWORD in obj.info.keys():
-				logging.info('[%s] has %s'%(name,DEPS_KEYWORD))
+				logging.info('[%s] has %s [%s]'%(name,DEPS_KEYWORD,obj.info[DEPS_KEYWORD]))
 				sarr = re.split(',',obj.info[DEPS_KEYWORD])
 				for l in sarr:
 					p = re.sub('\\(([^\\)]+)\\)','',l)
-					p = p.rstrip('\t ')
-					p = p.strip('\t ')
-					deps.append(p)
+					carr = re.split('\\|',p)
+					for cp in carr:
+						cp = cp.rstrip('\t ')
+						cp = cp.strip('\t ')
+						if cp in self.db.maps.keys():
+							logging.info('add [%s] for [%s]'%(cp,name))
+							deps.append(cp)
+							break
 			if PRE_DEPS_KEYWORD in obj.info.keys():
 				logging.info('[%s] has %s'%(name,PRE_DEPS_KEYWORD))
 				sarr = re.split(',',obj.info[PRE_DEPS_KEYWORD])
 				for l in sarr:
 					p = re.sub('\\(([^\\)]+)\\)','',l)
-					p = p.rstrip('\t ')
-					p = p.strip('\t ')
-					deps.append(p)
+					carr = re.split('\\|',p)
+					for cp in carr:
+						cp = cp.rstrip('\t ')
+						cp = cp.strip('\t ')
+						if cp in self.db.maps.keys():
+							logging.info('add [%s] for [%s]'%(cp,name))
+							deps.append(cp)
+							break
 		else:
 			logging.error('no [%s] find in maps'%(name))
 		return deps
@@ -148,7 +158,7 @@ class DpkgDeps(object):
 		totaldeps[name] = True
 		retdeps = []
 		retdeps.extend(deps)
-		for k in deps:
+		for k in retdeps:
 			if k not in totaldeps.keys():
 				totaldeps[k] = False
 		cont = True
