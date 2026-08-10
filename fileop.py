@@ -10,12 +10,43 @@ import random
 import time
 import math
 import re
+import tarfile
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int
+
+class ReadTar(object):
+    def __init__(self,fname):
+        self.fname = fname
+        self.tarobj = None
+        return
+
+    def open(self,types='r:gz'):
+        if self.tarobj is not None:
+            self.tarobj.close()
+            self.tarobj = None
+        self.tarobj = tarfile.open(self.fname,types)
+        return
+
+    def get_list(self):
+        if self.tarobj is None:
+            raise Exception('not opened %s'%(self.fname))
+        retobj = []
+        for info in self.tarobj:
+            retobj.append(info)
+        return retobj
+
+    def extract_file_content(self,fname):
+        if self.tarobj is None:
+            raise Exception('not opened %s'%(self.fname))
+        f = self.tarobj.extractfile(fname)
+        inb = f.read()
+        return inb
+
+
 
 class ReadFileLarge(object):
     def __init__(self,fname=None):
@@ -254,6 +285,7 @@ def format_int_val(intv, note=''):
             lastidx += 1
         rets += '\n'
     return rets
+
 
 
 def is_in_windows():
@@ -869,6 +901,38 @@ def listdir_handler(args,parser):
     sys.exit(0)
     return
 
+def readtar_handler(args,parser):
+    set_logging(args)
+    tarfile = args.subnargs[0]
+    fobj = ReadTar(args.subnargs[0])
+    fobj.open('r:gz')
+    if len(args.subnargs) == 1:
+        dinfo = fobj.get_list()
+        sys.stdout.write('[%s] contect\n'%(f))
+        for i in dinfo:
+            if i.isfile():
+                sys.stdout.write('[%s]file\n'%(i.name))
+            elif i.isdir():
+                sys.stdout.write('[%s]dir\n'%(i.name))
+            else:
+                sys.stdout.write('[%s]unknown\n'%(i.name))
+    else:
+        for f in args.subnargs[1:]:
+            content = fobj.extract_file_content(f)
+            try:
+                if sys.version[0] == '3':
+                    outs = content.decode('utf-8')
+                else:
+                    outs = string(content)
+                write_file(outs,args.output)
+            except:
+                write_file_bytes(content,args.output)
+
+
+
+    sys.exit(0)
+    return
+
 def main():
     commandline='''
     {
@@ -905,6 +969,9 @@ def main():
             "$" : "+"
         },
         "listdir<listdir_handler>##d ... to list##" : {
+            "$" : "+"
+        },
+        "readtar<readtar_handler>##tarfile extractfiles... to list tar file##" : {
             "$" : "+"
         }
     }
