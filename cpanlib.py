@@ -50,6 +50,7 @@ class CpanPackages(object):
 		self.cpandir=  cpandir
 		self.file = '%s/sources/modules/02packages.details.txt.gz'%(cpandir)
 		self.maps = dict()
+		self.omitpkgs = []
 		self._error = None
 		self._missingfiles = []
 		return
@@ -91,6 +92,7 @@ class CpanPackages(object):
 		sarr = re.split('\n',retl)
 		started = False
 		index = 0
+		perlexpr = re.compile('.*\\/perl([0-9\\.\\-]+)?\\.tar\\.gz$',re.I)
 		for l in sarr:
 			index += 1
 			l = l.rstrip('\r')
@@ -107,12 +109,18 @@ class CpanPackages(object):
 			curdict = dict()
 			curdict[VERSION_KEYWORD] = carr[1]
 			curdict[TARFILE_KEYWORD] = carr[2]
+			if perlexpr.match(carr[2]):
+				logging.info('add [%s] for [%s]'%(carr[0],carr[2]))
+				self.omitpkgs.append(carr[0])
 			#logging.info('[%s] key file %s'%(carr[0],carr[2]))
 			self.maps[carr[0]] = curdict
 		return
 
+
+
 	def _get_pkg_dep(self,pkg):
 		self._error = None
+		self.progs = ''
 		retdeps = []
 
 		if pkg not in self.maps.keys():
@@ -126,6 +134,7 @@ class CpanPackages(object):
 			self._missingfiles.append(curfile)
 			return []
 		# now we should get the tar zip file
+		logging.info('[%s] file [%s]'%(pkg,curfile))
 		rtar = ReadTar(curfile)
 		rtar.open()
 		dinfos = rtar.get_list()
@@ -154,13 +163,19 @@ class CpanPackages(object):
 
 		reqdict = rundict[REQUIRES_KEYWORD]
 		for k in reqdict.keys():
+			logging.info('[%s] add [%s]'%(pkg,k))
 			retdeps.append(k)
 		return retdeps
 
 	def get_error(self):
 		return self._error
 
-
+	def check_filter_not(self,pkg):
+		if pkg in self.omitpkgs:
+			return True
+		if pkg == 'perl' or pkg == 'Config':
+			return True
+		return False
 
 
 	def get_dep(self,pkg,recursive=False):
@@ -183,24 +198,37 @@ class CpanPackages(object):
 				keys = truemap.keys()
 				for k in keys:
 					if not truemap[k]:
+						if self.check_filter_not(k):
+							truemap[k] = True
+							continue
+						logging.info('will handle [%s]'%(k))
 						deps = self._get_pkg_dep(k)
 						if deps is None:
 							return None, self._missingfiles
 						retdeps.extend(deps)
+						logging.info('set truemap [%s] True'%(k))
 						truemap[k] = True
 						for ck in deps:
 							if ck not in truemap.keys():
-								logging.info('add [%s]'%(ck))
-								truemap[ck] = False
+								if self.check_filter_not(ck):
+									logging.info('set [%s] for filter'%(ck))
+									truemap[ck] = True
+								else:
+									logging.info('add [%s] new False'%(ck))
+									truemap[ck] = False
 						break
-				for k in truemap.keys():
+				keys = truemap.keys()
+				for k in keys:
 					if not truemap[k]:
-						logging.info('[%s] will handle'%(k))
-						cont = True
-						break
+						if self.check_filter_not(k):
+							logging.info('[%s] filter True'%(k))
+							truemap[k] = True
+						else:
+							logging.info('[%s] not True %s'%(k, truemap[k]))
+							cont = True
 				retdeps = list(set(retdeps))
 				retdeps = sorted(retdeps)
-
+				logging.info('cont %s'%(cont))
 		retdeps = list(set(retdeps))
 		retdeps = sorted(retdeps)
 		return retdeps,self._missingfiles
@@ -208,16 +236,38 @@ class CpanPackages(object):
 
 
 class CpanDownload(object):
-	def __init__(self,url='https://223.5.5.5/'):
+	def __init__(self,url='https://cpan.org/'):
 		self.baseurl = url
 		self._error = None
+		self.progs = ''
 		return
+
+	def prog_hook(self,bn,bs,totalsize):
+		if len(self.progs) > 0:
+			idx = 0
+			while idx < len(self.progs):
+				sys.stdout.write('\b')
+				idx += 1
+			idx = 0
+			while idx < len(self.progs):
+				sys.stdout.write('\b')
+				idx += 1
+			idx = 0
+			while idx < len(self.progs):
+				sys.stdout.write('\b')
+				idx += 1
+		self.progs = '%d %d %d'%(bn,bs,totalsize)
+		sys.stdout.write('%s'%(self.progs))
+		sys.stdout.flush()
+		return
+
 
 	def get_error(self):
 		return self._error
 
 	def download_file(self,fname):
 		self._error = None
+		self.progs = ''
 		retval = False
 		carr = re.split('authors', fname)
 		if len(carr) < 2:
@@ -225,9 +275,11 @@ class CpanDownload(object):
 			return retval
 		try:
 			url = '%s/authors/%s'%(self.baseurl,carr[1])
-			url = os.path.realpath(url)
 			logging.info('request [%s] => [%s]'%(url,fname))
-			urllib.request.urlretrieve(url,fname)
+			dname = os.path.dirname(fname)
+			if not os.path.isdir(dname):
+				os.makedirs(dname)
+			urllib.request.urlretrieve(url,fname,reporthook=self.prog_hook)
 			retval = True
 		except:
 			self._error = '%s'%(traceback.format_exc())
