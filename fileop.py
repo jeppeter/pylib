@@ -11,6 +11,7 @@ import time
 import math
 import re
 import tarfile
+import gzip
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
@@ -45,6 +46,54 @@ class ReadTar(object):
         f = self.tarobj.extractfile(fname)
         inb = f.read()
         return inb
+
+
+class ReadGzip(object):
+    def __init__(self,filename=None,types="rb"):
+        self.fname = filename
+        if filename is None:
+            self.fname = sys.stdin.buffer
+        self.fobj = gzip.open(self.fname,types)
+        self.fbuf = b''
+        return
+
+    def _find_partbuf(self):
+        idx = 0
+        fidx = -1
+        while idx < len(self.fbuf):
+            if self.fbuf[idx]  == b'\n':
+                fidx = idx
+                break
+            idx += 1
+        if fidx >= 0:
+            retbuf = self.fbuf[:fidx]
+            self.fbuf = self.fbuf[fidx:]
+            return retbuf
+        return None
+
+
+    def __iter__(self):
+        if self.fobj is not None:
+            while True:
+                cbuf = self.fobj.read(1024*128)
+                if cbuf is None or len(cbuf) == 0:
+                    break
+                self.fbuf += cbuf
+                while True:
+                    retbuf = self._find_partbuf()
+                    if retbuf is None:
+                        break
+                    yield retbuf.decode('utf-8')
+            while True:
+                retbuf = self._find_partbuf()
+                if retbuf is None:
+                    break
+                yield retbuf.decode('utf-8')
+            if len(self.fbuf) != 0:
+                yield self.fbuf.decode('utf-8')
+                self.fbuf = b''
+            self.fobj.close()
+            self.fobj = None
 
 
 
@@ -908,7 +957,7 @@ def readtar_handler(args,parser):
     fobj.open('r:gz')
     if len(args.subnargs) == 1:
         dinfo = fobj.get_list()
-        sys.stdout.write('[%s] contect\n'%(f))
+        sys.stdout.write('[%s] contect\n'%(args.subnargs[0]))
         for i in dinfo:
             if i.isfile():
                 sys.stdout.write('[%s]file\n'%(i.name))
@@ -932,6 +981,21 @@ def readtar_handler(args,parser):
 
     sys.exit(0)
     return
+
+def gzread_handler(args,parser):
+    set_logging(args)
+    if len(args.subnargs) > 0:
+        for f in args.subnargs:
+            gzobj = ReadGzip(f)
+            for l in gzobj:
+                sys.stdout.write('%s'%(l))
+    else:
+        gzobj = ReadGzip(None)
+        for l in gzobj:
+            sys.stdout.write('%s'%(l))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -973,6 +1037,9 @@ def main():
         },
         "readtar<readtar_handler>##tarfile extractfiles... to list tar file##" : {
             "$" : "+"
+        },
+        "gzread<gzread_handler>##[file] to read##" : {
+            "$" : "*"
         }
     }
     '''

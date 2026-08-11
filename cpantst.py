@@ -15,8 +15,7 @@ import cpanlib
 
 def cpanls_handler(args,parser):
 	set_logging(args)
-	detailfile = '%s/sources/modules/02packages.details.txt.gz'%(args.cpandir)
-	cpanpkg = cpanlib.CpanPackages(detailfile,args.cpandir)
+	cpanpkg = cpanlib.CpanPackages(args.cpandir)
 	cpanpkg.parse()
 	mnlen = 0
 	mvlen = 0
@@ -38,6 +37,34 @@ def cpanls_handler(args,parser):
 	sys.exit(0)
 	return
 
+def cpandep_handler(args,parser):
+	set_logging(args)
+	cpanpkg = cpanlib.CpanPackages(args.cpandir)
+	cpanpkg.parse()
+	cpandownload = cpanlib.CpanDownload(args.cpandownurl)
+	for k in args.subnargs:
+		while True:
+			deps,missingfiles = cpanpkg.get_dep(k,True)
+			if deps is None:
+				break
+			if len(missingfiles) == 0:
+				break
+			for ck in missingfiles:
+				retval = cpandownload.download_file(ck)
+				if not retval :
+					sys.stderr.write('down [%s] error [%s]\n'%(ck,cpandownload.get_error()))
+					sys.exit(3)
+
+		if deps is None:
+			sys.stderr.write('error on [%s] :%s\n'%(k,cpanpkg.get_error()))
+		else:
+			sys.stdout.write('%s depends\n'%(k))
+			for ck in deps:
+				sys.stdout.write('    %s\n'%(ck))
+
+	sys.exit(0)
+	return
+
 def main():
     commandline_fmt='''
     {
@@ -45,8 +72,12 @@ def main():
         "output|o" : null,
         "recursive|R" : false,
         "cpandir|C" : "%s",
+        "cpandownurl" : "https://meta.metacpan.org/",
         "cpanls<cpanls_handler>##to list cpan##" : {
         	"$" : 0
+        },
+        "cpandep<cpandep_handler>##[pkgname] .. to display depends##" : {
+        	"$" : "+"
         }
     }
     '''
