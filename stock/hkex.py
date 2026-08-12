@@ -11,7 +11,7 @@ import traceback
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import extargsparse
 import fileop
-import logop
+import loglib
 import strop
 
 CHECK_COMPANY_IDX_NEW = 2
@@ -228,7 +228,7 @@ def parse_sheet_dir(dname):
 
 
 def onesheet_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     if args.input is None:
         raise Exception('need set args input')
     v= ParseSheet(args.input)
@@ -239,7 +239,7 @@ def onesheet_handler(args,parser):
     sys.exit(0)
 
 def dirsearch_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     for d in args.subnargs:
         retv = parse_sheet_dir(d)
         sys.stdout.write('%s\n'%(json.dumps(retv,indent=4)))
@@ -248,7 +248,7 @@ def dirsearch_handler(args,parser):
 
 
 def cellval_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     if args.input is None:
         raise Exception('need set args input')
     book = xlrd.open_workbook(args.input)
@@ -286,7 +286,7 @@ class HuigouValue(object):
         return s
 
 def sortval_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     vals = []
     for s in args.subnargs:
         s = fileop.read_file(s)
@@ -321,7 +321,7 @@ def main():
     }
     '''
     parser = extargsparse.ExtArgsParse()
-    logop.load_log_commandline(parser)
+    loglib.load_log_commandline(parser)
     parser.load_command_line_string(commandline)
     parser.parse_command_line(None,parser)
     raise Exception('can not here for no command handle')

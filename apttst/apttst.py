@@ -10,7 +10,7 @@ import re
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'pythonlib')))
 import fileop
-import logop
+import loglib
 import extargsparse
 
 
@@ -101,7 +101,7 @@ def get_depmap_rdepmap_inner():
 
 
 def depmap_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     depmap, rdepmap = get_depmap_rdepmap_inner()
     s = json.dumps(depmap,indent=4)
     fileop.write_file(s,args.depmap)
@@ -213,7 +213,7 @@ class AccessMap(object):
 
 
 def depends_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     depjson = get_depmap(args.depmap)
     depmap = AccessMap(depjson)
     for k1 in args.subnargs:
@@ -239,7 +239,7 @@ def depends_handler(args,parser):
     return
 
 def rdepends_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     rdepjson = get_rdepmap(args.rdepmap)
     rdepmap = AccessMap(rdepjson)
     for k1 in args.subnargs:
@@ -297,7 +297,7 @@ def get_filelist_inner():
 
 
 def formfilelist_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     fmap = get_filelist_inner()
     s = json.dumps(fmap,indent=4)
     fileop.write_file(s,args.output)
@@ -305,7 +305,7 @@ def formfilelist_handler(args,parser):
     return
 
 def filelist_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     cache = apt.Cache()
     retval = True
     for f in args.subnargs:
@@ -334,7 +334,7 @@ def filelist_handler(args,parser):
 
 
 def dpkgcp_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     if args.dest is None:
         raise Exception('must set --dest')
     depjson = get_depmap(args.depmap)
@@ -423,7 +423,7 @@ def main():
     '''
     parser = extargsparse.ExtArgsParse()
     parser.load_command_line_string(commandline)
-    logop.load_log_commandline(parser)
+    loglib.load_log_commandline(parser)
     parser.parse_command_line(None,parser)
     raise Exception('can not reach here')
     return

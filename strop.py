@@ -10,7 +10,7 @@ import inspect
 
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-import logop
+import loglib
 import extargsparse
 
 def get_buffer_value(c):
@@ -216,7 +216,7 @@ def rand_bytes(numbyte):
     return rets
 
 def rb_handler(args,parser):
-    logop.set_logging(args)
+    loglib.set_logging(args)
     val = parse_int(args.subnargs[0])
     vs = rand_bytes(val)
     sys.stdout.write('%s [%s]\n'%(args.subnargs[0],vs))
@@ -236,7 +236,7 @@ def main():
     '''
     parser = extargsparse.ExtArgsParse()
     parser.load_command_line_string(commandline)
-    logop.load_log_commandline(parser)
+    loglib.load_log_commandline(parser)
     parser.parse_command_line(None,parser)
     raise Exception('can not reach here')
     return
