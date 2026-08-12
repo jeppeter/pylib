@@ -55,3 +55,10 @@ def load_log_commandline(parser):
 	'''
 	parser.load_command_line_string(logcommand)
 	return parser
+
+def log_command_prefix():
+    logging.info('==================================')
+    logging.info('commande line input')
+    logging.info('%s'%(sys.argv))
+    logging.info('==================================')
+    return

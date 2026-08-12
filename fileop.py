@@ -12,6 +12,8 @@ import math
 import re
 import tarfile
 import gzip
+import traceback
+import tempfile
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
@@ -257,6 +259,29 @@ def mktemp_dir(ind=None):
         logging.error('%s'%(traceback.format_exc()))
     return tempd
 
+def mktemp_file(templ='tempfile.XXXXXX',ind=None):
+    tempf = None
+    try:
+        if ind is None:
+            ind = os.getcwd()
+        retval = make_directory_safe(ind)
+        if not retval:
+            return None
+        sarr = re.split('X{6,}',templ)
+        if len(sarr) == 1:
+            logging.warning('%s not match XXXXXX more 6'%(templ))
+        prefix = None
+        suffix = None
+        if len(sarr[0]) > 0:
+            prefix = sarr[0]
+        if len(sarr) > 1 and len(sarr[1]) > 0:
+            suffix = sarr[1]
+        fd , tempf = tempfile.mkstemp(suffix=suffix,prefix=prefix,dir=ind)
+        os.close(fd)
+        fd = -1
+    except:
+        logging.error('%s'%(traceback.format_exc()))
+    return tempf
 
 
 
@@ -996,12 +1021,21 @@ def gzread_handler(args,parser):
     sys.exit(0)
     return
 
+def mktemp_handler(args,parser):
+    set_logging(args)
+    for f in args.subnargs:
+        retf = mktemp_file(f,args.directory)
+        sys.stdout.write('[%s] retf [%s]\n'%(f,retf))
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
     {
         "input|i" : null,
         "output|o" : null,
+        "directory|D" : null,
         "read<read_handler>" : {
             "$" : "*"
         },
@@ -1040,6 +1074,9 @@ def main():
         },
         "gzread<gzread_handler>##[file] to read##" : {
             "$" : "*"
+        },
+        "mktemp<mktemp_handler>##template ... to create temp file##" : {
+            "$" : "+"
         }
     }
     '''
