@@ -7,6 +7,8 @@ import time
 import math
 import traceback
 import requests
+import urllib.request
+import urllib.parse
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 import extargsparse
@@ -79,3 +81,40 @@ def download_file(url,f,tmout=10.0,progobj=None,throwexp=True):
 	if not retval and throwexp:
 		raise Exception('%s'%(err))
 	return retval
+
+
+class DownloadUrl(object):
+	def __init__(self,url,ofile=None):
+		self.url = url
+		if ofile is not None:
+			self.ofile = ofile
+		else:
+			uobj = urllib.parse.urlsplit(url)
+			self.ofile = os.path.join('.',os.path.basename(uobj.path))
+		self.outs = ''
+		return
+
+	def progress(self,blkcnt,blksize,totalsize):
+		if len(self.outs) > 0:
+			idx = 0
+			while idx < len(self.outs):
+				sys.stdout.write('\b')
+				idx += 1
+		self.outs = 'blkcnt[%d] blksize[%d]  totalsize[%d]'%(blkcnt,blksize,totalsize)
+		sys.stdout.write('%s'%(self.outs))
+		sys.stdout.flush()
+		return
+
+
+	def download(self,hookreport=None):
+		retval = False
+		try:
+			_hook = hookreport
+			if _hook is None:
+				_hook = self.progress
+			logging.info('download [%s] => [%s]'%(self.url,self.ofile))
+			urllib.request.urlretrieve(self.url,self.ofile,_hook)
+			retval = True
+		except:
+			logging.error('%s'%(traceback.format_exc()))
+		return retval
