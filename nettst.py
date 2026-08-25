@@ -9,6 +9,7 @@ import logging
 import time
 import traceback
 import math
+import select
 
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 from loglib import set_logging,load_log_commandline
@@ -33,16 +34,6 @@ def downurl_handler(args,parser):
 
 ECHO_SERVER_DEF_BINDSTR = '127.0.0.1:9939'
 
-def echo_session(sesssock):
-    while True:
-        try:
-            rdata = sesssock.recv(2048)
-            logging.info('%s'%(strop.dump_buffer(rdata,'server read data %d'%(len(rdata)))))
-            sesssock.send(rdata)
-        except:
-            logging.error('%s'%(traceback.format_exc()))
-            sesssock.close()
-            return
 
 
 class EchoSession(threading.Thread):
@@ -52,12 +43,18 @@ class EchoSession(threading.Thread):
         return
 
     def run(self):
+        self.sock.setblocking(False)
         while True:
             try:
                 logging.info('will recv')
-                rdata = self.sock.recv(2048)
-                logging.info('%s'%(strop.dump_buffer(rdata,'server read data %d'%(len(rdata)))))
-                self.sock.sendall(rdata)
+                rds , _,_ = select.select([self.sock],[],[],3.0)
+                if len(rds) > 0:
+                    rdata = self.sock.recv(2048)
+                    if rdata is None or len(rdata) == 0:
+                        self.sock.close()
+                        return
+                    logging.info('%s'%(strop.dump_buffer(rdata,'server read data %d'%(len(rdata)))))
+                    self.sock.sendall(rdata)
             except:
                 logging.error('%s'%(traceback.format_exc()))
                 self.sock.close()
@@ -93,10 +90,14 @@ class EchoServer(object):
                             cont = True
                             self.children[idx].join()
                             nchld = []
-                            if idx > 0:
-                                nchld = self.children[:(idx-1)]
-                            nchld.extend(self.children[idx:])
+                            jdx = 0
+                            while jdx < len(self.children):
+                                if jdx != idx:
+                                    nchld.append(self.children[jdx])
+                                jdx += 1
+                            self.children = nchld
                             break
+                        idx += 1
                 sesssock ,addr = self.sock.accept()
                 th1 = EchoSession(sesssock)
                 th1.start()
