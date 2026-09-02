@@ -14,12 +14,14 @@ import tarfile
 import gzip
 import traceback
 import tempfile
+import json
 
 sys.path.insert(0,os.path.join(os.path.dirname(__file__),'pythonlib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))))
 import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int
+from tomlex import TomlEx
 
 class ReadTar(object):
     def __init__(self,fname):
@@ -1029,6 +1031,34 @@ def mktemp_handler(args,parser):
     sys.exit(0)
     return
 
+def tomled_handler(args,parser):
+    set_logging(args)
+    if len(args.subnargs) == 0:
+        raise Exception('need a file')
+    ins = read_file(args.subnargs[0])
+    tex = TomlEx()
+    rdict = tex.loads(ins)
+    if len(args.subnargs) == 1:
+        outs = tex.dumps(rdict)
+        sys.stdout.write('%s'%(outs))
+    else:
+        writecnt = 0
+        for l in args.subnargs[1:]:
+            carr = re.split('=',l,2)
+            if len(carr) >= 2:
+                logging.info('carr[1]=[%s]'%(carr[1]))
+                v = json.loads(carr[1])
+                tex.set_value(carr[0],v)
+                writecnt += 1
+            else:
+                v = tex.get_value(carr[0])
+                sys.stdout.write('[%s]=[%s]\n'%(carr[0],v))
+        if writecnt > 0:
+            outs = tex.dumps()
+            write_file(outs,args.output)
+    sys.exit(0)
+    return
+
 
 def main():
     commandline='''
@@ -1076,6 +1106,9 @@ def main():
             "$" : "*"
         },
         "mktemp<mktemp_handler>##template ... to create temp file##" : {
+            "$" : "+"
+        },
+        "tomled<tomled_handler>##file key=val... to set value##" : {
             "$" : "+"
         }
     }
