@@ -43,22 +43,27 @@ class ProcExpolore(object):
 		stdoutbuf,stderrbuf = p.communicate()
 		return stdoutbuf,stderrbuf
 
-	def _scan_line(self,buf,sidx):
-		retbuf = b''
-		retidx = sidx
-		while retidx < len(buf):
-			if buf[retidx] == b'\r' or buf[retidx] == b'\n':
-				break
-			retidx += 1
-		if retidx < len(buf):
-			if buf[retidx] == b'\r' and (retidx + 1) < len(buf) and buf[retidx+1] == b'\n':
-				retidx += 1
-		retbuf = buf[sidx:retidx]
-		return retbuf,retidx
+	def _split_buf_lines(self,buf):
+		retbufs = []
+		idx = 0
+		sidx = 0
+		while idx < len(buf):			
+			if buf[idx] == ord('\r') or buf[idx] == ord('\n'):
+				logging.info('[%d]=b[0x%x]'%(idx,buf[idx]))
+				while (idx + 1) < len(buf) and (buf[idx] == ord('\r') or buf[idx+1] == ord('\n')):
+					idx += 1
+				logging.info('add [%d:%d] [%s]'%(sidx,idx+1,buf[sidx:(idx+1)]))
+				retbufs.append(buf[sidx:(idx+1)])
+				sidx = idx+1
+			idx += 1
+		if sidx < len(buf):
+			retbufs.append(buf[sidx:])
+		return retbufs
 
 
 	def _scan_windows(self):
 		outb,_ = self._read_subprocess_output(['wmic.exe','process','Get','ProcessId,Caption,CommandLine,ExecutablePath'])
+		retlines = self._split_buf_lines(outb)
 		# now we should give the process get caption
 		procidstart = None
 		procidend = None
@@ -68,6 +73,20 @@ class ProcExpolore(object):
 		cmdend = None
 		execstart = None
 		execend = None
+		idx = 0
+		while idx < len(retlines):
+			curline = retlines[idx]
+			if idx == 0:
+				# that is to make sure the pid
+				jdx = 0
+				bmatched = False
+				while jdx < len(curlen):
+
+					if not bmatched:
+						pass
+
+					jdx += 1
+
 
 		return
 
