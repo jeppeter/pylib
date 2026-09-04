@@ -31,6 +31,41 @@ class ProcInfo(object):
 		self.firstarg = firstarg
 		return
 
+class _winprocindex(object):
+	def __init__(self):
+		self._reset()
+		return
+
+	def _reset(self):
+		self.pidstart = None
+		self.pidend = None
+		self.cmdstart = None
+		self.cmdend = None
+		self.execstart = None
+		self.execend = None
+		self.capstart = None
+		self.capend = None
+		return
+
+	def parse_buf(self,buf):
+		self._reset()
+		idx = 0
+		bstart = False
+		curstart = None
+		curend = None
+		while idx < len(buf):
+			if curstart is None:
+				if buf[idx] != ord(' '):
+					curstart = idx
+			else:
+				if curend is None:
+					if buf[idx] == ord(' '):
+						curend = idx
+				else:
+					if buf[idx] != ord(' '):
+						# now to give the buffer
+						logging.info('')
+
 
 class ProcExpolore(object):
 	def __init__(self):
@@ -61,31 +96,18 @@ class ProcExpolore(object):
 		return retbufs
 
 
+
 	def _scan_windows(self):
 		outb,_ = self._read_subprocess_output(['wmic.exe','process','Get','ProcessId,Caption,CommandLine,ExecutablePath'])
 		retlines = self._split_buf_lines(outb)
 		# now we should give the process get caption
-		procidstart = None
-		procidend = None
-		capstart = None
-		capend = None
-		cmdstart = None
-		cmdend = None
-		execstart = None
-		execend = None
+		wproc = _winprocindex()
 		idx = 0
 		while idx < len(retlines):
 			curline = retlines[idx]
 			if idx == 0:
 				# that is to make sure the pid
-				jdx = 0
-				bmatched = False
-				while jdx < len(curlen):
-
-					if not bmatched:
-						pass
-
-					jdx += 1
+				wproc.parse_buf(curline)
 
 
 		return
@@ -96,11 +118,16 @@ class ProcExpolore(object):
 
 	def snapshot(self):
 		self.process = dict()
-		if is_windows():
-			self._scan_windows()
-		else:
-			self._scan_unix()
-		return
+		retval = True
+		try:
+			if is_windows():
+				self._scan_windows()
+			else:
+				self._scan_unix()
+		except:
+			retval = False
+			logging.error('%s'%(traceback.format_exc()))
+		return retval
 
 	def result(self):
 		return self.process
