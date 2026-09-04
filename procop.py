@@ -43,10 +43,32 @@ class ProcExpolore(object):
 		stdoutbuf,stderrbuf = p.communicate()
 		return stdoutbuf,stderrbuf
 
+	def _scan_line(self,buf,sidx):
+		retbuf = b''
+		retidx = sidx
+		while retidx < len(buf):
+			if buf[retidx] == b'\r' or buf[retidx] == b'\n':
+				break
+			retidx += 1
+		if retidx < len(buf):
+			if buf[retidx] == b'\r' and (retidx + 1) < len(buf) and buf[retidx+1] == b'\n':
+				retidx += 1
+		retbuf = buf[sidx:retidx]
+		return retbuf,retidx
+
 
 	def _scan_windows(self):
 		outb,_ = self._read_subprocess_output(['wmic.exe','process','Get','ProcessId,Caption,CommandLine,ExecutablePath'])
 		# now we should give the process get caption
+		procidstart = None
+		procidend = None
+		capstart = None
+		capend = None
+		cmdstart = None
+		cmdend = None
+		execstart = None
+		execend = None
+
 		return
 
 	def _scan_unix(self):
