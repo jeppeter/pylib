@@ -25,7 +25,7 @@ class ProcInfo(object):
 		self.cmdline = cmdline
 		return
 
-	def set_parentpid(self,pid):
+	def set_ppid(self,pid):
 		self.parentpid = pid
 		return
 
@@ -96,21 +96,23 @@ class _winprocindex(object):
 			nbuf = buf[curstart:]
 			cs = nbuf.decode('utf-8')
 			logging.info('cs [%s]'%(cs))
-			ncs = cs.lower()
-			if ncs == 'caption':
-				self.capstart = curstart
-				self.capend = idx
-			elif ncs == 'commandline':
-				self.cmdstart = curstart
-				self.cmdend = idx
-			elif ncs == 'executablepath':
-				self.execstart = curstart
-				self.execend = idx
-			elif ncs == 'processid':
-				self.pidstart = curstart
-				self.pidend = idx
-			else:
-				logging.error('cs not recognized [%s]'%(cs))
+			cs = cs.rstrip('\r\n')
+			if len(cs) > 0:
+				ncs = cs.lower()
+				if ncs == 'caption':
+					self.capstart = curstart
+					self.capend = idx
+				elif ncs == 'commandline':
+					self.cmdstart = curstart
+					self.cmdend = idx
+				elif ncs == 'executablepath':
+					self.execstart = curstart
+					self.execend = idx
+				elif ncs == 'processid':
+					self.pidstart = curstart
+					self.pidend = idx
+				else:
+					logging.error('cs not recognized [%s]'%(cs))
 		return
 
 class _uxprocidx(object):
@@ -121,14 +123,12 @@ class _uxprocidx(object):
 	def _reset(self):
 		self.pidstart = None
 		self.pidend = None
-		self.uidstart = None
-		self.uidend = None
+		self.userstart = None
+		self.userend = None
 		self.cmdstart = None
 		self.cmdend = None
-		self.execstart = None
-		self.execend = None
-		self.capstart = None
-		self.capend = None
+		self.ppidstart = None
+		self.ppidend = None
 		return
 
 	def parse_buf(self,buf):
@@ -150,18 +150,19 @@ class _uxprocidx(object):
 					if buf[idx] != ord(' '):						
 						nbuf = buf[curstart:curend]
 						cs = nbuf.decode('utf-8')
+						cs = cs.rstrip('\r\n')
 						logging.info('cs [%s]'%(cs))
 						ncs = cs.lower()
-						if ncs == 'caption':
-							self.capstart = curstart
-							self.capend = idx
-						elif ncs == 'commandline':
+						if ncs == 'user':
+							self.userstart = curstart
+							self.userend = idx
+						elif ncs == 'cmd':
 							self.cmdstart = curstart
 							self.cmdend = idx
-						elif ncs == 'executablepath':
-							self.execstart = curstart
-							self.execend = idx
-						elif ncs == 'processid':
+						elif ncs == 'ppid':
+							self.ppidstart = curstart
+							self.ppidend = idx
+						elif ncs == 'pid':
 							self.pidstart = curstart
 							self.pidend = idx
 						else:
@@ -173,18 +174,19 @@ class _uxprocidx(object):
 		if curstart is not None and curstart < idx:
 			nbuf = buf[curstart:]
 			cs = nbuf.decode('utf-8')
+			cs = cs.rstrip('\r\n')
 			logging.info('cs [%s]'%(cs))
 			ncs = cs.lower()
-			if ncs == 'caption':
-				self.capstart = curstart
-				self.capend = idx
-			elif ncs == 'commandline':
+			if ncs == 'user':
+				self.userstart = curstart
+				self.userend = idx
+			elif ncs == 'cmd':
 				self.cmdstart = curstart
 				self.cmdend = idx
-			elif ncs == 'executablepath':
-				self.execstart = curstart
-				self.execend = idx
-			elif ncs == 'processid':
+			elif ncs == 'ppid':
+				self.ppidstart = curstart
+				self.ppidend = idx
+			elif ncs == 'pid':
 				self.pidstart = curstart
 				self.pidend = idx
 			else:
@@ -231,6 +233,21 @@ class ProcExpolore(object):
 					break
 			idx += 1
 		
+		try:
+			c = nbuf.decode('utf-8')
+			reti = int(c)
+		except:
+			reti = 0
+			logging.error('can not parse [%s]'%(repr(buf)))
+		return reti
+
+	def _parse_ux_pid(self,buf):
+		nbuf = b''
+		idx = 0
+		while idx < len(buf):
+			if buf[idx] >= ord('0') and buf[idx] <= ord('9'):
+				nbuf += struct.pack('B',buf[idx])
+			idx += 1
 		try:
 			c = nbuf.decode('utf-8')
 			reti = int(c)
@@ -407,13 +424,129 @@ class ProcExpolore(object):
 			idx += 1
 		return
 
+	def _parse_ux_cmd(self,buf,pid):
+		cmdfile = '/proc/%d/cmdline'%(pid)
+		inbuf = b''
+		cmdarr = []
+		try:
+			with open(cmdfile,'rb') as fin:
+				inbuf = fin.read()
+			idx = 0
+			nbuf = b''
+			while idx < len(inbuf):
+				if inbuf[idx] == 0:
+					cmdarr.append(self._decode_buf(nbuf))
+					nbuf = b''
+				else:
+					nbuf += struct.pack('B',inbuf[idx])
+				idx += 1
+			if len(nbuf)>0:
+				cmdarr.append(self._decode_buf(nbuf))
+				nbuf = b''
+			return cmdarr
+		except:
+			#logging.error('can not open [%s]'%(cmdfile))
+			pass
+		# now we should give the cmd
+		cmdarr = []
+		idx = 0
+		nbuf = b''
+		while idx < len(buf):
+			if buf[idx] == ord(' ') or buf[idx] == ord('\r') or buf[idx] == ord('\n'):
+				if len(nbuf) > 0:
+					cmdarr.append(self._decode_buf(nbuf))
+					nbuf = b''
+			else:
+				nbuf += struct.pack('B',buf[idx])
+			idx += 1
+		if len(nbuf) > 0:
+			cmdarr.append(self._decode_buf(nbuf))
+			nbuf = b''
+		return cmdarr
+
+	def _parse_ux_execpath(self,buf,pid,cmdarr):
+		cmdfile = '/proc/%d/exe'%(pid)
+		try:
+			rets = os.readlink(cmdfile)
+			return rets
+		except:
+			#logging.error('read %d\n%s'%(pid,traceback.format_exc()))
+			pass
+		# now to get the buf
+		cs = self._decode_buf(buf)
+		cs = cs.strip(' \t')
+		cs = cs.rstrip('\r\n')
+		cs = cs.rstrip(' \t')
+		if cs.startswith('['):
+			# this is kernel thread
+			return cs
+		if len(cs) == 0:
+			return cs
+		cbuf = cs.encode('utf-8')
+		idx = 0
+		nbuf = b''
+		while idx < len(cbuf):
+			if cbuf[idx] == ord(' ') or cbuf[idx] == ord('\t'):
+				return self._decode_buf(nbuf)
+			nbuf += struct.pack('B',cbuf[idx])
+			idx += 1
+		return self._decode_buf(nbuf)
+
+
+
 	def _scan_unix(self):
 		outb,_ = self._read_subprocess_output(['ps','-eo','user,pid,ppid,cmd'])
 		retlines = self._split_buf_lines(outb)
 		idx = 0
 		logging.info('retlines [%d]'%(len(retlines)))
+		uproc = _uxprocidx()
 		while idx < len(retlines):
-			
+			curline = retlines[idx]
+			curlen = len(curline) - 1
+			while curlen >= 0:
+				if curline[curlen] != ord('\r') and curline[curlen] != ord('\n'):
+					break
+				curlen -= 1
+			curline = curline[:(curlen+1)]
+			if idx == 0:
+				pass
+			else:
+				cidx = 0
+				cjdx = 0
+				nbuf = b''
+				cmdbuf = b''
+				userbuf = b''
+				pidbuf = b''
+				ppidbuf = b''
+				while cidx < len(curline):
+					if curline[cidx] == ord(' ') or curline[cidx] == ord('\t'):
+						if len(nbuf) > 0:
+							if cjdx == 0:
+								userbuf = nbuf
+							elif cjdx == 1:
+								pidbuf = nbuf
+							elif cjdx == 2:
+								#logging.info('cidx %d'%(cidx))
+								ppidbuf = nbuf
+								while (cidx < len(curline) and curline[cidx] == ord(' ')):
+									cidx += 1
+								#logging.info('left %s'%(repr(curline[cidx:])))
+								cmdbuf = curline[cidx:]
+								break
+							nbuf = b''
+							cjdx += 1
+					else:
+						nbuf += struct.pack('B',curline[cidx])
+					cidx += 1
+				if cjdx >= 2:
+					logging.info('pidbuf [%s] ppidbuf [%s] cmdbuf [%s]'%(repr(pidbuf),repr(ppidbuf),repr(cmdbuf)))
+					pinfo = ProcInfo()
+					pinfo.set_pid(self._parse_ux_pid(pidbuf))
+					pinfo.set_ppid(self._parse_ux_pid(ppidbuf))
+					pinfo.set_cmdline(self._parse_ux_cmd(cmdbuf,pinfo.pid))
+					pinfo.set_firstarg(self._parse_ux_execpath(cmdbuf,pinfo.pid,pinfo.cmdline))
+					# now first to get the cmdline
+					self.process[pinfo.pid] = pinfo			
 			idx += 1
 		return
 
@@ -431,6 +564,6 @@ class ProcExpolore(object):
 			logging.error('%s'%(traceback.format_exc()))
 		return retval
 
-	def result(self):
+	def get_result(self):
 		return self.process
 
