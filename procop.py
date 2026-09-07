@@ -113,6 +113,84 @@ class _winprocindex(object):
 				logging.error('cs not recognized [%s]'%(cs))
 		return
 
+class _uxprocidx(object):
+	def __init__(self):
+		self._reset()
+		return
+
+	def _reset(self):
+		self.pidstart = None
+		self.pidend = None
+		self.uidstart = None
+		self.uidend = None
+		self.cmdstart = None
+		self.cmdend = None
+		self.execstart = None
+		self.execend = None
+		self.capstart = None
+		self.capend = None
+		return
+
+	def parse_buf(self,buf):
+		self._reset()
+		idx = 0
+		bstart = False
+		curstart = None
+		curend = None
+		while idx < len(buf):
+			if curstart is None:
+				if buf[idx] != ord(' '):
+					curstart = idx
+			else:
+				if curend is None:
+					if buf[idx] == ord(' '):
+						curend = idx
+						# now to check the value
+				else:
+					if buf[idx] != ord(' '):						
+						nbuf = buf[curstart:curend]
+						cs = nbuf.decode('utf-8')
+						logging.info('cs [%s]'%(cs))
+						ncs = cs.lower()
+						if ncs == 'caption':
+							self.capstart = curstart
+							self.capend = idx
+						elif ncs == 'commandline':
+							self.cmdstart = curstart
+							self.cmdend = idx
+						elif ncs == 'executablepath':
+							self.execstart = curstart
+							self.execend = idx
+						elif ncs == 'processid':
+							self.pidstart = curstart
+							self.pidend = idx
+						else:
+							logging.error('cs not recognized [%s]'%(cs))
+						# now to give the buffer
+						curstart = idx
+						curend = None
+			idx += 1
+		if curstart is not None and curstart < idx:
+			nbuf = buf[curstart:]
+			cs = nbuf.decode('utf-8')
+			logging.info('cs [%s]'%(cs))
+			ncs = cs.lower()
+			if ncs == 'caption':
+				self.capstart = curstart
+				self.capend = idx
+			elif ncs == 'commandline':
+				self.cmdstart = curstart
+				self.cmdend = idx
+			elif ncs == 'executablepath':
+				self.execstart = curstart
+				self.execend = idx
+			elif ncs == 'processid':
+				self.pidstart = curstart
+				self.pidend = idx
+			else:
+				logging.error('cs not recognized [%s]'%(cs))
+		return
+
 
 class ProcExpolore(object):
 	def __init__(self):
@@ -330,6 +408,13 @@ class ProcExpolore(object):
 		return
 
 	def _scan_unix(self):
+		outb,_ = self._read_subprocess_output(['ps','-eo','user,pid,ppid,cmd'])
+		retlines = self._split_buf_lines(outb)
+		idx = 0
+		logging.info('retlines [%d]'%(len(retlines)))
+		while idx < len(retlines):
+			
+			idx += 1
 		return
 
 
