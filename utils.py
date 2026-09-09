@@ -1842,6 +1842,16 @@ def formathexargs_handler(args,parser):
     sys.exit(0)
     return
 
+def goarrtobytes_handler(args,parser):
+    set_logging(args)
+    ins = read_file(args.input)
+    outb = b''
+    carr = re.split('\\s+',ins)
+    for b in carr:
+        outb += struct.pack('B',int(b))
+    write_file_bytes(outb,args.output)
+    sys.exit(0)
+
 def main():
     commandline='''
     {
@@ -1986,6 +1996,9 @@ def main():
             "$" : 1
         },
         "formathexargs<formathexargs_handler>##from input file to output##" : {
+            "$" : 0
+        },
+        "goarrtobytes<goarrtobytes_handler>##from input to output##" :{
             "$" : 0
         }
     }
