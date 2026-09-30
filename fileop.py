@@ -22,6 +22,7 @@ import extargsparse
 from loglib import set_logging,load_log_commandline
 from strop import parse_int
 from tomlex import TomlEx
+from yamlex import YamlEx
 
 class ReadTar(object):
     def __init__(self,fname):
@@ -1059,6 +1060,33 @@ def tomled_handler(args,parser):
     sys.exit(0)
     return
 
+def yamled_handler(args,parser):
+    set_logging(args)
+    if len(args.subnargs) == 0:
+        raise Exception('need a file')
+    ins = read_file(args.subnargs[0])
+    yex = YamlEx()
+    rdict = yex.loads(ins)
+    if len(args.subnargs) == 1:
+        outs = yex.dumps(rdict)
+        sys.stdout.write('%s'%(outs))
+    else:
+        writecnt = 0
+        for l in args.subnargs[1:]:
+            carr = re.split('=',l,2)
+            if len(carr) >= 2:
+                logging.info('carr[1]=[%s]'%(carr[1]))
+                v = json.loads(carr[1])
+                yex.set_value(carr[0],v)
+                writecnt += 1
+            else:
+                v = yex.get_value(carr[0])
+                sys.stdout.write('[%s]=[%s]\n'%(carr[0],v))
+        if writecnt > 0:
+            outs = yex.dumps()
+            write_file(outs,args.output)
+    sys.exit(0)
+    return
 
 def main():
     commandline='''
@@ -1109,6 +1137,9 @@ def main():
             "$" : "+"
         },
         "tomled<tomled_handler>##file key=val... to set value##" : {
+            "$" : "+"
+        },
+        "yamled<yamled_handler>##file key=val ... to set value or just display it##": {
             "$" : "+"
         }
     }
