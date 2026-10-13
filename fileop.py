@@ -23,6 +23,9 @@ from loglib import set_logging,load_log_commandline
 from strop import parse_int
 from tomlex import TomlEx
 from yamlex import YamlEx
+from envop import is_windows 
+if is_windows():
+    import win32api
 
 class ReadTar(object):
     def __init__(self,fname):
@@ -835,6 +838,27 @@ def display_diff(srcd,dstd,srcfs,dstfs,cmpfs):
         s += '\n'
     return s
 
+def get_free_bytes(path):
+    retval = -1
+    if is_windows():
+        try:
+            oret = win32api.GetDiskFreeSpace(path)
+            # 1 for sector size 2 for available sectors
+            retval = oret[1] * oret[2]
+        except:
+            logging.error('%s'%(traceback.format_exc()))
+            retval = -1
+    else:
+        try:
+            oret = os.statvfs(path)
+            retval = oret.f_bsize * oret.f_bfree
+        except:
+            logging.error('%s'%(traceback.format_exc()))
+            retval = -1
+    return retval
+
+
+
 def diff_handler(args,parser):
     set_logging(args)
     srcd = args.subnargs[0]
@@ -1088,6 +1112,14 @@ def yamled_handler(args,parser):
     sys.exit(0)
     return
 
+def freespace_handler(args,parser):
+    set_logging(args)
+    for p in args.subnargs:
+        retval = get_free_bytes(p)
+        if retval >= 0:
+            sys.stdout.write('%s freespace %d\n'%(p,retval))
+    sys.exit(0)
+
 def main():
     commandline='''
     {
@@ -1140,6 +1172,9 @@ def main():
             "$" : "+"
         },
         "yamled<yamled_handler>##file key=val ... to set value or just display it##": {
+            "$" : "+"
+        },
+        "freespace<freespace_handler>##path ... to display path size##" : {
             "$" : "+"
         }
     }
