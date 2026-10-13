@@ -842,9 +842,17 @@ def get_disk_free_space(path):
     retval = -1
     if is_windows():
         try:
-            oret = win32api.GetDiskFreeSpace(path)
+            oret = win32api.GetDiskFreeSpaceEx(path)
             # 1 for sector size 2 for available sectors
-            retval = oret[1] * oret[2]
+            outs = ''
+            idx = 0
+            while idx < len(oret):
+                if len(outs) > 0:
+                    outs += ' '
+                outs += '0x%x'%(oret[idx])
+                idx += 1
+            logging.info('%s'%(outs))
+            retval = oret[0]
         except:
             logging.error('%s'%(traceback.format_exc()))
             retval = -1
