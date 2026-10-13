@@ -838,7 +838,7 @@ def display_diff(srcd,dstd,srcfs,dstfs,cmpfs):
         s += '\n'
     return s
 
-def get_free_bytes(path):
+def get_disk_free_space(path):
     retval = -1
     if is_windows():
         try:
@@ -1115,7 +1115,7 @@ def yamled_handler(args,parser):
 def freespace_handler(args,parser):
     set_logging(args)
     for p in args.subnargs:
-        retval = get_free_bytes(p)
+        retval = get_disk_free_space(p)
         if retval >= 0:
             sys.stdout.write('%s freespace %d\n'%(p,retval))
     sys.exit(0)
